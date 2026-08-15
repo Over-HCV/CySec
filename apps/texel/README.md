@@ -42,6 +42,12 @@ cd ../web && cp .env.example .env
 pnpm install && pnpm dev             # http://localhost:3000
 ```
 
+## Hoja de ruta
+
+- [`docs/visual-editor.md`](docs/visual-editor.md) — modo visual por bloques
+  (tipo Notion) sincronizado con el LaTeX, para que colaboren personas que no
+  escriben LaTeX. Plan con hitos y casillas; sin empezar.
+
 ## Pruebas
 
 ```sh
