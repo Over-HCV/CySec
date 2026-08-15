@@ -1,0 +1,54 @@
+% common/macros.tex — modo final, cajas de borrador y helpers.
+% Depende de: etoolbox, tcolorbox, xcolor (cargados en preamble.tex).
+
+% ===== Modo final =====
+% Dos vías equivalentes:
+%   1. \documentclass[final]{cysec}
+%   2. `make ws-01 FINAL=1` → crea .final-mode en la raíz del proyecto.
+% Misma mecánica que Tesis-MACC/project/common/macros.tex.
+\newif\iffinalmode
+\finalmodefalse
+\ifcysec@final\finalmodetrue\fi
+\IfFileExists{.final-mode}{\finalmodetrue}{}
+
+% ===== \porque{título}{texto} — nota de borrador, invisible en modo final =====
+\newtcolorbox{porquebox}[1]{%
+  enhanced, breakable, sharp corners,
+  colback=yellow!4, colframe=orange!75!black,
+  boxrule=0.4pt, left=6pt, right=6pt, top=4pt, bottom=4pt,
+  fonttitle=\bfseries\footnotesize,
+  coltitle=white,
+  attach boxed title to top left={xshift=4pt,yshift=-2pt},
+  boxed title style={colback=orange!75!black, sharp corners, boxrule=0pt,
+    top=1pt,bottom=1pt,left=4pt,right=4pt},
+  title={\cysec@lbl{Nota de borrador}{Draft note}\, #1}%
+}
+\newcommand{\porque}[2]{%
+  \iffinalmode\else
+    \par\smallskip
+    \begin{porquebox}{#1}\small #2\end{porquebox}
+    \par\smallskip
+  \fi
+}
+
+% ===== \todoans — marca de respuesta pendiente =====
+% Visible en borrador; en modo final desaparece pero deja warning en el .log.
+\newcommand{\todoans}[1][]{%
+  \PackageWarning{cysec}{Respuesta pendiente\ifstrempty{#1}{}{ (#1)} en la
+    pregunta \thepregunta}%
+  \iffinalmode\else
+    \par\smallskip
+    \begin{tcolorbox}[enhanced, sharp corners, colback=yellow!8,
+      colframe=orange!80!black, boxrule=0.4pt, left=6pt, right=6pt,
+      top=3pt, bottom=3pt]%
+      \small\bfseries\color{orange!60!black}%
+      \cysec@lbl{Pendiente por responder}{Answer pending}%
+      \ifstrempty{#1}{}{\normalfont\ — #1}%
+    \end{tcolorbox}%
+    \par\smallskip
+  \fi
+}
+
+% ===== Helpers de texto =====
+\newcommand{\term}[1]{\textbf{#1}}                       % concepto clave
+\newcommand{\eng}[1]{\foreignlanguage{english}{\emph{#1}}} % término en inglés

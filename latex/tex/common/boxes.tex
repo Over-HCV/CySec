@@ -1,0 +1,88 @@
+% common/boxes.tex — entornos del dominio "taller de ciberseguridad".
+% Los cuatro bloques que se repiten en cada sesión del curso:
+%   caso  →  fuentes  →  pregunta/respuesta  →  mcq
+% Depende de: tcolorbox, enumitem, xurl, environ, xstring.
+
+\RequirePackage{environ}
+\RequirePackage{xstring}
+
+% ===== caso: enunciado del caso de estudio =====
+% \begin{caso}{Ashley Madison (2015)} … \end{caso}
+\newtcolorbox{caso}[1]{%
+  enhanced, breakable, sharp corners,
+  colback=accent!3, colframe=accent,
+  boxrule=0.6pt, left=8pt, right=8pt, top=6pt, bottom=6pt,
+  fonttitle=\bfseries\small, coltitle=white,
+  attach boxed title to top left={xshift=6pt,yshift=-2pt},
+  boxed title style={colback=accent, sharp corners, boxrule=0pt,
+    top=1.5pt,bottom=1.5pt,left=5pt,right=5pt},
+  title={\cysec@lbl{Caso}{Case}: #1}%
+}
+
+% ===== fuentes: lista de referencias del enunciado =====
+% \begin{fuentes} \fuente{https://…} … \end{fuentes}
+\newcommand{\fuente}[1]{\item \url{#1}}
+\newenvironment{fuentes}{%
+  \par\smallskip
+  {\footnotesize\bfseries\color{accent}\cysec@lbl{Fuentes}{Sources}}%
+  \begin{itemize}[leftmargin=1.4em,itemsep=1pt,topsep=2pt,font=\footnotesize]%
+  \footnotesize
+}{%
+  \end{itemize}\par\smallskip
+}
+
+% ===== pregunta / respuesta =====
+\newcounter{pregunta}
+\renewcommand{\thepregunta}{Q\arabic{pregunta}}
+
+% \pregunta{¿Qué tipos de datos fueron expuestos?}
+\newcommand{\pregunta}[1]{%
+  \par\medskip
+  \refstepcounter{pregunta}%
+  \noindent{\bfseries\color{accent}\thepregunta.}\ {\bfseries #1}\par
+}
+
+% \begin{respuesta} … \end{respuesta}
+% Cuerpo vacío ⇒ emite \todoans (caja en borrador + warning en el .log),
+% de modo que `make ws-01 FINAL=1` delate lo que falta antes de entregar.
+\NewEnviron{respuesta}{%
+  \StrSubstitute{\detokenize\expandafter{\BODY}}{ }{}[\cysec@ansprobe]%
+  \StrSubstitute{\cysec@ansprobe}{\detokenize{\par}}{}[\cysec@ansprobe]%
+  \ifdefempty{\cysec@ansprobe}{%
+    \todoans
+  }{%
+    \par\smallskip
+    \begin{tcolorbox}[enhanced, breakable, sharp corners, colback=white,
+      colframe=white, boxrule=0pt, leftrule=2pt, colframe=accent!35,
+      left=10pt, right=2pt, top=2pt, bottom=2pt,
+      before upper={\setlength{\parskip}{0.5em}}]%  tcolorbox lo pone a 0
+      \BODY
+    \end{tcolorbox}%
+    \par\smallskip
+  }%
+}
+
+% ===== mcq: selección múltiple ("1 o más respuestas válidas") =====
+% \begin{mcq}{enunciado}
+%   \opcion{…}          opción no elegida
+%   \opcion*{…}         opción elegida (✓; resaltada con la opción `answers`)
+% \end{mcq}
+\RequirePackage{pifont}                      % \ding{51} = ✓ (fiable bajo XeTeX)
+\newcommand{\cysec@check}{\ding{51}}
+\newcommand{\opcion}{\@ifstar\cysec@optsel\cysec@optplain}
+\newcommand{\cysec@optplain}[1]{\item #1}
+% \item con etiqueta explícita NO incrementa el contador: hay que hacerlo a mano.
+\newcommand{\cysec@optsel}[1]{%
+  \refstepcounter{enumi}%
+  \item[{\color{okgreen}\cysec@check}\;\alph{enumi}.]%
+  \ifcysec@answers\color{okgreen}\bfseries\fi #1%
+}
+
+\newenvironment{mcq}[1]{%
+  \par\medskip
+  \refstepcounter{pregunta}%
+  \noindent{\bfseries\color{accent}\thepregunta.}\ {\bfseries #1}\par
+  \begin{enumerate}[label=\alph*.,leftmargin=2.2em,itemsep=2pt,topsep=3pt]%
+}{%
+  \end{enumerate}\par\smallskip
+}

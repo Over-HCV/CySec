@@ -1,0 +1,28 @@
+% workshops/ws-01/main.tex — Taller 1: Introducción a ciberseguridad I
+% Compilar desde la raíz del proyecto:  make ws-01        (borrador)
+%                                       make ws-01 FINAL=1 (entregable)
+\documentclass[es]{cysec}
+
+\input{meta}
+
+\begin{document}
+\makewsheader
+
+\porque{cómo usar esta plantilla}{%
+  Cada pregunta del enunciado está transcrita como \texttt{\textbackslash pregunta}
+  seguida de un entorno \texttt{respuesta} vacío. Escribe dentro del entorno; mientras
+  esté vacío aparece la caja naranja y el \texttt{.log} deja un warning
+  «Respuesta pendiente». En los bloques de selección múltiple marca tu elección
+  cambiando \texttt{\textbackslash opcion} por \texttt{\textbackslash opcion*}
+  (admite varias, el enunciado dice «1 o más respuestas válidas»).
+  Estas notas naranjas desaparecen con \texttt{make ws-01 FINAL=1}.%
+}
+
+\input{sections/01-confidencialidad}
+\input{sections/02-integridad}
+\input{sections/03-disponibilidad}
+\input{sections/04-aaa-dbir}
+
+\printbibliography[title={Referencias}]
+
+\end{document}

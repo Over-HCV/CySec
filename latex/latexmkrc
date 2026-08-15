@@ -1,0 +1,15 @@
+# latexmkrc — configuración común de compilación para todos los talleres.
+# Motor: XeLaTeX (mismo que Tesis-MACC/project). Bibliografía: biber.
+
+$pdf_mode = 5;          # xelatex → xdv → pdf
+$bibtex_use = 2;        # corre biber y limpia .bbl en `latexmk -C`
+$xelatex = 'xelatex -synctex=1 -interaction=nonstopmode -file-line-error %O %S';
+
+# La capa reutilizable vive en tex/ (cysec.cls, common/*, bib/refs.bib).
+# ensure_path prepende sin pisar un TEXINPUTS existente del entorno.
+use Cwd;
+my $root = getcwd();
+ensure_path('TEXINPUTS', "$root/tex//");
+ensure_path('BIBINPUTS', "$root/tex//");   # biber pide 'bib/refs.bib', relativo a tex/
+
+$clean_ext = 'synctex.gz run.xml bbl fdb_latexmk fls xdv';

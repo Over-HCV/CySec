@@ -1,0 +1,87 @@
+% common/preamble.tex — paquetes compartidos por todos los talleres.
+% Cargado desde cysec.cls. Motor: XeLaTeX.
+
+\RequirePackage{etoolbox}
+
+% --- Matemáticas: antes de unicode-math y de cleveref ---
+% amssymb no se carga: choca con unicode-math. El ✓ de los mcq viene de pifont.
+\RequirePackage{amsmath,mathtools}
+
+% --- Fuentes (libertinus, igual que Tesis-MACC) ---
+% Se cargan por nombre de archivo desde el árbol de TeX Live: las OTF de
+% libertinus vienen con TeX Live pero normalmente NO están registradas en
+% fontconfig, así que \setmainfont{Libertinus Serif} fallaría.
+\RequirePackage{fontspec}
+\RequirePackage{unicode-math}
+\IfFontExistsTF{LibertinusSerif-Regular.otf}{%
+  \setmainfont{LibertinusSerif}[
+    Extension      = .otf,
+    UprightFont    = *-Regular,
+    ItalicFont     = *-Italic,
+    BoldFont       = *-Bold,
+    BoldItalicFont = *-BoldItalic]
+  \setsansfont{LibertinusSans}[
+    Extension   = .otf,
+    UprightFont = *-Regular,
+    ItalicFont  = *-Italic,
+    BoldFont    = *-Bold]
+  \setmonofont{LibertinusMono}[
+    Extension   = .otf,
+    UprightFont = *-Regular,
+    Scale       = MatchLowercase]
+  \setmathfont{LibertinusMath-Regular.otf}
+}{%
+  % Sin libertinus: se queda con Latin Modern, el default de XeLaTeX.
+  \PackageWarning{cysec}{Fuentes Libertinus no encontradas; uso Latin Modern}%
+}
+
+% --- Idioma ---
+% El idioma principal es el ÚLTIMO de la lista: babel lo reactiva en
+% \begin{document}, así que un \selectlanguage en el preámbulo no bastaría
+% (dejaba \today en inglés).
+% shorthands=off desactiva los < > ~ activos de babel-spanish, que romperían
+% cleveref; hace lo mismo que el modificador es-noshorthands, pero ese modificador
+% no sobrevive al procesamiento de opciones con claves.
+\ifdefstring{\cyseclang}{es}{%
+  \RequirePackage[shorthands=off,english,spanish]{babel}%
+}{%
+  \RequirePackage[shorthands=off,spanish,english]{babel}%
+}
+
+% --- Color ---
+\RequirePackage{xcolor}
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{oscrit}{HTML}{8B2500}
+\definecolor{okgreen}{HTML}{1B7A3D}
+
+% --- Listas, tablas, cajas ---
+\RequirePackage{enumitem}
+\RequirePackage{booktabs}
+\RequirePackage{array}
+\RequirePackage{longtable}
+\RequirePackage{tabularx}
+\RequirePackage[most]{tcolorbox}
+\RequirePackage{graphicx}
+
+% --- Enlaces ---
+\RequirePackage{xurl}          % quiebre de URLs largas en cualquier carácter
+\RequirePackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=accent, citecolor=accent, urlcolor=accent,
+  pdfcreator={XeLaTeX + cysec.cls}
+}
+\RequirePackage[capitalise,noabbrev]{cleveref}
+\ifdefstring{\cyseclang}{es}{%
+  \crefname{figure}{Fig.}{Figs.}
+  \crefname{table}{Tabla}{Tablas}
+  \crefname{section}{Sección}{Secciones}
+}{}
+
+% --- Bibliografía compartida ---
+\RequirePackage{csquotes}      % requerido por biblatex cuando hay babel
+\RequirePackage[backend=biber,style=numeric,sorting=none,maxbibnames=99,
+                giveninits=true,isbn=false,doi=false,url=true]{biblatex}
+\addbibresource{bib/refs.bib}
+
+\RequirePackage{microtype}

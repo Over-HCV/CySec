@@ -1,0 +1,18 @@
+build/
+.final-mode
+
+# Artefactos de LaTeX por si se compila sin -outdir
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+.DS_Store
