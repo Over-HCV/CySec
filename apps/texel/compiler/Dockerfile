@@ -18,10 +18,12 @@ RUN tlmgr update --self \
       latexmk biber biblatex csquotes \
       fontspec unicode-math libertinus-fonts libertinus-otf \
       babel-spanish hyphen-spanish \
-      tcolorbox enumitem environ xstring xurl pifont \
+      tcolorbox enumitem environ xstring xurl \
       fancyhdr lastpage titlesec geometry microtype \
-      cleveref mathtools booktabs tabularx longtable multirow \
-      pgf standalone \
+      cleveref mathtools booktabs multirow \
+      pgf standalone tikzfill pdfcol \
+      tools psnfss \
+      `# longtable y tabularx viven en 'tools'; \ding (pifont) en 'psnfss'` \
  && tlmgr path add \
  && rm -rf /usr/local/texlive/*/texmf-var/web2c/*.log
 

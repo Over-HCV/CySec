@@ -7,8 +7,8 @@
  *   3. escribe el texto resultante en `files.content`, que es lo que lee el
  *      compilador (y lo que ve quien abre el archivo por primera vez).
  *
- * Se invoca desde el cliente al cerrar un archivo y, si se quiere, por cron:
- *   select cron.schedule('flush-docs','*/5 * * * *', $$ ... $$);
+ * Se invoca desde el cliente al cerrar un archivo y, si se quiere, por cron con
+ * pg_cron (cada 5 minutos) llamando a esta misma función.
  *
  * Desplegar: supabase functions deploy flush-doc
  */

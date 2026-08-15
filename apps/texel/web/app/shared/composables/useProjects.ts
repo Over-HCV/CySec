@@ -38,8 +38,14 @@ export function useProjects() {
 export function useProjectMembers(projectId: MaybeRefOrGetter<string>) {
   const supabase = useSupabaseClient()
   const members = ref<(ProjectMember & { profile: Profile })[]>([])
-  const myRole = ref<ProjectRole | null>(null)
-  const user = useSupabaseUser()
+  const user = useMe()
+
+  // Derivado, no una foto fija: si la sesión se resuelve después de cargar los
+  // miembros, un ref asignado en refresh() se quedaba en null y la interfaz
+  // marcaba «solo lectura» al propio dueño.
+  const myRole = computed<ProjectRole | null>(
+    () => members.value.find(m => m.user_id === user.value?.id)?.role ?? null
+  )
 
   async function refresh() {
     const { data, error } = await supabase
@@ -48,7 +54,6 @@ export function useProjectMembers(projectId: MaybeRefOrGetter<string>) {
       .eq('project_id', toValue(projectId))
     if (error) throw error
     members.value = (data ?? []) as never
-    myRole.value = members.value.find(m => m.user_id === user.value?.id)?.role ?? null
   }
 
   /** Crea una invitación y devuelve el enlace para compartir. */

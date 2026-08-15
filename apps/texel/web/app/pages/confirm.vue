@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Aterrizaje del enlace mágico / OAuth. @nuxtjs/supabase ya intercambió el
 // código por sesión antes de montar esta página; aquí solo se redirige.
-const user = useSupabaseUser()
+const user = useMe()
 const route = useRoute()
 
 watchEffect(() => {

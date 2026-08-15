@@ -6,7 +6,7 @@ const props = defineProps<{ projectId: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const { members, isOwner, refresh, invite, setRole, removeMember } = useProjectMembers(() => props.projectId)
-const user = useSupabaseUser()
+const user = useMe()
 
 const role = ref<ProjectRole>('editor')
 const email = ref('')
@@ -33,8 +33,8 @@ onMounted(refresh)
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-black/40 grid place-items-center p-5" @click.self="emit('close')">
-    <div class="card w-full max-w-md">
+  <div class="fixed inset-0 bg-black/30 backdrop-blur-sm grid place-items-center p-5" @click.self="emit('close')">
+    <div class="glass-menu rounded-[var(--radius-lg)] p-5 w-full max-w-md">
       <header class="flex items-center mb-3">
         <h2 class="text-base font-semibold m-0">Compartir proyecto</h2>
         <span class="flex-1" />
@@ -46,16 +46,16 @@ onMounted(refresh)
           Crea un enlace de invitación. Si escribes un correo, solo esa persona podrá canjearlo.
         </p>
         <div class="flex gap-2 mb-2">
-          <select v-model="role" class="input">
+          <select v-model="role" class="input w-auto shrink-0">
             <option value="editor">Editor</option>
             <option value="viewer">Solo lectura</option>
           </select>
-          <input v-model="email" class="input flex-1" placeholder="correo (opcional)">
-          <button class="btn-primary" @click="createInvite">Crear</button>
+          <input v-model="email" class="input flex-1 min-w-0" placeholder="correo (opcional)">
+          <button class="btn-primary shrink-0" @click="createInvite">Crear</button>
         </div>
 
         <div v-if="link" class="flex gap-2 items-center">
-          <input :value="link" readonly class="input flex-1 text-xs font-mono">
+          <input :value="link" readonly class="input flex-1 min-w-0 text-xs font-mono">
           <button class="btn p-2" @click="copy">
             <component :is="copied ? Check : Copy" :size="14" />
           </button>

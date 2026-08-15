@@ -23,7 +23,9 @@ export default defineNuxtConfig({
     dirs: ['shared/composables', 'features/*/composables']
   },
 
-  css: ['~/shared/styles/theme.css'],
+  // El orden importa: los tokens de macvue primero, nuestro shell después, que
+  // reutiliza su acento y sobreescribe lo que haga falta.
+  css: ['@macvue/core/style.css', '~/shared/styles/theme.css'],
 
   supabase: {
     redirectOptions: {

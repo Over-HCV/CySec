@@ -42,6 +42,19 @@ cd ../web && cp .env.example .env
 pnpm install && pnpm dev             # http://localhost:3000
 ```
 
+## Pruebas
+
+```sh
+# Sembrar un proyecto con el taller real de ../../latex/workshops/ws-01
+cd compiler && SUPABASE_URL=http://127.0.0.1:54321 \
+  SUPABASE_SERVICE_ROLE_KEY=<service key> pnpm seed:ws01 tu@correo
+
+# Edición concurrente sin navegador: dos clientes escriben a la vez y deben
+# converger, persistir y ser reconstruibles por un tercero.
+cd web && SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_ANON_KEY=<anon key> \
+  EMAIL=tu@correo PASSWORD=… node --experimental-strip-types scripts/collab-smoke.ts
+```
+
 ## Despliegue
 
 ```sh

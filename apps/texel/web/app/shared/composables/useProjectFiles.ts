@@ -6,7 +6,7 @@ import type { ProjectFile } from '~/shared/types/database'
  */
 export function useProjectFiles(projectId: MaybeRefOrGetter<string>) {
   const supabase = useSupabaseClient()
-  const user = useSupabaseUser()
+  const user = useMe()
   const files = ref<ProjectFile[]>([])
 
   async function refresh() {

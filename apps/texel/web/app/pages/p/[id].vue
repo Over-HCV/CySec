@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { Play, Users, ArrowLeft, Loader } from 'lucide-vue-next'
+import { MacButton, MacSpinner } from '@macvue/core'
+import {
+  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight
+} from 'lucide-vue-next'
 import type { Project, ProjectFile, Diagnostic } from '~/shared/types/database'
 import type { ProviderUser } from '~/features/editor/lib/supabase-yjs-provider'
 
 const route = useRoute()
 const projectId = route.params.id as string
 const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const user = useMe()
 
 const project = ref<Project | null>(null)
 const profile = ref<{ display_name: string, color: string } | null>(null)
@@ -18,9 +21,11 @@ const showShare = ref(false)
 const { files, refresh: refreshFiles, create, remove } = useProjectFiles(projectId)
 const { canWrite, isOwner, refresh: refreshMembers } = useProjectMembers(projectId)
 const { compiling, last, pdfUrl, compile, forward, inverse, loadLast } = useCompiler(projectId)
+const { state: layout, setSidebarWidth, setEditorRatio, setLogHeight } = usePanes()
 
 const editor = ref<{ goToLine: (n: number) => void, getText: () => string } | null>(null)
 const viewer = ref<{ showHighlight: (a: { page: number, x: number, y: number, w: number, h: number }) => void } | null>(null)
+const body = ref<HTMLElement>()
 
 const me = computed<ProviderUser>(() => ({
   id: user.value?.id ?? 'anon',
@@ -29,12 +34,17 @@ const me = computed<ProviderUser>(() => ({
 }))
 
 onMounted(async () => {
-  const [{ data: p }, { data: prof }] = await Promise.all([
-    supabase.from('projects').select('*').eq('id', projectId).single(),
-    supabase.from('profiles').select('display_name, color').eq('id', user.value!.id).single()
-  ])
+  const { data: p } = await supabase.from('projects').select('*').eq('id', projectId).single()
   project.value = p as Project
-  profile.value = prof as never
+
+  // El perfil solo se puede pedir cuando ya hay usuario; si la sesión tarda,
+  // se reintenta en cuanto aparezca en vez de reventar con un `!`.
+  watch(user, async (value) => {
+    if (!value) return
+    const { data } = await supabase
+      .from('profiles').select('display_name, color').eq('id', value.id).single()
+    profile.value = data as never
+  }, { immediate: true })
 
   await Promise.all([refreshFiles(), refreshMembers(), loadLast()])
   activeFile.value = files.value.find(f => f.path === project.value?.root_file) ?? files.value[0] ?? null
@@ -50,7 +60,33 @@ onMounted(async () => {
     .subscribe()
 })
 
-/** Vuelca el texto vivo del editor a files.content y lanza la compilación. */
+// ── Redimensionado ───────────────────────────────────────────────────────────
+// Cada arrastre parte del valor que había al empezar; el divisor envía deltas.
+let dragStart = { sidebar: 0, ratio: 0, log: 0 }
+
+function beginDrag() {
+  dragStart = {
+    sidebar: layout.value.sidebarWidth,
+    ratio: layout.value.editorRatio,
+    log: layout.value.logHeight
+  }
+}
+
+function dragSidebar({ x }: { x: number }) {
+  setSidebarWidth(dragStart.sidebar + x)
+}
+
+function dragMiddle({ x }: { x: number }) {
+  const total = body.value?.clientWidth ?? 1
+  const usable = total - (layout.value.sidebarOpen ? layout.value.sidebarWidth : 0)
+  setEditorRatio(dragStart.ratio + x / Math.max(usable, 1))
+}
+
+function dragLog({ y }: { y: number }) {
+  setLogHeight(dragStart.log - y)
+}
+
+// ── Acciones ─────────────────────────────────────────────────────────────────
 async function runCompile() {
   if (!activeFile.value || !editor.value) return
   await supabase
@@ -80,6 +116,7 @@ async function onSetRoot(file: ProjectFile) {
 /** Editor → PDF. */
 async function jumpToPdf() {
   if (!activeFile.value) return
+  if (!layout.value.pdfOpen) layout.value.pdfOpen = true
   const area = await forward(activeFile.value.path, cursorLine.value)
   if (area) viewer.value?.showHighlight(area)
 }
@@ -88,58 +125,63 @@ async function jumpToPdf() {
 async function onPdfClick({ page, x, y }: { page: number, x: number, y: number }) {
   const src = await inverse(page, x, y)
   if (!src) return
-  const target = files.value.find(f => f.path === src.file || f.path.endsWith(src.file))
-  if (target && target.id !== activeFile.value?.id) {
-    activeFile.value = target
-    await nextTick()
-  }
-  editor.value?.goToLine(src.line)
+  await focusFile(src.file, src.line)
 }
 
 /** Clic en un problema del log → cursor en esa línea. */
 async function onJumpDiagnostic(d: Diagnostic) {
-  const target = files.value.find(f => f.path === d.file || f.path.endsWith(d.file))
+  await focusFile(d.file, d.line ?? undefined)
+}
+
+async function focusFile(path: string, line?: number) {
+  const target = files.value.find(f => f.path === path || f.path.endsWith(path))
   if (target && target.id !== activeFile.value?.id) {
     activeFile.value = target
     await nextTick()
   }
-  if (d.line) editor.value?.goToLine(d.line)
+  if (line) editor.value?.goToLine(line)
 }
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
-    <header class="flex items-center gap-3 px-3 h-12 border-b border-border shrink-0">
-      <NuxtLink to="/" class="text-muted hover:text-text" title="Volver a proyectos">
-        <ArrowLeft :size="16" />
-      </NuxtLink>
-      <strong class="text-sm">{{ project?.name ?? '…' }}</strong>
-      <span class="text-xs text-muted">{{ project?.engine }} · {{ project?.root_file }}</span>
+  <div class="h-full flex flex-col overflow-hidden">
+    <!-- Barra de título -->
+    <!-- La cabecera nunca debe empujar el ancho de la ventana: el bloque de la
+         izquierda se encoge y trunca, el de la derecha se queda fijo. -->
+    <header class="chrome flex items-center gap-2 px-3 h-[var(--header-h)] shrink-0 border-b border-[var(--border)] overflow-hidden">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <NuxtLink to="/" class="icon-btn shrink-0" title="Volver a proyectos">
+          <ArrowLeft :size="15" />
+        </NuxtLink>
 
-      <span class="flex-1" />
+        <strong class="text-[13px] truncate">{{ project?.name ?? '…' }}</strong>
+        <span class="chip shrink-0 hidden lg:inline-flex">{{ project?.engine }}</span>
+        <span class="chip shrink-0 font-mono hidden xl:inline-flex">{{ project?.root_file }}</span>
+        <span v-if="!canWrite" class="chip shrink-0">solo lectura</span>
+      </div>
 
-      <PresenceBar :me="me" :peers="peers" />
+      <div class="flex items-center gap-2 shrink-0">
+        <PresenceBar :me="me" :peers="peers" />
 
-      <button
-        class="btn text-xs flex items-center gap-1.5"
-        :disabled="!isOwner"
-        @click="showShare = true"
-      >
-        <Users :size="14" /> Compartir
-      </button>
+        <MacButton size="small" :disabled="!isOwner" @click="showShare = true">
+          <Users :size="13" class="mr-1 inline align-[-2px]" /> Compartir
+        </MacButton>
 
-      <button
-        class="btn-primary text-xs flex items-center gap-1.5"
-        :disabled="compiling || !canWrite"
-        @click="runCompile"
-      >
-        <component :is="compiling ? Loader : Play" :size="14" :class="compiling ? 'animate-spin' : ''" />
-        {{ compiling ? 'Compilando…' : 'Compilar' }}
-      </button>
+        <MacButton size="small" variant="prominent" :disabled="compiling || !canWrite" @click="runCompile">
+          <MacSpinner v-if="compiling" size="small" class="mr-1 inline align-[-2px]" />
+          <Play v-else :size="13" class="mr-1 inline align-[-2px]" />
+          {{ compiling ? 'Compilando' : 'Compilar' }}
+        </MacButton>
+      </div>
     </header>
 
-    <div class="flex-1 grid grid-cols-[220px_1fr_1fr] min-h-0">
+    <!-- Cuerpo: barra lateral | editor | PDF.
+         Los paneles flotan separados sobre el fondo: sin ese hueco el cristal
+         no tendría nada que refractar y volvería a verse plano. -->
+    <div ref="body" class="flex-1 flex min-h-0 overflow-hidden gap-3 px-3 pb-3 pt-1">
       <FileTree
+        v-show="layout.sidebarOpen"
+        :style="{ width: `${layout.sidebarWidth}px`, flex: `0 0 ${layout.sidebarWidth}px` }"
         :files="files"
         :active-id="activeFile?.id ?? null"
         :root-file="project?.root_file ?? 'main.tex'"
@@ -148,19 +190,62 @@ async function onJumpDiagnostic(d: Diagnostic) {
         @create="onCreateFile"
         @remove="onRemoveFile"
         @set-root="onSetRoot"
+        @collapse="layout.sidebarOpen = false"
       />
 
-      <section class="min-w-0 flex flex-col border-r border-border">
-        <div class="flex items-center gap-2 px-3 h-10 border-b border-border text-xs text-muted shrink-0">
-          <span class="font-mono">{{ activeFile?.path ?? 'sin archivo' }}</span>
-          <span v-if="!canWrite" class="px-1.5 rounded bg-sunken">solo lectura</span>
+      <!-- Sin riel: la barra se recupera con el botón de la barra del editor,
+           que es el mismo que la oculta. -->
+      <PaneDivider
+        v-show="layout.sidebarOpen"
+        @start="beginDrag"
+        @move="dragSidebar"
+        @reset="setSidebarWidth(230)"
+      />
+
+      <!-- Editor -->
+      <section
+        class="glass-work rounded-[var(--radius-lg)] overflow-hidden flex flex-col pane"
+        :style="{
+          flex: layout.pdfOpen ? `${layout.editorRatio} 1 0%` : '1 1 0%'
+        }"
+      >
+        <div class="flex items-center gap-1.5 px-2 h-[var(--bar-h)] shrink-0 border-b border-[var(--macvue-material-glass-regular-rim)]">
+          <button
+            class="icon-btn"
+            :title="layout.sidebarOpen ? 'Ocultar archivos' : 'Mostrar archivos'"
+            @click="layout.sidebarOpen = !layout.sidebarOpen"
+          >
+            <PanelLeft :size="14" :class="layout.sidebarOpen ? 'text-[var(--accent)]' : ''" />
+          </button>
+
+          <span class="font-mono text-[11.5px] text-[var(--text-muted)] truncate">
+            {{ activeFile?.path ?? 'sin archivo' }}
+          </span>
+
           <span class="flex-1" />
-          <button class="btn py-0.5 px-2" :disabled="!last?.synctex_path" @click="jumpToPdf">
-            Ir al PDF
+
+          <button
+            class="icon-btn"
+            :title="layout.wrap ? 'Desactivar ajuste de línea' : 'Activar ajuste de línea'"
+            @click="layout.wrap = !layout.wrap"
+          >
+            <WrapText :size="14" :class="layout.wrap ? 'text-[var(--accent)]' : ''" />
+          </button>
+
+          <button class="icon-btn" title="Ir al PDF (SyncTeX)" :disabled="!last?.synctex_path" @click="jumpToPdf">
+            <CornerDownRight :size="14" />
+          </button>
+
+          <button
+            class="icon-btn"
+            :title="layout.pdfOpen ? 'Ocultar PDF' : 'Mostrar PDF'"
+            @click="layout.pdfOpen = !layout.pdfOpen"
+          >
+            <PanelRight :size="14" :class="layout.pdfOpen ? 'text-[var(--accent)]' : ''" />
           </button>
         </div>
 
-        <div class="flex-1 min-h-0">
+        <div class="flex-1 pane">
           <TexEditor
             v-if="activeFile"
             ref="editor"
@@ -168,6 +253,7 @@ async function onJumpDiagnostic(d: Diagnostic) {
             :file-id="activeFile.id"
             :can-write="canWrite"
             :user="me"
+            :wrap="layout.wrap"
             :diagnostics="last?.diagnostics"
             @peers="peers = $event"
             @cursor-line="cursorLine = $event"
@@ -175,9 +261,39 @@ async function onJumpDiagnostic(d: Diagnostic) {
         </div>
       </section>
 
-      <section class="min-w-0 grid grid-rows-[1fr_200px]">
-        <PdfViewer ref="viewer" :src="pdfUrl" @pdf-click="onPdfClick" />
-        <LogPanel :compilation="last" @jump="onJumpDiagnostic" />
+      <PaneDivider
+        v-show="layout.pdfOpen"
+        @start="beginDrag"
+        @move="dragMiddle"
+        @reset="setEditorRatio(0.5)"
+      />
+
+      <!-- PDF + log -->
+      <section
+        v-show="layout.pdfOpen"
+        class="glass rounded-[var(--radius-lg)] overflow-hidden flex flex-col pane"
+        :style="{ flex: `${1 - layout.editorRatio} 1 0%` }"
+      >
+        <div class="flex-1 pane">
+          <PdfViewer ref="viewer" :src="pdfUrl" @pdf-click="onPdfClick" />
+        </div>
+
+        <PaneDivider
+          v-show="layout.logOpen"
+          direction="horizontal"
+          @start="beginDrag"
+          @move="dragLog"
+          @reset="setLogHeight(180)"
+        />
+
+        <LogPanel
+          :compilation="last"
+          :open="layout.logOpen"
+          :style="{ height: layout.logOpen ? `${layout.logHeight}px` : 'var(--bar-h)' }"
+          class="shrink-0"
+          @jump="onJumpDiagnostic"
+          @toggle="layout.logOpen = !layout.logOpen"
+        />
       </section>
     </div>
 

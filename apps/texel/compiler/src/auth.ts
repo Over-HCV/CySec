@@ -5,8 +5,13 @@ export type Role = 'viewer' | 'editor' | 'owner'
 const RANK: Record<Role, number> = { viewer: 1, editor: 2, owner: 3 }
 
 export class HttpError extends Error {
-  constructor(readonly status: number, message: string) {
+  // Campo declarado y asignado a mano: el "strip-only" de Node (que es como se
+  // ejecuta este servicio, sin paso de compilación) no admite parameter properties.
+  status: number
+
+  constructor(status: number, message: string) {
     super(message)
+    this.status = status
   }
 }
 

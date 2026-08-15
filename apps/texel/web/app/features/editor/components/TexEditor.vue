@@ -4,7 +4,8 @@ import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
-import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, indentUnit } from '@codemirror/language'
+import { StreamLanguage, syntaxHighlighting, HighlightStyle, indentUnit } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 import { stex } from '@codemirror/legacy-modes/mode/stex'
 import { yCollab } from 'y-codemirror.next'
 import { SupabaseYjsProvider, type ProviderUser } from '../lib/supabase-yjs-provider'
@@ -14,6 +15,8 @@ const props = defineProps<{
   fileId: string
   canWrite: boolean
   user: ProviderUser
+  /** Ajuste de línea. Apagado, el editor scrollea en horizontal él solo. */
+  wrap?: boolean
   /** Diagnósticos de la última compilación, para subrayar líneas con error. */
   diagnostics?: Diagnostic[]
 }>()
@@ -33,6 +36,33 @@ let view: EditorView | null = null
 let provider: SupabaseYjsProvider | null = null
 let doc: Y.Doc | null = null
 const editable = new Compartment()
+const wrapping = new Compartment()
+
+// Los colores salen del tema (CSS vars), no de un tema JS de CodeMirror: así
+// claro y oscuro cambian con el sistema sin recrear el editor.
+const baseTheme = EditorView.theme({
+  '&': { height: '100%' },
+  '.cm-content': { padding: '8px 0' },
+  '.cm-line': { padding: '0 12px' }
+})
+
+// Resaltado propio: el de serie de CodeMirror pinta los comandos en azul
+// oscuro, que sobre un fondo oscuro no hay quien lo lea. Estos tonos están
+// elegidos para tener contraste suficiente sobre el grafito del editor.
+const syntax = HighlightStyle.define([
+  { tag: t.comment, color: 'var(--code-comment)', fontStyle: 'italic' },
+  { tag: [t.keyword, t.controlKeyword, t.moduleKeyword], color: 'var(--code-keyword)' },
+  { tag: [t.tagName, t.function(t.variableName), t.macroName], color: 'var(--code-command)' },
+  { tag: [t.string, t.special(t.string)], color: 'var(--code-string)' },
+  { tag: [t.number, t.bool, t.atom], color: 'var(--code-number)' },
+  { tag: [t.bracket, t.brace, t.paren, t.punctuation], color: 'var(--code-punct)' },
+  { tag: [t.attributeName, t.propertyName, t.labelName], color: 'var(--code-attr)' },
+  { tag: [t.typeName, t.className, t.namespace], color: 'var(--code-type)' },
+  { tag: t.link, color: 'var(--code-link)', textDecoration: 'underline' },
+  { tag: t.emphasis, fontStyle: 'italic' },
+  { tag: t.strong, fontWeight: '600' },
+  { tag: t.invalid, color: 'var(--danger)' }
+])
 
 async function mountEditor() {
   if (!host.value) return
@@ -62,10 +92,12 @@ async function mountEditor() {
         highlightSelectionMatches(),
         indentUnit.of('  '),
         StreamLanguage.define(stex),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(syntax, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
         // yCollab enlaza el texto, el undo compartido y los cursores remotos.
         yCollab(ytext, provider.awareness),
+        baseTheme,
+        wrapping.of(props.wrap === false ? [] : EditorView.lineWrapping),
         editable.of(EditorView.editable.of(props.canWrite)),
         EditorView.updateListener.of((u) => {
           if (!u.selectionSet) return
@@ -111,6 +143,10 @@ watch(() => props.canWrite, (can) => {
   view?.dispatch({ effects: editable.reconfigure(EditorView.editable.of(can)) })
 })
 
+watch(() => props.wrap, (on) => {
+  view?.dispatch({ effects: wrapping.reconfigure(on === false ? [] : EditorView.lineWrapping) })
+})
+
 /** Coloca el cursor en una línea (salto inverso desde el PDF). */
 function goToLine(line: number) {
   if (!view) return
@@ -123,11 +159,11 @@ defineExpose({ goToLine, getText: () => provider?.text ?? '' })
 </script>
 
 <template>
-  <div class="relative h-full">
-    <div ref="host" class="h-full overflow-hidden" />
+  <div class="relative h-full pane">
+    <div ref="host" class="h-full pane overflow-hidden" />
     <div
       v-if="loading"
-      class="absolute inset-0 flex items-center justify-center bg-bg/80 text-muted text-sm"
+      class="absolute inset-0 grid place-items-center bg-[var(--bg)] text-[var(--text-muted)] text-xs"
     >
       Cargando documento…
     </div>

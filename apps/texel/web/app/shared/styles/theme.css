@@ -1,39 +1,159 @@
-/* Tema de Texel. Un solo lugar donde viven los colores; los componentes usan
-   var(--…) y nunca literales. Claro y oscuro por preferencia del sistema. */
+/* ── Intensidad del cristal ────────────────────────────────────────────────
+   Tres ajustes listos. El activo es «medio»; para probar otro, comenta el
+   bloque de medio (más abajo, en :root y en el @media oscuro) y descomenta el
+   que quieras. Solo cambian opacidades: nada más depende de esto.
+
+   FUERTE — el color del fondo se cuela por todas partes. Muy vistoso, algo
+   menos cómodo para leer código durante horas.
+:root {
+  --glass-bg:      rgba(255, 255, 255, 0.30);
+  --glass-bg-work: rgba(255, 255, 255, 0.46);
+  --glass-blur:    34px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass-bg:      rgba(20, 24, 34, 0.28);
+    --glass-bg-work: rgba(14, 18, 26, 0.48);
+  }
+}
+
+   SOBRIO — cristal solo en cabecera, barra lateral y diálogos; el editor y el
+   visor quedan casi opacos, como Xcode.
+:root {
+  --glass-bg:      rgba(255, 255, 255, 0.62);
+  --glass-bg-work: rgba(255, 255, 255, 0.94);
+  --glass-blur:    18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass-bg:      rgba(28, 30, 36, 0.62);
+    --glass-bg-work: rgba(20, 21, 26, 0.94);
+  }
+}
+*/
+
+/* Tema de Texel — vocabulario macOS sobre @macvue/core.
+   macvue trae sus propios tokens para los controles; aquí solo se define el
+   "shell" (ventana, barras, paneles) y se reutiliza su acento para no tener
+   dos azules distintos. */
 
 :root {
-  --bg:          #ffffff;
-  --bg-sunken:   #f5f6f8;
-  --bg-raised:   #ffffff;
-  --border:      #e2e5ea;
-  --text:        #1a1d21;
-  --text-muted:  #626a75;
-  --accent:      #1f4e79;
-  --accent-soft: #e8f0f8;
-  --danger:      #8b2500;
-  --success:     #1b7a3d;
-  --warning:     #b8860b;
+  color-scheme: light dark;
 
-  --font-ui:   ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  /* Superficies */
+  --bg:            #ffffff;
+  --bg-deep:       #e9eaef;          /* lienzo bajo el cristal */
+  /* Fondo animado: azules de Tahoe sobre base clara. */
+  --wall-base:     #cfe3fb;
+  --wall-1:        #9fd0ff;
+  --wall-2:        #ffffff;
+  --wall-3:        #7fb6ff;
+  --wall-4:        #d9c8ff;
+  --wall-caustic:  rgba(255, 255, 255, 0.55);
+  --wall-ray:      rgba(255, 255, 255, 0.40);
+  --surface-work:  rgba(255, 255, 255, 0.78);
+  --bg-sidebar:    rgba(246, 246, 248, 0.72);
+  --bg-chrome:     rgba(246, 246, 248, 0.80);
+  --bg-sunken:     rgba(240, 240, 245, 0.55);
+  --bg-raised:     #ffffff;
+  --bg-hover:      rgba(0, 0, 0, 0.05);
+  --bg-selected:   rgba(0, 0, 0, 0.08);
+
+  /* Trazos y texto */
+  --border:        rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --text:          #10131a;
+  --text-muted:    #3d4450;   /* antes #6e6e73: ilegible sobre cristal */
+  --text-faint:    #626b7a;
+
+  /* Estado */
+  --accent:        var(--macvue-accent, #08f);
+  --accent-soft:   rgba(0, 136, 255, 0.12);
+  --danger:        #ff383c;
+  --warning:       #ff8d28;
+  --success:       #34c759;
+
+  /* Scrollbar tipo overlay */
+  --scroll-thumb:       rgba(0, 0, 0, 0.24);
+  --scroll-thumb-hover: rgba(0, 0, 0, 0.42);
+
+  /* Cristal: translúcido pero legible. Menos opacidad = más bonito y menos
+     contraste; estos valores son el punto donde el código sigue cómodo. */
+  --glass-bg:      rgba(255, 255, 255, 0.46);
+  --glass-rim:     rgba(255, 255, 255, 0.55);
+  --menu-bg:       rgba(250, 250, 252, 0.94);
+  --sidebar-bg:    rgba(28, 30, 36, 0.55);
+  --glass-bg-work: rgba(255, 255, 255, 0.68);
+  --glass-blur:    26px;
+
+  /* Sintaxis del editor */
+  --code-comment: #6a7383;
+  --code-keyword: #9a3fb8;
+  --code-command: #0b64c9;
+  --code-string:  #0a7a53;
+  --code-number:  #b06000;
+  --code-punct:   #454b57;
+  --code-attr:    #b34700;
+  --code-type:    #7a3fd0;
+  --code-link:    #0b64c9;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
 
   --radius: 8px;
-  --header-h: 48px;
+  --radius-lg: 12px;
+  --header-h: 44px;
+  --bar-h: 34px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:          #16181c;
-    --bg-sunken:   #101215;
-    --bg-raised:   #1d2025;
-    --border:      #2b2f36;
-    --text:        #e6e8eb;
-    --text-muted:  #9aa2ad;
-    --accent:      #6ba3d6;
-    --accent-soft: #1b2b3a;
-    --danger:      #e5794f;
-    --success:     #57c98a;
-    --warning:     #d8ab48;
+    --bg:            #1c1c1e;
+    --bg-deep:       #0b0c10;
+    /* El fondo NO se apaga en modo oscuro: en macOS el escritorio sigue
+       iluminado y son los paneles los que se oscurecen. Ahí está el efecto. */
+    --wall-base:     #0f4c93;
+    --wall-1:        #2f8fff;
+    --wall-2:        #7cc2ff;
+    --wall-3:        #1a5fbd;
+    --wall-4:        #6a5bff;
+    --wall-caustic:  rgba(190, 230, 255, 0.45);
+    --wall-ray:      rgba(210, 240, 255, 0.28);
+    --surface-work:  rgba(24, 25, 29, 0.72);
+    --bg-sidebar:    rgba(38, 38, 41, 0.72);
+    --bg-chrome:     rgba(38, 38, 41, 0.84);
+    --bg-sunken:     rgba(18, 19, 23, 0.55);
+    --bg-raised:     #242427;
+    --bg-hover:      rgba(255, 255, 255, 0.06);
+    --bg-selected:   rgba(255, 255, 255, 0.11);
+
+    --border:        rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text:          #f7f9fc;
+    --text-muted:    #cbd3de;   /* antes #a1a1a6 */
+    --text-faint:    #9aa5b4;   /* antes #6e6e73, invisible */
+
+    --accent-soft:   rgba(0, 145, 255, 0.18);
+
+    --scroll-thumb:       rgba(255, 255, 255, 0.22);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.38);
+
+    --glass-bg:      rgba(26, 27, 33, 0.42);
+    /* Solo la barra lateral es el panel oscuro. */
+    --sidebar-bg:    rgba(8, 9, 12, 0.66);
+    --glass-rim:     rgba(255, 255, 255, 0.14);
+    --menu-bg:       rgba(30, 32, 38, 0.94);
+    --glass-bg-work: rgba(20, 22, 28, 0.72);
+
+    --code-comment: #8b95a5;
+    --code-keyword: #d2a8ff;
+    --code-command: #79c0ff;
+    --code-string:  #7ee2b8;
+    --code-number:  #f2cc60;
+    --code-punct:   #c9d1d9;
+    --code-attr:    #ffa657;
+    --code-type:    #d2a8ff;
+    --code-link:    #79c0ff;
   }
 }
 
@@ -42,36 +162,314 @@
 html, body, #__nuxt {
   height: 100%;
   margin: 0;
+  /* La app es una ventana, no un documento: el scroll pertenece a cada panel.
+     Sin esto, el editor y el PDF empujaban la página entera. */
+  overflow: hidden;
 }
 
 body {
-  background: var(--bg);
+  /* El fondo lo pone .app-backdrop; el body transparente deja que el cristal
+     de los paneles tenga algo que refractar. */
+  background: transparent;
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }
 
 a { color: var(--accent); }
 
-button {
-  font: inherit;
-  cursor: pointer;
+/* ── Scrollbars estilo overlay ─────────────────────────────────────────────
+   Delgadas, sin flechas, sin pista visible; el pulgar aparece al pasar. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
+  min-height: 32px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-hover);
 }
 
-/* CodeMirror hereda el tema desde aquí para no duplicar la paleta en JS. */
+/* ── Cristal ───────────────────────────────────────────────────────────────
+   El vidrio solo se ve si hay algo detrás: `.app-backdrop` pone esa luz y los
+   paneles flotan encima con los materiales de macvue (mismos tokens que usan
+   sus propios controles, para que todo pertenezca al mismo sistema). */
+
+/* ── Fondo: luz bajo el agua ───────────────────────────────────────────────
+   Tres capas superpuestas con `screen`, cada una a su ritmo:
+     1. masas de color que respiran (el agua),
+     2. la red de cáusticas — dos tramas cónicas desalineadas que, al moverse a
+        distinta velocidad, dibujan esos filamentos de luz,
+     3. haces diagonales, los rayos que entran desde la superficie.
+   Todo en CSS: ni imágenes ni canvas.
+
+   Para usar una FOTO: deja el JPEG en `public/wallpaper.jpg`, descomenta el
+   bloque `.app-backdrop--photo` y añade esa clase en app.vue. */
+
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--wall-base);
+}
+
+.app-backdrop > * {
+  position: absolute;
+  inset: -30%;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* 1. El agua */
+.wall-water {
+  background:
+    radial-gradient(38% 46% at 22% 32%, var(--wall-1), transparent 68%),
+    radial-gradient(42% 40% at 78% 22%, var(--wall-2), transparent 66%),
+    radial-gradient(46% 44% at 62% 82%, var(--wall-3), transparent 66%),
+    radial-gradient(34% 38% at 12% 78%, var(--wall-4), transparent 68%);
+  filter: blur(46px) saturate(140%);
+  animation: wall-drift 48s ease-in-out infinite alternate;
+}
+
+/* 2. Cáusticas: dos tramas iguales girando en sentidos opuestos. Donde se
+      cruzan aparecen los filamentos brillantes. */
+.wall-caustics,
+.wall-caustics-2 {
+  background:
+    repeating-conic-gradient(from 0deg at 30% 40%,
+      transparent 0deg 6deg, var(--wall-caustic) 9deg, transparent 12deg 22deg),
+    repeating-conic-gradient(from 45deg at 70% 60%,
+      transparent 0deg 5deg, var(--wall-caustic) 8deg, transparent 11deg 20deg);
+  filter: blur(26px) contrast(160%);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  animation: wall-caustics 26s ease-in-out infinite alternate;
+}
+
+.wall-caustics-2 {
+  filter: blur(38px) contrast(190%);
+  opacity: 0.4;
+  animation: wall-caustics-2 34s ease-in-out infinite alternate;
+}
+
+/* 3. Rayos que bajan desde la superficie */
+.wall-rays {
+  background: repeating-linear-gradient(
+    104deg,
+    transparent 0 7rem,
+    var(--wall-ray) 9.5rem,
+    transparent 12rem 26rem
+  );
+  filter: blur(30px);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  animation: wall-rays 30s linear infinite alternate;
+}
+
+@keyframes wall-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1.05); }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.16); }
+}
+
+@keyframes wall-caustics {
+  from { transform: translate3d(-4%, -3%, 0) scale(1.1) rotate(-4deg); }
+  to   { transform: translate3d(4%, 3%, 0) scale(1.28) rotate(4deg); }
+}
+
+@keyframes wall-caustics-2 {
+  from { transform: translate3d(5%, 2%, 0) scale(1.25) rotate(6deg); }
+  to   { transform: translate3d(-5%, -2%, 0) scale(1.08) rotate(-6deg); }
+}
+
+@keyframes wall-rays {
+  from { transform: translate3d(-10%, -4%, 0) rotate(-2deg); }
+  to   { transform: translate3d(10%, 4%, 0) rotate(2deg); }
+}
+
+/* El fondo se mueve siempre, a propósito: es el pedido explícito y sin
+   movimiento el cristal no se aprecia. Si algún día quieres respetar el ajuste
+   de accesibilidad del sistema (macOS → Accesibilidad → Pantalla → Reducir
+   movimiento), descomenta esto:
+
+@media (prefers-reduced-motion: reduce) {
+  .app-backdrop > * { animation-duration: 240s; }
+}
+*/
+
+/* FOTO DE FONDO — descomentar para usar public/wallpaper.jpg
+.app-backdrop--photo > * { display: none; }
+.app-backdrop--photo {
+  background: url('/wallpaper.jpg') center / cover no-repeat fixed;
+}
+*/
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur, 26px)) saturate(var(--macvue-material-glass-regular-saturation, 170%));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(var(--macvue-material-glass-regular-saturation, 170%));
+  border: 1px solid var(--glass-rim);
+  box-shadow: var(--macvue-material-glass-regular-shadow),
+              0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+/* Barra lateral: material propio de macOS, más lechoso que el vidrio general. */
+.glass-sidebar {
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(calc(var(--glass-blur, 26px) + 4px)) saturate(190%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 26px) + 4px)) saturate(190%);
+  border: 1px solid var(--glass-rim);
+  box-shadow: var(--macvue-material-glass-regular-shadow),
+              0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+/* Menús y diálogos: casi opacos, como los de macOS. */
+.glass-menu {
+  background: var(--menu-bg);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glass-rim);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+  color: var(--text);
+}
+
+/* Superficie de trabajo (editor y visor): translúcida, pero lo justo para que
+   el texto siga siendo cómodo de leer. */
+.glass-work {
+  background: var(--glass-bg-work);
+  backdrop-filter: blur(var(--glass-blur, 26px)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(160%);
+  border: 1px solid var(--glass-rim);
+  box-shadow: var(--macvue-material-glass-regular-shadow),
+              0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.chrome {
+  background: var(--macvue-material-glass-clear-bg);
+  backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
+}
+
+/* Todo panel que contiene un scroller necesita poder encogerse: sin min-*: 0
+   el contenido fija el tamaño del flex item y el scroll se desborda fuera. */
+.pane { min-width: 0; min-height: 0; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--bg-selected);
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.icon-btn:disabled { opacity: 0.35; }
+.icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+.icon-btn:active { background: var(--bg-selected); }
+
+/* ── CodeMirror ───────────────────────────────────────────────────────────── */
 .cm-editor {
   height: 100%;
+  background: transparent;
+  color: var(--text);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12.5px;
 }
-.cm-editor .cm-scroller { line-height: 1.6; }
 .cm-editor.cm-focused { outline: none; }
+.cm-editor .cm-scroller {
+  line-height: 1.65;
+  font-family: inherit;
+  /* El scroll vive aquí dentro, nunca en la página. */
+  overflow: auto;
+}
+.cm-editor .cm-gutters {
+  background: transparent;
+  color: var(--text-faint);
+  border-right: 1px solid var(--border);
+}
+.cm-editor .cm-activeLineGutter { background: var(--bg-hover); color: var(--text-muted); }
+.cm-editor .cm-activeLine { background: var(--bg-hover); }
+.cm-editor .cm-selectionBackground,
+.cm-editor.cm-focused .cm-selectionBackground,
+.cm-editor ::selection { background: var(--accent-soft) !important; }
+.cm-editor .cm-cursor { border-left-color: var(--text); }
 
 /* Cursores remotos de y-codemirror.next */
 .cm-ySelectionInfo {
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 500;
   padding: 1px 4px;
-  border-radius: 3px 3px 3px 0;
+  border-radius: 4px 4px 4px 0;
 }
+
+/* ── Formularios sueltos (páginas de login e invitación) ──────────────────── */
+.card {
+  border-radius: var(--radius-lg);
+  background: var(--menu-bg);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glass-rim);
+  padding: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+}
+.input {
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.btn {
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+}
+.btn:hover { background: var(--bg-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary {
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+}
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+button { font: inherit; cursor: pointer; }

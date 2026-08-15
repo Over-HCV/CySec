@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -46,7 +46,12 @@ export async function compileProject(projectId: string, userId: string): Promise
     .eq('project_id', projectId)
   if (filesError) throw new HttpError(500, filesError.message)
 
-  const workdir = await mkdtemp(path.join(tmpdir(), 'texel-'))
+  // El id se genera antes de compilar para que el directorio de trabajo sea
+  // predecible: SyncTeX registra rutas absolutas y el salto inverso las recorta
+  // por este prefijo.
+  const compilationId = crypto.randomUUID()
+  const workdir = path.join(tmpdir(), `texel-${compilationId}`)
+  await mkdir(workdir, { recursive: true })
 
   try {
     for (const file of files ?? []) {
@@ -98,7 +103,6 @@ export async function compileProject(projectId: string, userId: string): Promise
     const detailed = await readFile(path.join(workdir, 'build', `${base}.log`), 'utf8').catch(() => '')
     const fullLog = detailed || log
 
-    const compilationId = crypto.randomUUID()
     const prefix = `${projectId}/${compilationId}`
     let pdfPath: string | null = null
     let synctexPath: string | null = null
@@ -122,7 +126,11 @@ export async function compileProject(projectId: string, userId: string): Promise
       })
     }
 
-    const status = pdf && !failed ? 'success' : pdf ? 'success' : 'error'
+    // Hay PDF ⇒ 'success' aunque latexmk devolviera error: LaTeX produce salida
+    // con errores recuperables y el usuario quiere verla. Los fallos van en los
+    // diagnósticos, que el panel de problemas muestra igual.
+    const status = pdf ? 'success' : 'error'
+    if (failed && !pdf) log += '\n[texel] latexmk no produjo PDF.'
     const duration = Date.now() - started
 
     const { data: row, error: insertError } = await admin

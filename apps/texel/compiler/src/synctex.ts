@@ -64,12 +64,12 @@ export async function forward(
   file: string,
   line: number
 ): Promise<PdfArea | null> {
-  return withBuild(compilationId, projectId, async ({ dir, pdfPath }) => {
-    // synctex resuelve rutas relativas al directorio del PDF; se compiló en
-    // build/, así que el fuente se referencia como ../<ruta>.
+  return withBuild(compilationId, projectId, async ({ pdfPath }) => {
+    // La ruta va tal cual la escribe el usuario ('sections/01.tex'): synctex la
+    // casa con la que registró TeX aunque aquella fuera absoluta.
     const { stdout } = await run(
       'synctex',
-      ['view', '-i', `${line}:1:${path.join('..', file)}`, '-o', pdfPath, '-d', dir],
+      ['view', '-i', `${line}:1:${file}`, '-o', pdfPath],
       { timeout: 10_000 }
     ).catch(() => ({ stdout: '' }))
 
@@ -107,8 +107,9 @@ export async function inverse(
     const line = field(stdout, 'Line')
     if (!input || line === null) return null
 
-    // Devuelve la ruta tal como la vio TeX (…/build/../sections/01.tex).
-    const relative = path.normalize(input[1]!.trim()).split('/').filter(p => p !== '..').join('/')
+    // TeX registró rutas absolutas del directorio de compilación
+    // (/tmp/texel-<id>/./sections/01.tex): se recorta hasta dejar la del proyecto.
+    const relative = input[1]!.trim().replace(/^.*\/texel-[^/]+\/(?:\.\/)?/, '')
     return { file: relative, line }
   })
 }

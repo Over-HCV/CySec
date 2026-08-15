@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const user = useMe()
 const token = route.params.token as string
 
 const preview = ref<{ project_name: string, role: string, expired: boolean, used: boolean } | null>(null)

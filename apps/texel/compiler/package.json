@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node --experimental-strip-types --watch src/server.ts",
     "start": "node --experimental-strip-types src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:ws01": "node scripts/seed-ws01.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
