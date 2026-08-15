@@ -1,7 +1,7 @@
+# ── LaTeX ────────────────────────────────────────────────────────────────────
 build/
 .final-mode
 
-# Artefactos de LaTeX por si se compila sin -outdir
 *.aux
 *.bbl
 *.bcf
@@ -15,4 +15,22 @@ build/
 *.toc
 *.xdv
 
+# ── JS / Nuxt ────────────────────────────────────────────────────────────────
+node_modules/
+.nuxt/
+.output/
+dist/
+.data/
+*.tsbuildinfo
+
+# ── Entorno y secretos ───────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Supabase CLI ─────────────────────────────────────────────────────────────
+**/supabase/.temp/
+**/supabase/.branches/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store

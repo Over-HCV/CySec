@@ -1,0 +1,77 @@
+/* Tema de Texel. Un solo lugar donde viven los colores; los componentes usan
+   var(--…) y nunca literales. Claro y oscuro por preferencia del sistema. */
+
+:root {
+  --bg:          #ffffff;
+  --bg-sunken:   #f5f6f8;
+  --bg-raised:   #ffffff;
+  --border:      #e2e5ea;
+  --text:        #1a1d21;
+  --text-muted:  #626a75;
+  --accent:      #1f4e79;
+  --accent-soft: #e8f0f8;
+  --danger:      #8b2500;
+  --success:     #1b7a3d;
+  --warning:     #b8860b;
+
+  --font-ui:   ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  --radius: 8px;
+  --header-h: 48px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:          #16181c;
+    --bg-sunken:   #101215;
+    --bg-raised:   #1d2025;
+    --border:      #2b2f36;
+    --text:        #e6e8eb;
+    --text-muted:  #9aa2ad;
+    --accent:      #6ba3d6;
+    --accent-soft: #1b2b3a;
+    --danger:      #e5794f;
+    --success:     #57c98a;
+    --warning:     #d8ab48;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #__nuxt {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); }
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* CodeMirror hereda el tema desde aquí para no duplicar la paleta en JS. */
+.cm-editor {
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.cm-editor .cm-scroller { line-height: 1.6; }
+.cm-editor.cm-focused { outline: none; }
+
+/* Cursores remotos de y-codemirror.next */
+.cm-ySelectionInfo {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 3px 3px 3px 0;
+}

@@ -1,0 +1,37 @@
+{
+  // El proyecto LaTeX vive en latex/ y su clase (cysec.cls) y su bibliografía
+  // están en latex/tex/. Compilar main.tex directamente falla con
+  // "File 'cysec.cls' not found" si TEXINPUTS no apunta ahí — por eso la receta
+  // propia. Desde la terminal, el equivalente es `make -C latex ws-01`.
+  "latex-workshop.latex.tools": [
+    {
+      "name": "latexmk-cysec",
+      "command": "latexmk",
+      "args": [
+        "-cd",
+        "-pdfxe",
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "-outdir=build",
+        "%DOC%"
+      ],
+      "env": {
+        "TEXINPUTS": "%WORKSPACE_FOLDER%/latex/tex//:",
+        "BIBINPUTS": "%WORKSPACE_FOLDER%/latex/tex//:"
+      }
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "cysec (xelatex + biber)",
+      "tools": ["latexmk-cysec"]
+    }
+  ],
+  "latex-workshop.latex.outDir": "%DIR%/build",
+  "latex-workshop.latex.autoBuild.run": "onFileChange",
+
+  // chktex marca como error el estilo tipográfico de los enunciados transcritos
+  // (guiones, paréntesis, comandos seguidos de espacio); no aporta aquí.
+  "latex-workshop.chktex.enabled": false
+}
