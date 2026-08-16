@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -16,6 +16,19 @@ const ENGINE_FLAG: Record<string, string> = {
   pdflatex: '-pdf'
 }
 
+/**
+ * `fast`: una sola pasada de LaTeX y sin bibliografía. Es para mirar el
+ * documento mientras se escribe; la versión buena se saca en `normal`.
+ */
+export type CompileMode = 'normal' | 'fast'
+
+/**
+ * Auxiliares que se guardan entre compilaciones. Sin ellos una pasada única
+ * deja las referencias en `??` y las citas en `[?]`: el directorio de trabajo
+ * es temporal y se borra al terminar, así que no hay nada que reutilizar.
+ */
+const CACHE_EXT = ['aux', 'bbl', 'bcf', 'toc', 'out', 'lof', 'lot', 'run.xml']
+
 export interface CompileResult {
   id: string
   status: 'success' | 'error'
@@ -30,7 +43,11 @@ export interface CompileResult {
  * Materializa los archivos del proyecto en un directorio temporal, corre
  * latexmk y sube los resultados. Devuelve la fila de `compilations` creada.
  */
-export async function compileProject(projectId: string, userId: string): Promise<CompileResult> {
+export async function compileProject(
+  projectId: string,
+  userId: string,
+  mode: CompileMode = 'normal'
+): Promise<CompileResult> {
   const started = Date.now()
 
   const { data: project, error: projectError } = await admin
@@ -79,6 +96,20 @@ export async function compileProject(projectId: string, userId: string): Promise
     let log = ''
     let failed = false
 
+    // Los auxiliares de la compilación anterior: le ahorran pasadas al modo
+    // normal y son lo único que hace útil al rápido.
+    await restoreAuxCache(projectId, path.join(workdir, outdir))
+
+    // `fast`: una pasada y sin biber. Con la caché puesta arriba, las
+    // referencias y las citas siguen saliendo bien salvo que hayan cambiado.
+    //
+    // `-f` no es opcional aquí: con una sola pasada los archivos casi nunca
+    // quedan «estables» (basta con que el .aux cambie), y sin forzar latexmk se
+    // planta en «Maximum runs of xelatex reached» *antes* de generar el PDF.
+    // Con `-f` sí lo genera, que es justo lo que se quiere para mirar mientras
+    // se escribe; los errores siguen saliendo en los diagnósticos.
+    const modeArgs = mode === 'fast' ? ['-e', '$max_repeat=1', '-bibtex-', '-f'] : []
+
     try {
       // -no-shell-escape mata \write18: es la vía obvia de ejecutar comandos
       // arbitrarios desde un .tex subido por cualquiera.
@@ -92,6 +123,7 @@ export async function compileProject(projectId: string, userId: string): Promise
           '-file-line-error',
           '-no-shell-escape',
           '-outdir=build',
+          ...modeArgs,
           root
         ],
         { cwd: workdir, timeout: TIMEOUT_MS, maxBuffer: 20 * 1024 * 1024 }
@@ -123,6 +155,9 @@ export async function compileProject(projectId: string, userId: string): Promise
         upsert: true
       })
       if (error) throw new HttpError(500, `subida del PDF: ${error.message}`)
+      // Solo se guarda la caché de una compilación que llegó a PDF: los
+      // auxiliares de una que reventó a media pasada no valen para la siguiente.
+      await saveAuxCache(projectId, path.join(workdir, outdir))
     }
 
     const synctex = await readFile(path.join(workdir, outdir, `${base}.synctex.gz`)).catch(() => null)
@@ -164,6 +199,54 @@ export async function compileProject(projectId: string, userId: string): Promise
     return row as CompileResult
   } finally {
     await rm(workdir, { recursive: true, force: true })
+  }
+}
+
+/** Dónde vive la caché de auxiliares de un proyecto. */
+const cacheKey = (projectId: string) => `${projectId}/cache/aux.tgz`
+
+/**
+ * Deja en `build/` los auxiliares de la última compilación con PDF.
+ *
+ * Cualquier fallo se ignora a propósito: sin caché el documento compila igual,
+ * solo que más despacio, y no hay motivo para tumbar una compilación porque
+ * Storage tuvo un mal día.
+ */
+async function restoreAuxCache(projectId: string, buildDir: string): Promise<void> {
+  try {
+    const { data, error } = await admin.storage.from('compiled').download(cacheKey(projectId))
+    if (error || !data) return
+    await mkdir(buildDir, { recursive: true })
+    const tarball = path.join(buildDir, '.aux-cache.tgz')
+    await writeFile(tarball, Buffer.from(await data.arrayBuffer()))
+    await run('tar', ['-xzf', tarball, '-C', buildDir])
+    await rm(tarball, { force: true })
+  } catch (e) {
+    // Sin caché se compila desde cero; se deja rastro para no perseguir
+    // fantasmas cuando una compilación tarde el doble de lo esperado.
+    console.warn('[texel] no se pudo restaurar la caché de auxiliares:', e)
+  }
+}
+
+/** Guarda los auxiliares para la próxima compilación. Mismo trato a los fallos. */
+async function saveAuxCache(projectId: string, buildDir: string): Promise<void> {
+  try {
+    const names = (await readdir(buildDir))
+      .filter(name => CACHE_EXT.some(ext => name.endsWith(`.${ext}`)))
+    if (!names.length) return
+
+    const tarball = path.join(buildDir, '.aux-cache.tgz')
+    await run('tar', ['-czf', tarball, '-C', buildDir, ...names])
+    const bytes = await readFile(tarball)
+    await rm(tarball, { force: true })
+
+    const { error } = await admin.storage.from('compiled').upload(cacheKey(projectId), bytes, {
+      contentType: 'application/gzip',
+      upsert: true
+    })
+    if (error) throw error
+  } catch (e) {
+    console.warn('[texel] no se pudo guardar la caché de auxiliares:', e)
   }
 }
 

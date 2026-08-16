@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { MacSegmentedControl, MacSegment } from '@macvue/core'
-import { ChevronDown, AlertCircle, AlertTriangle, Info } from 'lucide-vue-next'
+import { ChevronDown, AlertCircle, AlertTriangle, Info, Wrench } from 'lucide-vue-next'
 import type { Compilation, Diagnostic } from '~/shared/types/database'
 
-const props = defineProps<{ compilation: Compilation | null, open: boolean }>()
-const emit = defineEmits<{ jump: [Diagnostic], toggle: [] }>()
+const props = defineProps<{
+  compilation: Compilation | null
+  open: boolean
+  canRepair?: boolean
+}>()
+const emit = defineEmits<{ jump: [Diagnostic], toggle: [], repair: [] }>()
 
 const tab = ref('problemas')
 
@@ -18,6 +22,14 @@ const color = (level: Diagnostic['level']) =>
 
 const diagnostics = computed(() => props.compilation?.diagnostics ?? [])
 const errors = computed(() => diagnostics.value.filter(d => d.level === 'error').length)
+
+/**
+ * Falta una clase o un paquete del propio proyecto (`cysec.cls`, `common/*`):
+ * es lo que pasa cuando se importó solo la carpeta del taller, y tiene arreglo
+ * de un clic — añadir la capa del curso.
+ */
+const missingClass = computed(() =>
+  /File `[^']+\.(cls|sty)' not found/.test(props.compilation?.log ?? ''))
 </script>
 
 <template>
@@ -35,6 +47,15 @@ const errors = computed(() => diagnostics.value.filter(d => d.level === 'error')
       </MacSegmentedControl>
 
       <span class="flex-1" />
+
+      <button
+        v-if="canRepair && missingClass"
+        class="chip hover:bg-[var(--bg-hover)]"
+        title="Añade cysec.cls, common/* y la bibliografía del curso a este proyecto"
+        @click="emit('repair')"
+      >
+        <Wrench :size="11" class="mr-1 inline align-[-1px]" /> Añadir capa del curso
+      </button>
 
       <span v-if="compilation" class="text-[11px]" :class="errors ? 'text-[var(--danger)]' : 'text-[var(--success)]'">
         {{ errors ? `${errors} error(es)` : 'Compilación correcta' }}

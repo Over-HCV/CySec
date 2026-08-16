@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { MacButton, MacGlassPanel, MacSegment, MacSegmentedControl, MacSpinner } from '@macvue/core'
 import {
-  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight
+  MacButton, MacGlassPanel, MacPullDownButton, MacPullDownButtonItem, MacSegment,
+  MacSegmentedControl, MacSeparator, MacSpinner
+} from '@macvue/core'
+import {
+  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight, Check
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { formatTex, minimalPatch } from '~/features/editor/lib/format-tex'
+import { SEED_ORIGIN } from '~/features/editor/lib/seed'
 import type { Project, ProjectFile, Diagnostic } from '~/shared/types/database'
 import type { ProviderUser, SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
+import type { CompileMode } from '~/shared/composables/usePanes'
 import { docKindOf } from '~/features/visual/lib/types'
 
 const route = useRoute()
@@ -22,6 +27,7 @@ const cursorLine = ref(1)
 const showShare = ref(false)
 
 const { files, refresh: refreshFiles, create, remove } = useProjectFiles(projectId)
+const { addCourseLayer } = useProjectImport()
 const { canWrite, isOwner, refresh: refreshMembers } = useProjectMembers(projectId)
 const { compiling, last, pdfUrl, compile, forward, inverse, loadLast } = useCompiler(projectId)
 const { state: layout, setSidebarWidth, setEditorRatio, setLogHeight } = usePanes()
@@ -174,10 +180,94 @@ async function saveAndFormat() {
   }
 }
 
-async function runCompile() {
+async function runCompile(mode: CompileMode = layout.value.compileMode) {
   if (!activeFile.value || !provider.value) return
   await saveActive()
-  await compile()
+  await compile(mode)
+}
+
+// ── Compilación automática ───────────────────────────────────────────────────
+// El «auto-compile» de Overleaf: al dejar de escribir se guarda y se compila.
+//
+// Solo la dispara quien escribe (`origin` local): si también la disparara quien
+// recibe, un tecleo lanzaría una compilación por cada persona conectada. Los
+// demás ven el PDF nuevo igual, por el canal `compilations:*`.
+const compileTitle = computed(() =>
+  layout.value.autoCompile
+    ? 'Compilar (⌘⏎) · automática activada'
+    : 'Compilar (⌘⏎)')
+
+const AUTO_MS = 2500
+let autoTimer: ReturnType<typeof setTimeout> | null = null
+let autoPending = false
+let unwatchDoc: (() => void) | null = null
+
+function scheduleAutoCompile() {
+  if (!layout.value.autoCompile || !canWrite.value) return
+  if (autoTimer) clearTimeout(autoTimer)
+  autoTimer = setTimeout(() => { void fireAutoCompile() }, AUTO_MS)
+}
+
+async function fireAutoCompile() {
+  autoTimer = null
+  if (!layout.value.autoCompile || !canWrite.value || !provider.value) return
+  // Con una compilación en curso no se encolan N: se apunta y se lanza una sola
+  // al terminar, ya con el texto de ese momento.
+  if (compiling.value) { autoPending = true; return }
+  await runCompile()
+  if (autoPending) { autoPending = false; scheduleAutoCompile() }
+}
+
+// La carga inicial y lo que llega de otros vienen con origen `'remote'`, y la
+// siembra del documento con `SEED_ORIGIN`: ninguna de las dos es una edición.
+watch(provider, (value) => {
+  unwatchDoc?.()
+  unwatchDoc = null
+  if (!value) return
+
+  const onUpdate = (_update: Uint8Array, origin: unknown) => {
+    if (origin === 'remote' || origin === SEED_ORIGIN) return
+    scheduleAutoCompile()
+  }
+  value.doc.on('update', onUpdate)
+  unwatchDoc = () => value.doc.off('update', onUpdate)
+})
+
+onBeforeUnmount(() => {
+  unwatchDoc?.()
+  if (autoTimer) clearTimeout(autoTimer)
+})
+
+/**
+ * Completa el proyecto con la capa del curso que le falte y vuelve a compilar.
+ *
+ * Es para lo que se importó antes de que la importación la inyectara sola: una
+ * carpeta de taller no trae `cysec.cls` —vive en `latex/tex/`— y el proyecto
+ * muere en «File `cysec.cls' not found». El panel de log ofrece el botón
+ * justo cuando el log dice eso.
+ */
+const repairing = ref(false)
+
+async function repairCourseLayer() {
+  if (repairing.value || !canWrite.value) return
+  repairing.value = true
+  try {
+    const added = await addCourseLayer(
+      projectId,
+      files.value.map(f => ({ path: f.path, content: f.content ?? undefined }))
+    )
+    if (!added.length) {
+      toast.info('El proyecto ya tiene la capa del curso')
+      return
+    }
+    await refreshFiles()
+    toast.success(`Añadidos ${added.length} archivos de la capa del curso`)
+    await runCompile()
+  } catch (e) {
+    toast.error((e as Error).message)
+  } finally {
+    repairing.value = false
+  }
 }
 
 /** ⌘S guarda y formatea; ⌘⏎ compila. Sin pasar por el menú del navegador. */
@@ -267,19 +357,43 @@ async function focusFile(path: string, line?: number) {
           <Users :size="13" class="mr-1 inline align-[-2px]" /> Compartir
         </MacButton>
 
-        <!-- Sin proveedor no hay documento que guardar: compilar ahora subiría
-             un archivo vacío. Ver `saveActive`. -->
-        <MacButton
-          size="small"
-          variant="prominent"
-          :disabled="compiling || !canWrite || !provider"
-          title="Compilar (⌘⏎)"
-          @click="runCompile"
-        >
-          <MacSpinner v-if="compiling" size="small" class="mr-1 inline align-[-2px]" />
-          <Play v-else :size="13" class="mr-1 inline align-[-2px]" />
-          {{ compiling ? 'Compilando' : 'Compilar' }}
-        </MacButton>
+        <!-- Botón partido: el lado izquierdo compila ya, el derecho abre las
+             opciones (automática, modo). Sin proveedor no hay documento que
+             guardar: compilar ahora subiría un archivo vacío. Ver `saveActive`. -->
+        <div class="flex items-center gap-px">
+          <MacButton
+            size="small"
+            variant="prominent"
+            :disabled="compiling || !canWrite || !provider"
+            :title="compileTitle"
+            @click="runCompile()"
+          >
+            <MacSpinner v-if="compiling" size="small" class="mr-1 inline align-[-2px]" />
+            <Play v-else :size="13" class="mr-1 inline align-[-2px]" />
+            {{ compiling ? 'Compilando' : 'Compilar' }}
+            <span v-if="layout.compileMode === 'fast'" class="opacity-70"> · rápido</span>
+          </MacButton>
+
+          <!-- Sin `label` ni slot `trigger` el botón se queda en su propio
+               chevron, que es justo el lado derecho de un botón partido. -->
+          <MacPullDownButton size="small" :disabled="!canWrite" title="Opciones de compilación">
+            <MacPullDownButtonItem @select="layout.autoCompile = !layout.autoCompile">
+              <Check :size="12" :class="['mr-1 inline align-[-1px]', layout.autoCompile ? '' : 'opacity-0']" />
+              Compilación automática
+            </MacPullDownButtonItem>
+
+            <MacSeparator />
+
+            <MacPullDownButtonItem @select="layout.compileMode = 'normal'">
+              <Check :size="12" :class="['mr-1 inline align-[-1px]', layout.compileMode === 'normal' ? '' : 'opacity-0']" />
+              Normal
+            </MacPullDownButtonItem>
+            <MacPullDownButtonItem @select="layout.compileMode = 'fast'">
+              <Check :size="12" :class="['mr-1 inline align-[-1px]', layout.compileMode === 'fast' ? '' : 'opacity-0']" />
+              Rápido (borrador)
+            </MacPullDownButtonItem>
+          </MacPullDownButton>
+        </div>
       </template>
     </AppHeader>
 
@@ -431,10 +545,12 @@ async function focusFile(path: string, line?: number) {
         <LogPanel
           :compilation="last"
           :open="layout.logOpen"
+          :can-repair="canWrite && !repairing"
           :style="{ height: layout.logOpen ? `${layout.logHeight}px` : 'var(--bar-h)' }"
           class="shrink-0"
           @jump="onJumpDiagnostic"
           @toggle="layout.logOpen = !layout.logOpen"
+          @repair="repairCourseLayer"
         />
       </MacGlassPanel>
     </div>

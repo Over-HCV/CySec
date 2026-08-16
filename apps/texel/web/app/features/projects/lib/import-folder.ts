@@ -29,6 +29,8 @@ export interface ImportPlan {
   skipped: SkippedFile[]
   /** Ruta del `.tex` raíz, si el plan trae alguno. */
   root: string | null
+  /** Archivos de la plantilla que se añadieron porque el documento los pedía. */
+  added: string[]
 }
 
 /** Extensiones que se guardan como texto en la base. El resto va a Storage. */
@@ -83,7 +85,53 @@ export function planImport(entries: { relativePath: string, file: File }[]): Imp
     else binaries.push(planned)
   }
 
-  return { name, texts, binaries, skipped, root: null }
+  return { name, texts, binaries, skipped, root: null, added: [] }
+}
+
+/**
+ * Qué le falta a la carpeta para poder compilar.
+ *
+ * Una carpeta de taller (`workshops/ws-01/`) trae `main.tex`, `meta.tex` y
+ * `sections/`, pero **no** la clase: `cysec.cls`, `common/*` y la bibliografía
+ * viven un nivel más arriba, en `latex/tex/`. Importada tal cual, el documento
+ * muere en `File 'cysec.cls' not found`. Aquí se decide qué archivos de la
+ * plantilla hay que añadir para que compile igual que en el repo.
+ *
+ * El `latexmkrc` entra en el mismo paquete a propósito: es quien apunta
+ * `TEXINPUTS` a `tex/`, así que sin él la clase seguiría sin aparecer.
+ *
+ * Nunca pisa lo que trae el usuario: si la carpeta ya tiene su propia clase o
+ * su `latexmkrc`, esos se respetan.
+ */
+export function missingSharedLayer(
+  files: { path: string, content?: string }[],
+  template: Record<string, string>
+): Record<string, string> {
+  const classes = new Set<string>()
+  for (const file of files) {
+    if (!file.path.endsWith('.tex') || !file.content) continue
+    for (const match of file.content.matchAll(/\\documentclass(?:\[[^\]]*\])?\{([^}]+)\}/g)) {
+      classes.add(match[1]!.trim())
+    }
+  }
+
+  const present = new Set(files.map(f => f.path))
+  const hasClassFile = (name: string) =>
+    files.some(f => f.path === `${name}.cls` || f.path.endsWith(`/${name}.cls`))
+
+  const needed = [...classes].some(name => template[`tex/${name}.cls`] && !hasClassFile(name))
+  if (!needed) return {}
+
+  const out: Record<string, string> = {}
+  for (const [path, content] of Object.entries(template)) {
+    if (!path.startsWith('tex/')) continue
+    if (present.has(path)) continue
+    out[path] = content
+  }
+  if (template.latexmkrc && !present.has('latexmkrc') && !present.has('.latexmkrc')) {
+    out.latexmkrc = template.latexmkrc
+  }
+  return out
 }
 
 /** ¿Por qué no entra este archivo? `null` si entra. */

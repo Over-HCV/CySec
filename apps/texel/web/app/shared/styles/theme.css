@@ -16,12 +16,15 @@
   /* Superficies */
   --bg:            #ffffff;
   --bg-deep:       #e9eaef;          /* lienzo bajo el cristal */
-  /* Fondo animado: azules de Tahoe sobre base clara. */
-  --wall-base:     #cfe3fb;
-  --wall-1:        #9fd0ff;
-  --wall-2:        #ffffff;
-  --wall-3:        #7fb6ff;
-  --wall-4:        #d9c8ff;
+  /* Fondo «agua» en claro: aguas someras iluminadas — azul con cuerpo, espuma
+     azulada (nunca blanca pura: las cáusticas van en blanco con `screen` y un
+     fondo claro las convierte en lejía) y un toque turquesa que engancha con
+     el acento de `data-accent='aqua'`. En oscuro hay otra paleta abajo. */
+  --wall-base:     #3a90da;
+  --wall-1:        #2f8fd9;
+  --wall-2:        #b8e4ff;
+  --wall-3:        #1873b5;
+  --wall-4:        #5bd9d4;
   --wall-caustic:  rgba(255, 255, 255, 0.55);
   --wall-ray:      rgba(255, 255, 255, 0.40);
   --surface-work:  rgba(255, 255, 255, 0.78);
@@ -91,18 +94,20 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg:            #1c1c1e;
     --bg-deep:       #0b0c10;
-    /* El fondo NO se apaga en modo oscuro: en macOS el escritorio sigue
-       iluminado y son los paneles los que se oscurecen. Ahí está el efecto. */
-    --wall-base:     #0f4c93;
-    --wall-1:        #2f8fff;
-    --wall-2:        #7cc2ff;
-    --wall-3:        #1a5fbd;
-    --wall-4:        #6a5bff;
-    --wall-caustic:  rgba(190, 230, 255, 0.45);
-    --wall-ray:      rgba(210, 240, 255, 0.28);
+    /* Aquí abajo «agua» es mar profundo: la letra es blanca y un fondo claro
+       la mata, y además los rayos de sol solo brillan sobre un azul con
+       profundidad. Azules vivos (no apagados) + el mismo turquesa del acento.
+       El comentario de "piscina siempre clara" anterior era otra época. */
+    --wall-base:     #0e5aa0;
+    --wall-1:        #2280d6;
+    --wall-2:        #7ec9f5;
+    --wall-3:        #0a4880;
+    --wall-4:        #35cfc4;
+    --wall-caustic:  rgba(200, 235, 255, 0.50);
+    --wall-ray:      rgba(255, 255, 255, 0.45);
     --surface-work:  rgba(24, 25, 29, 0.72);
     --bg-sidebar:    rgba(38, 38, 41, 0.72);
     --bg-chrome:     rgba(38, 38, 41, 0.84);
@@ -142,6 +147,62 @@
     --code-link:    #79c0ff;
   }
 }
+
+/* Apariencia forzada desde la app (`useAppearance`): mismas variables que el
+   bloque de arriba, pero por atributo en vez de por media query. Duplicar es
+   inevitable — CSS no tiene mixins — así que si tocas uno, toca el otro.
+   `color-scheme` acompaña para que los controles nativos (scrollbars, formularios)
+   sigan la misma apariencia; en modo «sistema» el :root raíz ya lo pone todo. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg:            #1c1c1e;
+  --bg-deep:       #0b0c10;
+  /* «Agua» en oscuro forzado: mar profundo, igual que el bloque de arriba
+     (CSS no tiene mixins; tocar uno es tocar el otro). */
+  --wall-base:     #0e5aa0;
+  --wall-1:        #2280d6;
+  --wall-2:        #7ec9f5;
+  --wall-3:        #0a4880;
+  --wall-4:        #35cfc4;
+  --wall-caustic:  rgba(200, 235, 255, 0.50);
+  --wall-ray:      rgba(255, 255, 255, 0.45);
+  --surface-work:  rgba(24, 25, 29, 0.72);
+  --bg-sidebar:    rgba(38, 38, 41, 0.72);
+  --bg-chrome:     rgba(38, 38, 41, 0.84);
+  --bg-sunken:     rgba(18, 19, 23, 0.55);
+  --bg-raised:     #242427;
+  --bg-hover:      rgba(255, 255, 255, 0.06);
+  --bg-selected:   rgba(255, 255, 255, 0.11);
+
+  --border:        rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text:          #f7f9fc;
+  --text-muted:    #cbd3de;
+  --text-faint:    #9aa5b4;
+
+  --accent-soft:   rgba(0, 145, 255, 0.18);
+
+  --scroll-thumb:       rgba(255, 255, 255, 0.22);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.38);
+
+  --glass-rim:     rgba(255, 255, 255, 0.14);
+  --menu-bg:       rgba(30, 32, 38, 0.94);
+
+  --macvue-glass-panel-bg-regular: rgba(255, 255, 255, 0.07);
+  --macvue-glass-panel-rim-regular: rgba(255, 255, 255, 0.20);
+
+  --code-comment: #8b95a5;
+  --code-keyword: #d2a8ff;
+  --code-command: #79c0ff;
+  --code-string:  #7ee2b8;
+  --code-number:  #f2cc60;
+  --code-punct:   #c9d1d9;
+  --code-attr:    #ffa657;
+  --code-type:    #d2a8ff;
+  --code-link:    #79c0ff;
+}
+
+:root[data-theme='light'] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -218,6 +279,38 @@ a { color: var(--accent); }
   background: var(--wall-base);
 }
 
+/* «Aqua»: vídeo de piscina a cámara superlenta (0.125× en `app.vue`). El
+   `--wall-base` del tema es el respaldo mientras carga o si el navegador
+   bloquea el vídeo; el clip cubre y recorta, nunca interactúa — el
+   contenedor ya ignora el puntero. Esta regla es más específica que
+   `.app-backdrop > *`, así que el vídeo no hereda su `inset: -30%`. */
+.app-backdrop--aqua {
+  background: var(--wall-base);
+}
+
+.app-backdrop--aqua video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* «Heaven»: el mismo movimiento del agua, pero etéreo — perla, un lila muy
+   tenue y un hilo de oro. Las capas `.wall-*` leen los `--wall-*` por
+   herencia, así que basta con redefinirlos aquí debajo. El acento sigue
+   siendo el azul de macOS: sobre blanco contrasta de sobra. */
+.app-backdrop--heaven {
+  --wall-base:     #f4f6fb;
+  --wall-1:        #ffffff;
+  --wall-2:        #eef1f8;
+  --wall-3:        #f0e9f7;
+  --wall-4:        #fff7ea;
+  --wall-caustic:  rgba(255, 255, 255, 0.65);
+  --wall-ray:      rgba(255, 252, 245, 0.55);
+  background: var(--wall-base);
+}
+
 .app-backdrop--liso {
   background: var(--bg-deep);
 }
@@ -244,7 +337,7 @@ a { color: var(--accent); }
     radial-gradient(46% 44% at 62% 82%, var(--wall-3), transparent 66%),
     radial-gradient(34% 38% at 12% 78%, var(--wall-4), transparent 68%);
   filter: blur(46px) saturate(140%);
-  animation: wall-drift 48s ease-in-out infinite alternate;
+  animation: wall-drift 12s ease-in-out infinite alternate;
 }
 
 /* 2. Cáusticas: dos tramas iguales girando en sentidos opuestos. Donde se
@@ -259,13 +352,13 @@ a { color: var(--accent); }
   filter: blur(26px) contrast(160%);
   mix-blend-mode: screen;
   opacity: 0.55;
-  animation: wall-caustics 26s ease-in-out infinite alternate;
+  animation: wall-caustics 6.5s ease-in-out infinite alternate;
 }
 
 .wall-caustics-2 {
   filter: blur(38px) contrast(190%);
   opacity: 0.4;
-  animation: wall-caustics-2 34s ease-in-out infinite alternate;
+  animation: wall-caustics-2 8.5s ease-in-out infinite alternate;
 }
 
 /* 3. Rayos que bajan desde la superficie */
@@ -279,7 +372,7 @@ a { color: var(--accent); }
   filter: blur(30px);
   mix-blend-mode: screen;
   opacity: 0.5;
-  animation: wall-rays 30s linear infinite alternate;
+  animation: wall-rays 7.5s linear infinite alternate;
 }
 
 @keyframes wall-drift {
@@ -310,6 +403,32 @@ a { color: var(--accent); }
   .app-backdrop > * { animation-duration: 240s; }
 }
 */
+
+/* ── Acento según el fondo ──────────────────────────────────────────────────
+   Sobre «agua» todo es azul, y el acento azul de macOS se pierde dentro. Un
+   turquesa complementario mantiene las acciones visibles sin romper la
+   sensación de piscina. `app.vue` marca la raíz con `data-accent='aqua'`
+   cuando el fondo activo es «agua»; retocar `--macvue-accent` retiñe solos
+   los controles de la librería (botones, casillas, segmentados). */
+[data-accent='aqua'] {
+  --accent:        #00a39b;
+  --accent-soft:   rgba(0, 163, 155, 0.14);
+  --macvue-accent: #00a39b;
+}
+
+/* En paneles oscuros el turquesa necesita más luz para seguir leyéndose. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) [data-accent='aqua'] {
+    --accent:        #30d6c9;
+    --accent-soft:   rgba(48, 214, 201, 0.16);
+    --macvue-accent: #30d6c9;
+  }
+}
+:root[data-theme='dark'] [data-accent='aqua'] {
+  --accent:        #30d6c9;
+  --accent-soft:   rgba(48, 214, 201, 0.16);
+  --macvue-accent: #30d6c9;
+}
 
 /* ── Cristal ───────────────────────────────────────────────────────────────
    Los paneles (cabecera, árbol, editor, visor, tarjetas) son `MacGlassPanel`.

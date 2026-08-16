@@ -14,6 +14,8 @@ const KEY = 'texel:wallpaper:1'
 export const WALLPAPERS = [
   { id: 'aurora', label: 'Aurora', hint: 'imagen; la que mejor luce el cristal' },
   { id: 'agua', label: 'Agua', hint: 'degradados animados, sin imagen' },
+  { id: 'aqua', label: 'Aqua', hint: 'vídeo de piscina a cámara lenta' },
+  { id: 'heaven', label: 'Heaven', hint: 'blanco etéreo, lo mismo pero en calma' },
   { id: 'liso', label: 'Liso', hint: 'color plano, sin distracción' }
 ] as const
 

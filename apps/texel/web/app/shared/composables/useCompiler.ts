@@ -1,4 +1,5 @@
 import type { Compilation, Diagnostic } from '~/shared/types/database'
+import type { CompileMode } from '~/shared/composables/usePanes'
 
 interface SyncTexArea { page: number, x: number, y: number, w: number, h: number }
 interface SyncTexSource { file: string, line: number }
@@ -35,10 +36,15 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
     return res.json() as Promise<T>
   }
 
-  async function compile() {
+  /**
+   * `mode` viaja al servicio: `fast` es una pasada y sin bibliografía, para
+   * mirar mientras se escribe. Un servicio viejo que no lo conozca compila
+   * normal, que es lo que hacía antes.
+   */
+  async function compile(mode: CompileMode = 'normal') {
     compiling.value = true
     try {
-      const result = await post<Compilation>('/compile', { projectId: toValue(projectId) })
+      const result = await post<Compilation>('/compile', { projectId: toValue(projectId), mode })
       last.value = result
       if (result.pdf_path) await loadPdf(result.pdf_path)
       return result

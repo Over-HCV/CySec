@@ -11,7 +11,8 @@
  * servicio.
  */
 import {
-  guessEngine, pickRoot, planImport, type ImportPlan, type PlannedFile
+  guessEngine, missingSharedLayer, pickRoot, planImport,
+  type ImportPlan, type PlannedFile
 } from '~/features/projects/lib/import-folder'
 import { TEMPLATE_FILES, TEMPLATE_ROOT } from '~/features/projects/lib/template.generated'
 import type { ProjectFile, TexEngine } from '~/shared/types/database'
@@ -52,6 +53,17 @@ export function useProjectImport() {
       path: f.path,
       content: await f.file.text()
     })))
+
+    // Una carpeta de taller no trae la clase del curso: vive un nivel más
+    // arriba en el repo (`latex/tex/`). Sin esto el proyecto nace roto y el
+    // primer clic en Compilar solo dice «File `cysec.cls' not found».
+    const layer = missingSharedLayer(
+      [...texts, ...plan.binaries.map(b => ({ path: b.path }))],
+      TEMPLATE_FILES
+    )
+    for (const [path, content] of Object.entries(layer)) texts.push({ path, content })
+    plan.added = Object.keys(layer)
+    if (progress.value) progress.value = { ...progress.value, total: total + plan.added.length }
 
     const root = pickRoot(texts)
     const engine: TexEngine = guessEngine(texts.find(t => t.path === root)?.content ?? '')
@@ -121,6 +133,34 @@ export function useProjectImport() {
 
     progress.value = null
     return id
+  }
+
+  /**
+   * Añade a un proyecto ya creado la capa compartida que le falte.
+   *
+   * Es la misma decisión que toma `importFolder`, pero para lo que se subió
+   * antes de que existiera esa inyección: en vez de borrar el proyecto y
+   * volver a arrastrar la carpeta, se completan los archivos que faltan.
+   * Devuelve las rutas escritas (vacío si no faltaba nada).
+   *
+   * Escribe con la sesión del usuario: el RLS de `files` ya deja escribir a
+   * cualquier editor del proyecto.
+   */
+  async function addCourseLayer(
+    projectId: string,
+    files: { path: string, content?: string }[]
+  ): Promise<string[]> {
+    const layer = missingSharedLayer(files, TEMPLATE_FILES)
+    const texts = Object.entries(layer).map(([path, content]) => ({ path, content }))
+    if (!texts.length) return []
+
+    progress.value = { done: 0, total: texts.length, label: 'Añadiendo la capa del curso…' }
+    try {
+      await writeTexts(projectId, texts)
+    } finally {
+      progress.value = null
+    }
+    return texts.map(t => t.path)
   }
 
   /**
@@ -240,7 +280,7 @@ export function useProjectImport() {
     }
   }
 
-  return { progress, importFolder, createFromTemplate, duplicateProject }
+  return { progress, importFolder, createFromTemplate, duplicateProject, addCourseLayer }
 }
 
 /**

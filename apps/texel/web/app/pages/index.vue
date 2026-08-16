@@ -2,7 +2,7 @@
 import {
   MacButton, MacGlassPanel, MacPopUpButton, MacPopUpButtonItem, MacProgress, MacTextField
 } from '@macvue/core'
-import { Plus, Trash2, FileText, FolderUp, Copy } from 'lucide-vue-next'
+import { Plus, Trash2, FileText, FolderUp, Copy, User, SunMoon, Palette } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 import type { Project } from '~/shared/types/database'
@@ -12,8 +12,10 @@ const { progress, importFolder, createFromTemplate, duplicateProject } = useProj
 const user = useMe()
 const supabase = useSupabaseClient()
 
-/** El fondo se elige aquí y vale para toda la app; ver `useWallpaper`. */
+/** El fondo se elige aquí y vale para toda la app; ver `useWallpaper`.
+    La apariencia (claro/oscuro/sistema) es independiente del fondo. */
 const { current: wallpaper, options: wallpapers } = useWallpaper()
+const { current: appearance, options: appearances } = useAppearance()
 
 const creating = ref(false)
 const name = ref('')
@@ -58,7 +60,10 @@ async function run(entries: { relativePath: string, file: File }[]) {
   try {
     const { id, plan } = await importFolder(entries)
     const omitidos = plan.skipped.length ? `, ${plan.skipped.length} omitidos` : ''
-    toast.success(`Importados ${plan.texts.length + plan.binaries.length} archivos${omitidos}`)
+    // La capa del curso (clase, preámbulo, bibliografía) se añade sola cuando la
+    // carpeta la necesita; se dice, que si no parece que se subió de más.
+    const anadidos = plan.added.length ? ` (+${plan.added.length} de la capa del curso)` : ''
+    toast.success(`Importados ${plan.texts.length + plan.binaries.length} archivos${omitidos}${anadidos}`)
     await navigateTo(`/p/${id}`)
   } catch (e) {
     error.value = (e as Error).message
@@ -94,12 +99,8 @@ onMounted(refresh)
 </script>
 
 <template>
-  <div
-    class="h-full flex flex-col overflow-hidden"
-    @dragover.prevent="dragging = true"
-    @dragleave.self="dragging = false"
-    @drop.prevent="onDrop"
-  >
+  <div class="h-full flex flex-col overflow-hidden" @dragover.prevent="dragging = true"
+    @dragleave.self="dragging = false" @drop.prevent="onDrop">
     <AppHeader>
       <template #leading>
         <FileText :size="18" class="text-white shrink-0" />
@@ -107,23 +108,27 @@ onMounted(refresh)
         <span class="text-[var(--text-muted)] text-xs truncate">editor LaTeX colaborativo</span>
       </template>
       <template #trailing>
-        <!-- El fondo no es un adorno: es lo que el cristal de los paneles
-             refracta, así que cambiarlo cambia toda la interfaz. -->
-        <MacPopUpButton
-          v-model="wallpaper"
-          size="small"
-          aria-label="Fondo de la ventana"
-        >
-          <MacPopUpButtonItem
-            v-for="option in wallpapers"
-            :key="option.id"
-            :value="option.id"
-            :text-value="option.label"
-          >
+        <!-- Claro, oscuro o el del sistema. Sin esto, la app solo cambiaba
+             con macOS y de noche el fondo «agua» quedaba apagado. -->
+        <SunMoon :size="18" class="text-white shrink-0" />
+        <MacPopUpButton v-model="appearance" size="small" aria-label="Apariencia de la interfaz">
+          <MacPopUpButtonItem v-for="option in appearances" :key="option.id" :value="option.id"
+            :text-value="option.label">
             {{ option.label }}
           </MacPopUpButtonItem>
         </MacPopUpButton>
 
+        <!-- El fondo no es un adorno: es lo que el cristal de los paneles
+             refracta, así que cambiarlo cambia toda la interfaz. -->
+        <Palette :size="18" class="text-white shrink-0" />
+        <MacPopUpButton v-model="wallpaper" size="small" aria-label="Fondo de la ventana">
+          <MacPopUpButtonItem v-for="option in wallpapers" :key="option.id" :value="option.id"
+            :text-value="option.label">
+            {{ option.label }}
+          </MacPopUpButtonItem>
+        </MacPopUpButton>
+
+        <User :size="18" class="text-white shrink-0" />
         <span class="text-[12px] text-[var(--text-muted)]">{{ user?.email }}</span>
         <MacButton size="small" @click="signOut">Salir</MacButton>
       </template>
@@ -142,15 +147,7 @@ onMounted(refresh)
       </div>
 
       <!-- `webkitdirectory` no está en los tipos de Vue, de ahí el atributo suelto. -->
-      <input
-        ref="picker"
-        type="file"
-        multiple
-        webkitdirectory
-        directory
-        class="hidden"
-        @change="onPick"
-      >
+      <input ref="picker" type="file" multiple webkitdirectory directory class="hidden" @change="onPick">
 
       <MacGlassPanel v-if="creating" material="regular" class="p-4 mb-4">
         <form @submit.prevent="onCreate">
@@ -187,10 +184,7 @@ onMounted(refresh)
           <!-- El cristal va en el panel y el enlace lo rellena: `MacGlassPanel`
                renderiza un `div`, así que no puede ser el enlace en sí. -->
           <MacGlassPanel material="regular" class="hover:brightness-110 transition-all">
-            <NuxtLink
-              :to="`/p/${p.id}`"
-              class="p-4 flex items-center gap-3 no-underline text-[var(--text)]"
-            >
+            <NuxtLink :to="`/p/${p.id}`" class="p-4 flex items-center gap-3 no-underline text-[var(--text)]">
               <FileText :size="16" class="text-muted" />
               <span class="flex-1">
                 <span class="block font-medium">{{ p.name }}</span>
@@ -198,20 +192,12 @@ onMounted(refresh)
                   {{ p.engine }} · {{ p.root_file }} · actualizado {{ fmt(p.updated_at) }}
                 </span>
               </span>
-              <button
-                class="icon-btn w-7 h-7"
-                title="Duplicar: copia los archivos a un proyecto nuevo"
-                :disabled="!!progress"
-                @click.prevent="onDuplicate(p)"
-              >
+              <button class="icon-btn w-7 h-7" title="Duplicar: copia los archivos a un proyecto nuevo"
+                :disabled="!!progress" @click.prevent="onDuplicate(p)">
                 <Copy :size="14" />
               </button>
-              <button
-                v-if="p.owner_id === user?.id"
-                class="icon-btn w-7 h-7 hover:text-[var(--danger)]"
-                title="Eliminar proyecto"
-                @click.prevent="remove(p.id)"
-              >
+              <button v-if="p.owner_id === user?.id" class="icon-btn w-7 h-7 hover:text-[var(--danger)]"
+                title="Eliminar proyecto" @click.prevent="remove(p.id)">
                 <Trash2 :size="14" />
               </button>
             </NuxtLink>
@@ -221,10 +207,8 @@ onMounted(refresh)
     </main>
 
     <!-- Sombra de destino mientras se arrastra: sin esto no se sabe si vale soltar. -->
-    <div
-      v-if="dragging"
-      class="fixed inset-4 z-30 grid place-items-center rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] pointer-events-none"
-    >
+    <div v-if="dragging"
+      class="fixed inset-4 z-30 grid place-items-center rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] pointer-events-none">
       <span class="text-[15px] font-medium text-[var(--text)]">
         Suelta la carpeta para crear el proyecto
       </span>

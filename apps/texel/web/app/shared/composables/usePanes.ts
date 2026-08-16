@@ -8,7 +8,7 @@
  * el navegador los pisaría y el cambio no se notaría en las máquinas que ya
  * habían abierto la app. El precio es olvidar una vez los anchos de panel.
  */
-const KEY = 'texel:panes:2'
+const KEY = 'texel:panes:3'
 
 /**
  * Lo que **no** se recuerda entre sesiones: cómo se abre un proyecto es una
@@ -27,7 +27,15 @@ interface LayoutState {
   logOpen: boolean
   wrap: boolean            // ajuste de línea en el editor
   editorTab: 'code' | 'visual'   // pestaña activa del panel del editor
+  autoCompile: boolean     // compilar sola al dejar de escribir
+  compileMode: CompileMode // profundidad de la compilación
 }
+
+/**
+ * `fast` es una pasada de LaTeX y sin bibliografía: sirve para mirar el
+ * resultado mientras se escribe, no para entregar.
+ */
+export type CompileMode = 'normal' | 'fast'
 
 const DEFAULTS: LayoutState = {
   sidebarWidth: 230,
@@ -41,7 +49,11 @@ const DEFAULTS: LayoutState = {
   wrap: true,
   // La vista por bloques es la que puede usar quien no escribe LaTeX, que es
   // para quien se hizo. El código sigue a un clic.
-  editorTab: 'visual'
+  editorTab: 'visual',
+  // Compilar cuesta CPU y cada compilación queda en la tabla: se activa a mano,
+  // como en Overleaf. El modo se recuerda entre sesiones, la pestaña no.
+  autoCompile: false,
+  compileMode: 'normal'
 }
 
 export const LIMITS = {

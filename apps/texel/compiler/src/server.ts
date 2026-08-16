@@ -1,6 +1,6 @@
 import Fastify from 'fastify'
 import { requireUser, requireMember, HttpError } from './auth.ts'
-import { compileProject } from './compile.ts'
+import { compileProject, type CompileMode } from './compile.ts'
 import { forward, inverse } from './synctex.ts'
 
 const app = Fastify({
@@ -30,12 +30,15 @@ app.setErrorHandler((error, _req, reply) => {
 
 app.get('/health', async () => ({ ok: true }))
 
-app.post<{ Body: { projectId: string } }>('/compile', async (req) => {
+app.post<{ Body: { projectId: string, mode?: string } }>('/compile', async (req) => {
   const userId = await requireUser(req)
-  const { projectId } = req.body
+  const { projectId, mode } = req.body
   if (!projectId) throw new HttpError(400, 'falta projectId')
   await requireMember(userId, projectId, 'editor')
-  return compileProject(projectId, userId)
+  // Un modo desconocido (o ninguno, como mandaban los clientes de antes) es una
+  // compilación normal: nunca un 400 por una preferencia de la interfaz.
+  const compileMode: CompileMode = mode === 'fast' ? 'fast' : 'normal'
+  return compileProject(projectId, userId, compileMode)
 })
 
 app.post<{ Body: { projectId: string, compilationId: string, file: string, line: number } }>(
