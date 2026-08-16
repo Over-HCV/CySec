@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { MacButton, MacSpinner } from '@macvue/core'
+import { MacButton, MacSegment, MacSegmentedControl, MacSpinner } from '@macvue/core'
 import {
   Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight
 } from 'lucide-vue-next'
 import type { Project, ProjectFile, Diagnostic } from '~/shared/types/database'
-import type { ProviderUser } from '~/features/editor/lib/supabase-yjs-provider'
+import type { ProviderUser, SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
+import { docKindOf } from '~/features/visual/lib/types'
 
 const route = useRoute()
 const projectId = route.params.id as string
@@ -23,9 +24,39 @@ const { canWrite, isOwner, refresh: refreshMembers } = useProjectMembers(project
 const { compiling, last, pdfUrl, compile, forward, inverse, loadLast } = useCompiler(projectId)
 const { state: layout, setSidebarWidth, setEditorRatio, setLogHeight } = usePanes()
 
-const editor = ref<{ goToLine: (n: number) => void, getText: () => string } | null>(null)
+const editor = ref<{
+  goToLine: (n: number) => void
+  remeasure: () => void
+  getText: () => string
+} | null>(null)
 const viewer = ref<{ showHighlight: (a: { page: number, x: number, y: number, w: number, h: number }) => void } | null>(null)
 const body = ref<HTMLElement>()
+
+// ── Pestañas Código | Visual ─────────────────────────────────────────────────
+// El editor de código nunca se desmonta: es dueño del documento Yjs y de la
+// conexión, y tirarla en cada cambio de pestaña sería absurdo. Se oculta con
+// `v-show` y comparte su proveedor con la vista visual, que trabaja sobre el
+// mismo `Y.Text`.
+// `shallowRef` a propósito: hacer reactivo en profundidad un `Y.Doc` sería
+// envolver en proxies las estructuras internas del CRDT.
+const provider = shallowRef<SupabaseYjsProvider | null>(null)
+
+/** Solo `.tex` y `.bib` tienen representación por bloques. */
+const visualKind = computed(() => activeFile.value ? docKindOf(activeFile.value.path) : null)
+
+const tab = computed<'code' | 'visual'>({
+  get: () => (visualKind.value ? layout.value.editorTab : 'code'),
+  set: async (value) => {
+    layout.value.editorTab = value
+    if (value === 'code') {
+      await nextTick()
+      editor.value?.remeasure()
+    }
+  }
+})
+
+// Otro archivo es otro documento: el proveedor anterior ya no vale.
+watch(() => activeFile.value?.id, () => { provider.value = null })
 
 const me = computed<ProviderUser>(() => ({
   id: user.value?.id ?? 'anon',
@@ -218,6 +249,16 @@ async function focusFile(path: string, line?: number) {
             <PanelLeft :size="14" :class="layout.sidebarOpen ? 'text-[var(--accent)]' : ''" />
           </button>
 
+          <MacSegmentedControl
+            v-if="visualKind"
+            :model-value="tab"
+            size="small"
+            @update:model-value="tab = $event as 'code' | 'visual'"
+          >
+            <MacSegment value="code">Código</MacSegment>
+            <MacSegment value="visual">Visual</MacSegment>
+          </MacSegmentedControl>
+
           <span class="font-mono text-[11.5px] text-[var(--text-muted)] truncate">
             {{ activeFile?.path ?? 'sin archivo' }}
           </span>
@@ -245,9 +286,10 @@ async function focusFile(path: string, line?: number) {
           </button>
         </div>
 
-        <div class="flex-1 pane">
+        <div class="flex-1 pane relative">
           <TexEditor
             v-if="activeFile"
+            v-show="tab === 'code'"
             ref="editor"
             :key="activeFile.id"
             :file-id="activeFile.id"
@@ -257,7 +299,24 @@ async function focusFile(path: string, line?: number) {
             :diagnostics="last?.diagnostics"
             @peers="peers = $event"
             @cursor-line="cursorLine = $event"
+            @ready="provider = $event"
           />
+
+          <VisualEditor
+            v-if="activeFile && visualKind && tab === 'visual' && provider"
+            :key="`visual-${activeFile.id}`"
+            :provider="provider"
+            :path="activeFile.path"
+            :can-write="canWrite"
+            class="absolute inset-0"
+          />
+
+          <div
+            v-else-if="tab === 'visual'"
+            class="absolute inset-0 grid place-items-center text-[var(--text-muted)] text-xs"
+          >
+            Cargando documento…
+          </div>
         </div>
       </section>
 

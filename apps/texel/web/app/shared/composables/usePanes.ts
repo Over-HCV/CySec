@@ -13,6 +13,7 @@ interface LayoutState {
   pdfOpen: boolean
   logOpen: boolean
   wrap: boolean            // ajuste de línea en el editor
+  editorTab: 'code' | 'visual'   // pestaña activa del panel del editor
 }
 
 const DEFAULTS: LayoutState = {
@@ -22,7 +23,8 @@ const DEFAULTS: LayoutState = {
   sidebarOpen: true,
   pdfOpen: true,
   logOpen: true,
-  wrap: true
+  wrap: true,
+  editorTab: 'code'
 }
 
 export const LIMITS = {

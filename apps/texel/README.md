@@ -46,11 +46,17 @@ pnpm install && pnpm dev             # http://localhost:3000
 
 - [`docs/visual-editor.md`](docs/visual-editor.md) — modo visual por bloques
   (tipo Notion) sincronizado con el LaTeX, para que colaboren personas que no
-  escriben LaTeX. Plan con hitos y casillas; sin empezar.
+  escriben LaTeX. Plan con hitos y casillas; **M0–M4 hechos** (pestañas
+  Código|Visual funcionando), queda el menú `/`, párrafos con marcas y pulido.
 
 ## Pruebas
 
 ```sh
+# Parsers del modo visual: ida y vuelta byte a byte contra los archivos reales
+# de ../../latex, más convergencia de dos documentos Yjs. Sin red.
+cd web && pnpm test
+
+
 # Sembrar un proyecto con el taller real de ../../latex/workshops/ws-01
 cd compiler && SUPABASE_URL=http://127.0.0.1:54321 \
   SUPABASE_SERVICE_ROLE_KEY=<service key> pnpm seed:ws01 tu@correo

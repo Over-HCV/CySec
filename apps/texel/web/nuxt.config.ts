@@ -16,7 +16,8 @@ export default defineNuxtConfig({
     { path: '~/shared/components', prefix: '' },
     { path: '~/features/projects/components', prefix: '' },
     { path: '~/features/editor/components', prefix: '' },
-    { path: '~/features/viewer/components', prefix: '' }
+    { path: '~/features/viewer/components', prefix: '' },
+    { path: '~/features/visual/components', prefix: '' }
   ],
 
   imports: {

@@ -155,7 +155,15 @@ function goToLine(line: number) {
   view.focus()
 }
 
-defineExpose({ goToLine, getText: () => provider?.text ?? '' })
+/**
+ * CodeMirror mide mal si estaba oculto (`display: none`) al cambiar de pestaña:
+ * se queda con las dimensiones de entonces. La página avisa al volver a Código.
+ */
+function remeasure() {
+  view?.requestMeasure()
+}
+
+defineExpose({ goToLine, remeasure, getText: () => provider?.text ?? '' })
 </script>
 
 <template>
