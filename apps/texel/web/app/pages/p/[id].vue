@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MacButton, MacSegment, MacSegmentedControl, MacSpinner } from '@macvue/core'
+import { MacButton, MacGlassPanel, MacSegment, MacSegmentedControl, MacSpinner } from '@macvue/core'
 import {
   Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight
 } from 'lucide-vue-next'
@@ -311,8 +311,9 @@ async function focusFile(path: string, line?: number) {
       />
 
       <!-- Editor -->
-      <section
-        class="glass-work rounded-[var(--radius-lg)] overflow-hidden flex flex-col pane"
+      <MacGlassPanel
+        material="clear"
+        class="flex flex-col pane"
         :style="{
           flex: layout.pdfOpen ? `${layout.editorRatio} 1 0%` : '1 1 0%'
         }"
@@ -399,7 +400,7 @@ async function focusFile(path: string, line?: number) {
             Cargando documento…
           </div>
         </div>
-      </section>
+      </MacGlassPanel>
 
       <PaneDivider
         v-show="layout.pdfOpen"
@@ -409,9 +410,10 @@ async function focusFile(path: string, line?: number) {
       />
 
       <!-- PDF + log -->
-      <section
+      <MacGlassPanel
         v-show="layout.pdfOpen"
-        class="glass rounded-[var(--radius-lg)] overflow-hidden flex flex-col pane"
+        material="regular"
+        class="flex flex-col pane"
         :style="{ flex: `${1 - layout.editorRatio} 1 0%` }"
       >
         <div class="flex-1 pane">
@@ -434,7 +436,7 @@ async function focusFile(path: string, line?: number) {
           @jump="onJumpDiagnostic"
           @toggle="layout.logOpen = !layout.logOpen"
         />
-      </section>
+      </MacGlassPanel>
     </div>
 
     <ShareDialog v-if="showShare" :project-id="projectId" @close="showShare = false" />

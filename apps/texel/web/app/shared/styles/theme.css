@@ -1,41 +1,14 @@
-/* ── Intensidad del cristal ────────────────────────────────────────────────
-   Tres ajustes listos. El activo es «medio»; para probar otro, comenta el
-   bloque de medio (más abajo, en :root y en el @media oscuro) y descomenta el
-   que quieras. Solo cambian opacidades: nada más depende de esto.
-
-   FUERTE — el color del fondo se cuela por todas partes. Muy vistoso, algo
-   menos cómodo para leer código durante horas.
-:root {
-  --glass-bg:      rgba(255, 255, 255, 0.30);
-  --glass-bg-work: rgba(255, 255, 255, 0.46);
-  --glass-blur:    34px;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --glass-bg:      rgba(20, 24, 34, 0.28);
-    --glass-bg-work: rgba(14, 18, 26, 0.48);
-  }
-}
-
-   SOBRIO — cristal solo en cabecera, barra lateral y diálogos; el editor y el
-   visor quedan casi opacos, como Xcode.
-:root {
-  --glass-bg:      rgba(255, 255, 255, 0.62);
-  --glass-bg-work: rgba(255, 255, 255, 0.94);
-  --glass-blur:    18px;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --glass-bg:      rgba(28, 30, 36, 0.62);
-    --glass-bg-work: rgba(20, 21, 26, 0.94);
-  }
-}
-*/
-
 /* Tema de Texel — vocabulario macOS sobre @macvue/core.
-   macvue trae sus propios tokens para los controles; aquí solo se define el
-   "shell" (ventana, barras, paneles) y se reutiliza su acento para no tener
-   dos azules distintos. */
+
+   El cristal de los paneles NO se define aquí: lo pone `MacGlassPanel`, que
+   además de teñir y desenfocar genera un mapa de desplazamiento y otro especular
+   y los aplica como filtro SVG. Eso es lo que dobla la luz en el borde; un
+   `backdrop-filter: blur()` a mano no lo consigue, por mucho radio que se le
+   ponga. Para ajustar su aspecto se tocan los tokens `--macvue-glass-panel-*`
+   y `--macvue-material-glass-*`, no reglas propias.
+
+   Lo que sí vive aquí: el fondo de la ventana, las superficies que NO son
+   cristal (menús, tarjetas de bloque) y el vocabulario de color. */
 
 :root {
   color-scheme: light dark;
@@ -77,14 +50,25 @@
   --scroll-thumb:       rgba(0, 0, 0, 0.24);
   --scroll-thumb-hover: rgba(0, 0, 0, 0.42);
 
-  /* Cristal: translúcido pero legible. Menos opacidad = más bonito y menos
-     contraste; estos valores son el punto donde el código sigue cómodo. */
-  --glass-bg:      rgba(255, 255, 255, 0.46);
+  /* Cristal. Los dos materiales de macvue se reparten por función:
+       · clear   — cabecera y panel del editor. Casi sin desenfoque (1 px), así
+                   que el fondo se ve nítido a través. Es el que mejor queda.
+       · regular — árbol, visor y tarjetas. Desenfoque de 12 px, para que el
+                   contenido de detrás no compita con el de delante.
+
+     Del «regular» se cambia el TINTE: el de macvue es un velo oscuro
+     (#00000052) pensado para fondos claros, y sobre un fondo oscuro ensucia en
+     vez de iluminar. Un tinte blanco muy bajo se comporta como cristal de
+     verdad en ambos temas.
+
+     El radio es más grande que el resto de la interfaz a propósito: el bisel
+     donde vive la refracción se calcula a partir del radio de la esquina, así
+     que con 12 px el efecto casi desaparece. */
+  --macvue-glass-panel-radius: 20px;
+  --macvue-glass-panel-bg-regular: rgba(255, 255, 255, 0.40);
+  --macvue-glass-panel-rim-regular: rgba(255, 255, 255, 0.55);
   --glass-rim:     rgba(255, 255, 255, 0.55);
   --menu-bg:       rgba(250, 250, 252, 0.94);
-  --sidebar-bg:    rgba(28, 30, 36, 0.55);
-  --glass-bg-work: rgba(255, 255, 255, 0.68);
-  --glass-blur:    26px;
 
   /* Sintaxis del editor */
   --code-comment: #6a7383;
@@ -138,12 +122,14 @@
     --scroll-thumb:       rgba(255, 255, 255, 0.22);
     --scroll-thumb-hover: rgba(255, 255, 255, 0.38);
 
-    --glass-bg:      rgba(26, 27, 33, 0.42);
-    /* Solo la barra lateral es el panel oscuro. */
-    --sidebar-bg:    rgba(8, 9, 12, 0.66);
     --glass-rim:     rgba(255, 255, 255, 0.14);
     --menu-bg:       rgba(30, 32, 38, 0.94);
-    --glass-bg-work: rgba(20, 22, 28, 0.72);
+
+    /* Sigue siendo blanco, no negro: el cristal oscurecido se lee como un velo
+       sucio, mientras que un poco de blanco sobre un fondo oscuro es luz
+       atrapada en el vidrio, que es lo que hace macOS. */
+    --macvue-glass-panel-bg-regular: rgba(255, 255, 255, 0.07);
+    --macvue-glass-panel-rim-regular: rgba(255, 255, 255, 0.20);
 
     --code-comment: #8b95a5;
     --code-keyword: #d2a8ff;
@@ -204,28 +190,36 @@ a { color: var(--accent); }
   background-color: var(--scroll-thumb-hover);
 }
 
-/* ── Cristal ───────────────────────────────────────────────────────────────
-   El vidrio solo se ve si hay algo detrás: `.app-backdrop` pone esa luz y los
-   paneles flotan encima con los materiales de macvue (mismos tokens que usan
-   sus propios controles, para que todo pertenezca al mismo sistema). */
+/* ── Fondo de la ventana ───────────────────────────────────────────────────
+   El cristal refracta lo que tiene detrás, así que el detalle del fondo decide
+   si el efecto se ve o no: sobre un degradado suave no hay nada que doblar y
+   los paneles quedan planos. De ahí que el fondo de salida sea la imagen, con
+   sus franjas de alto contraste.
 
-/* ── Fondo: luz bajo el agua ───────────────────────────────────────────────
-   Tres capas superpuestas con `screen`, cada una a su ritmo:
-     1. masas de color que respiran (el agua),
-     2. la red de cáusticas — dos tramas cónicas desalineadas que, al moverse a
-        distinta velocidad, dibujan esos filamentos de luz,
-     3. haces diagonales, los rayos que entran desde la superficie.
-   Todo en CSS: ni imágenes ni canvas.
+   Tres variantes, elegibles desde la lista de proyectos (`useWallpaper`):
+     · aurora — imagen; la que mejor luce el cristal
+     · agua   — degradados animados en CSS, sin imagen
+     · liso   — color plano
 
-   Para usar una FOTO: deja el JPEG en `public/wallpaper.jpg`, descomenta el
-   bloque `.app-backdrop--photo` y añade esa clase en app.vue. */
+   Las capas `.wall-*` y los `--wall-*` pertenecen solo a «agua». */
 
 .app-backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
   overflow: hidden;
+}
+
+.app-backdrop--aurora {
+  background: url('/assets/background.png') center / cover no-repeat fixed;
+}
+
+.app-backdrop--agua {
   background: var(--wall-base);
+}
+
+.app-backdrop--liso {
+  background: var(--bg-deep);
 }
 
 .app-backdrop > * {
@@ -234,6 +228,13 @@ a { color: var(--accent); }
   will-change: transform;
   pointer-events: none;
 }
+
+/* Fondo «agua»: tres capas superpuestas con `screen`, cada una a su ritmo:
+     1. masas de color que respiran (el agua),
+     2. la red de cáusticas — dos tramas cónicas desalineadas que, al moverse a
+        distinta velocidad, dibujan esos filamentos de luz,
+     3. haces diagonales, los rayos que entran desde la superficie.
+   Todo en CSS: ni imágenes ni canvas. */
 
 /* 1. El agua */
 .wall-water {
@@ -301,43 +302,33 @@ a { color: var(--accent); }
   to   { transform: translate3d(10%, 4%, 0) rotate(2deg); }
 }
 
-/* El fondo se mueve siempre, a propósito: es el pedido explícito y sin
-   movimiento el cristal no se aprecia. Si algún día quieres respetar el ajuste
-   de accesibilidad del sistema (macOS → Accesibilidad → Pantalla → Reducir
-   movimiento), descomenta esto:
+/* El fondo «agua» se mueve siempre, a propósito. Si algún día quieres respetar
+   el ajuste de accesibilidad del sistema (macOS → Accesibilidad → Pantalla →
+   Reducir movimiento), descomenta esto:
 
 @media (prefers-reduced-motion: reduce) {
   .app-backdrop > * { animation-duration: 240s; }
 }
 */
 
-/* FOTO DE FONDO — descomentar para usar public/wallpaper.jpg
-.app-backdrop--photo > * { display: none; }
-.app-backdrop--photo {
-  background: url('/wallpaper.jpg') center / cover no-repeat fixed;
-}
-*/
-
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur, 26px)) saturate(var(--macvue-material-glass-regular-saturation, 170%));
-  -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(var(--macvue-material-glass-regular-saturation, 170%));
-  border: 1px solid var(--glass-rim);
+/* ── Cristal ───────────────────────────────────────────────────────────────
+   Los paneles (cabecera, árbol, editor, visor, tarjetas) son `MacGlassPanel`.
+   La única regla propia es la sombra proyectada: macvue trae sombras internas
+   —el bisel— pero no la que despega el panel del fondo. Hay que repetir el
+   bisel de cada material porque `box-shadow` no se acumula entre reglas. */
+.macvue-glass-panel--regular {
   box-shadow: var(--macvue-material-glass-regular-shadow),
               0 12px 32px rgba(0, 0, 0, 0.18);
 }
 
-/* Barra lateral: material propio de macOS, más lechoso que el vidrio general. */
-.glass-sidebar {
-  background: var(--sidebar-bg);
-  backdrop-filter: blur(calc(var(--glass-blur, 26px) + 4px)) saturate(190%);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 26px) + 4px)) saturate(190%);
-  border: 1px solid var(--glass-rim);
-  box-shadow: var(--macvue-material-glass-regular-shadow),
+.macvue-glass-panel--clear {
+  box-shadow: var(--macvue-material-glass-clear-shadow),
               0 12px 32px rgba(0, 0, 0, 0.18);
 }
 
-/* Menús y diálogos: casi opacos, como los de macOS. */
+/* Menús y diálogos: casi opacos, como los de macOS. Estos NO son cristal de
+   macvue a propósito — un menú tiene que leerse sobre cualquier cosa, y flota
+   fuera de los paneles, así que su blur no anida con el de nadie. */
 .glass-menu {
   background: var(--menu-bg);
   backdrop-filter: blur(28px) saturate(180%);
@@ -347,34 +338,15 @@ a { color: var(--accent); }
   color: var(--text);
 }
 
-/* Superficie de trabajo (editor y visor): translúcida, pero lo justo para que
-   el texto siga siendo cómodo de leer. */
-.glass-work {
-  background: var(--glass-bg-work);
-  backdrop-filter: blur(var(--glass-blur, 26px)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--glass-blur, 26px)) saturate(160%);
-  border: 1px solid var(--glass-rim);
-  box-shadow: var(--macvue-material-glass-regular-shadow),
-              0 12px 32px rgba(0, 0, 0, 0.18);
-}
-
-.chrome {
-  background: var(--macvue-material-glass-clear-bg);
-  backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
-  -webkit-backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
-}
-
-/* Cabecera flotante: el material "chrome" (cristal claro + desenfoque) con el
-   borde, radio y sombra de los demás paneles — la barra de título es un panel
-   más, despegada del borde superior de la ventana. */
-.chrome-bar {
-  background: var(--macvue-material-glass-clear-bg);
-  backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
-  -webkit-backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
-  border: 1px solid var(--glass-rim);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--macvue-material-glass-regular-shadow),
-              0 12px 32px rgba(0, 0, 0, 0.18);
+/* Tarjeta de bloque del editor visual.
+   Deliberadamente SIN `backdrop-filter`: va dentro de un panel de cristal, y
+   un `backdrop-filter` anidado solo puede muestrear el relleno de su panel
+   contenedor, nunca el fondo de la ventana — sale gris y plano. Además evita
+   una lente SVG por bloque, que en un documento largo son decenas. */
+.block-card {
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  border: 1px solid var(--macvue-material-glass-regular-rim, var(--border));
 }
 
 /* Todo panel que contiene un scroller necesita poder encogerse: sin min-*: 0

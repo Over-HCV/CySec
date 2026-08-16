@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { MacButton, MacProgress, MacTextField } from '@macvue/core'
+import {
+  MacButton, MacGlassPanel, MacPopUpButton, MacPopUpButtonItem, MacProgress, MacTextField
+} from '@macvue/core'
 import { Plus, Trash2, FileText, FolderUp, Copy } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
@@ -9,6 +11,9 @@ const { projects, pending, refresh, remove } = useProjects()
 const { progress, importFolder, createFromTemplate, duplicateProject } = useProjectImport()
 const user = useMe()
 const supabase = useSupabaseClient()
+
+/** El fondo se elige aquí y vale para toda la app; ver `useWallpaper`. */
+const { current: wallpaper, options: wallpapers } = useWallpaper()
 
 const creating = ref(false)
 const name = ref('')
@@ -102,6 +107,23 @@ onMounted(refresh)
         <span class="text-[var(--text-muted)] text-xs truncate">editor LaTeX colaborativo</span>
       </template>
       <template #trailing>
+        <!-- El fondo no es un adorno: es lo que el cristal de los paneles
+             refracta, así que cambiarlo cambia toda la interfaz. -->
+        <MacPopUpButton
+          v-model="wallpaper"
+          size="small"
+          aria-label="Fondo de la ventana"
+        >
+          <MacPopUpButtonItem
+            v-for="option in wallpapers"
+            :key="option.id"
+            :value="option.id"
+            :text-value="option.label"
+          >
+            {{ option.label }}
+          </MacPopUpButtonItem>
+        </MacPopUpButton>
+
         <span class="text-[12px] text-[var(--text-muted)]">{{ user?.email }}</span>
         <MacButton size="small" @click="signOut">Salir</MacButton>
       </template>
@@ -130,26 +152,28 @@ onMounted(refresh)
         @change="onPick"
       >
 
-      <form v-if="creating" class="glass rounded-[var(--radius-lg)] p-4 mb-4" @submit.prevent="onCreate">
-        <div class="flex gap-2">
-          <span class="flex-1">
-            <MacTextField v-model="name" placeholder="Nombre del proyecto" />
-          </span>
-          <MacButton variant="prominent" type="submit" :disabled="!!progress">Crear</MacButton>
-          <MacButton type="button" @click="creating = false; name = ''">Cancelar</MacButton>
-        </div>
-        <p class="m-0 mt-2 text-[11.5px] text-[var(--text-faint)]">
-          Se crea con la plantilla del curso: clase <code>cysec</code>, preámbulo,
-          bibliografía y un taller en <code>workshops/ws-01/</code>. Compila tal cual.
-        </p>
-      </form>
+      <MacGlassPanel v-if="creating" material="regular" class="p-4 mb-4">
+        <form @submit.prevent="onCreate">
+          <div class="flex gap-2">
+            <span class="flex-1">
+              <MacTextField v-model="name" placeholder="Nombre del proyecto" />
+            </span>
+            <MacButton variant="prominent" type="submit" :disabled="!!progress">Crear</MacButton>
+            <MacButton type="button" @click="creating = false; name = ''">Cancelar</MacButton>
+          </div>
+          <p class="m-0 mt-2 text-[11.5px] text-[var(--text-faint)]">
+            Se crea con la plantilla del curso: clase <code>cysec</code>, preámbulo,
+            bibliografía y un taller en <code>workshops/ws-01/</code>. Compila tal cual.
+          </p>
+        </form>
+      </MacGlassPanel>
 
-      <div v-if="progress" class="glass rounded-[var(--radius-lg)] p-4 mb-4">
+      <MacGlassPanel v-if="progress" material="regular" class="p-4 mb-4">
         <p class="text-[12.5px] text-[var(--text-muted)] m-0 mb-2">
           Importando {{ progress.done }} / {{ progress.total }} — {{ progress.label }}
         </p>
         <MacProgress :value="progress.done" :max="progress.total" label="Importando carpeta" />
-      </div>
+      </MacGlassPanel>
 
       <p v-if="error" class="text-danger text-sm">{{ error }}</p>
       <p v-if="pending" class="text-[var(--text-muted)] text-sm">Cargando…</p>
@@ -160,34 +184,38 @@ onMounted(refresh)
 
       <ul class="list-none p-0 m-0 grid gap-2">
         <li v-for="p in projects" :key="p.id">
-          <NuxtLink
-            :to="`/p/${p.id}`"
-            class="glass rounded-[var(--radius-lg)] p-4 flex items-center gap-3 no-underline text-[var(--text)] hover:brightness-110 transition-all"
-          >
-            <FileText :size="16" class="text-muted" />
-            <span class="flex-1">
-              <span class="block font-medium">{{ p.name }}</span>
-              <span class="block text-xs text-[var(--text-muted)]">
-                {{ p.engine }} · {{ p.root_file }} · actualizado {{ fmt(p.updated_at) }}
+          <!-- El cristal va en el panel y el enlace lo rellena: `MacGlassPanel`
+               renderiza un `div`, así que no puede ser el enlace en sí. -->
+          <MacGlassPanel material="regular" class="hover:brightness-110 transition-all">
+            <NuxtLink
+              :to="`/p/${p.id}`"
+              class="p-4 flex items-center gap-3 no-underline text-[var(--text)]"
+            >
+              <FileText :size="16" class="text-muted" />
+              <span class="flex-1">
+                <span class="block font-medium">{{ p.name }}</span>
+                <span class="block text-xs text-[var(--text-muted)]">
+                  {{ p.engine }} · {{ p.root_file }} · actualizado {{ fmt(p.updated_at) }}
+                </span>
               </span>
-            </span>
-            <button
-              class="icon-btn w-7 h-7"
-              title="Duplicar: copia los archivos a un proyecto nuevo"
-              :disabled="!!progress"
-              @click.prevent="onDuplicate(p)"
-            >
-              <Copy :size="14" />
-            </button>
-            <button
-              v-if="p.owner_id === user?.id"
-              class="icon-btn w-7 h-7 hover:text-[var(--danger)]"
-              title="Eliminar proyecto"
-              @click.prevent="remove(p.id)"
-            >
-              <Trash2 :size="14" />
-            </button>
-          </NuxtLink>
+              <button
+                class="icon-btn w-7 h-7"
+                title="Duplicar: copia los archivos a un proyecto nuevo"
+                :disabled="!!progress"
+                @click.prevent="onDuplicate(p)"
+              >
+                <Copy :size="14" />
+              </button>
+              <button
+                v-if="p.owner_id === user?.id"
+                class="icon-btn w-7 h-7 hover:text-[var(--danger)]"
+                title="Eliminar proyecto"
+                @click.prevent="remove(p.id)"
+              >
+                <Trash2 :size="14" />
+              </button>
+            </NuxtLink>
+          </MacGlassPanel>
         </li>
       </ul>
     </main>

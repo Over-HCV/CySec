@@ -6,17 +6,18 @@
  * código, así que lo que se toca aquí se ve allí al instante, y al revés. Solo
  * hay un CRDT.
  *
- * Cada bloque de primer nivel es una lámina de cristal; los anidados van
- * transparentes encima. Apilar `backdrop-filter` en cada nivel cuesta caro y
- * emborrona el texto de dentro.
+ * Cada bloque de primer nivel es una tarjeta translúcida, no cristal: esta
+ * vista vive dentro del panel de cristal del editor, y un `backdrop-filter`
+ * anidado solo puede muestrear el relleno de ese panel, nunca el fondo de la
+ * ventana — sale gris y plano. Los anidados van transparentes encima.
  */
-import { MacButton, MacGlassPanel } from '@macvue/core'
+import { MacButton } from '@macvue/core'
 import { Plus } from 'lucide-vue-next'
 import type { SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
 import { useBlocks } from '../composables/useBlocks'
 import { insertable } from '../lib/catalog'
 import { VISUAL_API } from '../lib/api'
-import { docKindOf, type Block, type BlockKind } from '../lib/types'
+import { docKindOf, type BlockKind } from '../lib/types'
 
 const props = defineProps<{
   provider: SupabaseYjsProvider
@@ -66,7 +67,7 @@ function addAtEnd(blockKind: BlockKind) {
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto px-4 py-3 relative" data-macvue-glass="on">
+  <div class="h-full overflow-y-auto px-4 py-3 relative">
     <!-- Una acción llegó tarde y no se escribió nada. Es preferible a escribir
          donde no toca, pero hay que decirlo o parece que la app no responde. -->
     <div
@@ -82,14 +83,13 @@ function addAtEnd(blockKind: BlockKind) {
     </div>
 
     <div class="flex flex-col gap-1.5 max-w-[820px] mx-auto">
-      <MacGlassPanel
+      <div
         v-for="block in visible"
         :key="block.id"
-        material="clear"
-        class="px-2 py-1.5"
+        class="block-card px-2 py-1.5"
       >
         <BlockNode :block="block" :depth="0" />
-      </MacGlassPanel>
+      </div>
 
       <div v-if="canWrite" class="relative self-start mt-1">
         <MacButton size="small" @click="menuOpen = !menuOpen">

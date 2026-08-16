@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MacSearchField } from '@macvue/core'
+import { MacGlassPanel, MacSearchField } from '@macvue/core'
 import { ChevronRight, FileText, FilePlus, FolderPlus, Trash2, Image, FileCode } from 'lucide-vue-next'
 import type { ProjectFile } from '~/shared/types/database'
 
@@ -101,7 +101,7 @@ watch(query, (value) => { if (value) collapsed.value = new Set() })
 </script>
 
 <template>
-  <aside class="glass-sidebar rounded-[var(--radius-lg)] overflow-hidden h-full flex flex-col pane">
+  <MacGlassPanel material="regular" role="complementary" class="h-full flex flex-col pane">
     <header class="flex items-center gap-1 px-2 h-[var(--bar-h)] shrink-0">
       <span class="flex-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)] pl-1">
         Archivos
@@ -205,5 +205,5 @@ watch(query, (value) => { if (value) collapsed.value = new Set() })
         {{ query ? 'Ningún archivo coincide.' : 'Sin archivos.' }}
       </p>
     </div>
-  </aside>
+  </MacGlassPanel>
 </template>

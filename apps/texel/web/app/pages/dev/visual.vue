@@ -10,6 +10,7 @@
  *
  *   http://localhost:3000/dev/visual
  */
+import { MacGlassPanel } from '@macvue/core'
 import * as Y from 'yjs'
 import { Awareness } from 'y-protocols/awareness'
 import { TEMPLATE_FILES } from '~/features/projects/lib/template.generated'
@@ -64,8 +65,10 @@ watch(elegido, cargar)
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-[var(--bg-deep)]">
-    <header class="chrome flex items-center gap-3 px-4 h-11 shrink-0">
+  <!-- Sin fondo propio: así el banco de pruebas se ve sobre el mismo fondo que
+       la app y el cristal de los paneles se puede juzgar de verdad. -->
+  <div class="h-screen flex flex-col">
+    <MacGlassPanel material="clear" class="flex items-center gap-3 px-4 h-11 shrink-0 m-2">
       <strong class="text-[13px]">Banco de pruebas · modo visual</strong>
       <select v-model="elegido" class="input text-[12px] py-0.5">
         <option v-for="(_, nombre) in EJEMPLOS" :key="nombre" :value="nombre">{{ nombre }}</option>
@@ -73,16 +76,18 @@ watch(elegido, cargar)
       <FormatBar />
       <span class="flex-1" />
       <span class="text-[11px] text-[var(--text-muted)]">sin sesión · sin base de datos</span>
-    </header>
+    </MacGlassPanel>
 
-    <div class="flex-1 min-h-0 grid grid-cols-2 gap-2 p-2">
-      <div class="glass-work rounded-[var(--radius-lg)] overflow-hidden">
+    <div class="flex-1 min-h-0 grid grid-cols-2 gap-2 p-2 pt-0">
+      <MacGlassPanel material="clear" class="pane">
         <!-- `key`: otro ejemplo es otro documento, igual que en la app real un
              archivo distinto remonta el editor. -->
         <VisualEditor v-if="provider" :key="elegido" :provider="provider" :path="path" :can-write="true" />
-      </div>
-      <pre class="glass-work rounded-[var(--radius-lg)] m-0 p-3 overflow-auto text-[11.5px]
-                  font-mono whitespace-pre-wrap break-words text-[var(--text-muted)]">{{ texto }}</pre>
+      </MacGlassPanel>
+      <MacGlassPanel material="regular" class="pane">
+        <pre class="h-full m-0 p-3 overflow-auto text-[11.5px]
+                    font-mono whitespace-pre-wrap break-words text-[var(--text-muted)]">{{ texto }}</pre>
+      </MacGlassPanel>
     </div>
   </div>
 </template>
