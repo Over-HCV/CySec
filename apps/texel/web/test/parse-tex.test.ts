@@ -294,3 +294,93 @@ function walk(blocks: Block[], fn: (b: Block) => void) {
     if (b.items) walk(b.items, fn)
   }
 }
+
+describe('macros con nombre, en vez de código', () => {
+  it('\\makewsheader y \\printbibliography dejan de ser LaTeX crudo', () => {
+    const text = repoFile(`${WS01}/main.tex`)
+    const atoms = flatten(parseTex(text)).filter(b => b.kind === 'atom')
+    const cmds = atoms.map(b => b.meta!.cmd)
+
+    expect(cmds).toContain('makewsheader')
+    expect(cmds).toContain('printbibliography')
+    // Y ya no queda ningún raw con ellos dentro.
+    expect(flatten(parseTex(text)).some(b =>
+      b.kind === 'raw' && text.slice(b.span.from, b.span.to).includes('\\makewsheader'))).toBe(false)
+  })
+
+  it('\\printbibliography se queda con su argumento opcional', () => {
+    const s = '\\printbibliography[title={Referencias}]\n'
+    const [atom] = parseTex(s)
+    expect(atom!.kind).toBe('atom')
+    expect(s.slice(atom!.span.from, atom!.span.to)).toBe('\\printbibliography[title={Referencias}]')
+  })
+
+  it('los datos del taller se agrupan y son campos', () => {
+    const meta = parseTex(repoFile(`${WS01}/meta.tex`)).find(b => b.kind === 'meta')!
+    const campos = meta.items!.filter(b => b.kind === 'atom')
+      .map(b => [b.meta!.cmd, b.fields[0]!.value])
+
+    expect(campos).toContainEqual(['wstitle', 'Introducción a ciberseguridad I'])
+    expect(campos).toContainEqual(['wsauthor', 'Over Haider Castrillón Valencia'])
+  })
+
+  it('la prosa suelta es párrafo, no LaTeX crudo', () => {
+    const blocks = flatten(parseTex(repoFile(SECTIONS[0]!)))
+    const parrafos = blocks.filter(b => b.kind === 'paragraph')
+    expect(parrafos.length).toBeGreaterThan(0)
+    expect(parrafos.every(b => b.fields.length === 1 && b.fields[0]!.name === 'texto')).toBe(true)
+  })
+
+  it('un macro conocido sin cerrar se marca en vez de quedarse mudo', () => {
+    const s = '\\porque{cómo usar}{%\n  Texto sin cerrar.\n'
+    const roto = parseTex(s).find(b => b.flags?.broken)
+    expect(roto).toBeDefined()
+    expect(roto!.meta!.cmd).toBe('porque')
+  })
+
+  it('la partición y los campos siguen cuadrando con los tipos nuevos', () => {
+    for (const path of [...SECTIONS, `${WS01}/main.tex`, `${WS01}/meta.tex`]) {
+      const text = repoFile(path)
+      const blocks = parseTex(text)
+      expect(joined(text, blocks), path).toBe(text)
+      for (const block of flatten(blocks)) {
+        for (const f of block.fields) {
+          expect(text.slice(f.span.from, f.span.to)).toBe(f.value)
+        }
+      }
+    }
+  })
+})
+
+describe('avisos falsos de «sin cerrar»', () => {
+  it('un macro nombrado dentro de un comentario no cuenta', () => {
+    const s = '%% La capa vive en tex/; \\input{common/...} resuelve desde ws-XX.\n\\NeedsTeXFormat{LaTeX2e}\n'
+    expect(parseTex(s).some(b => b.flags?.broken)).toBe(false)
+  })
+
+  it('definir un macro no es usarlo', () => {
+    const s = '\\newcommand{\\wsnumber}[1]{\\renewcommand{\\ws@number}{#1}}\n'
+    expect(parseTex(s).some(b => b.flags?.broken)).toBe(false)
+  })
+
+  it('pero un macro de verdad sin cerrar sí avisa', () => {
+    const s = '\\pregunta{sin cerrar\n\ny más texto\n'
+    expect(parseTex(s).some(b => b.flags?.broken)).toBe(true)
+  })
+
+  it('un tramo de solo comentarios se marca como nota', () => {
+    const s = '% ===== Preguntas abiertas =====\n'
+    expect(parseTex(s)[0]!.flags?.comment).toBe(true)
+  })
+})
+
+describe('el aviso solo salta cuando el macro abre la línea', () => {
+  it('un nombre usado como argumento de otra macro no cuenta', () => {
+    const s = '\\RequirePackage{titlesec}\n\\titleformat{\\section}{\\large\\bfseries}{}{0pt}{}\n'
+    expect(parseTex(s).some(b => b.flags?.broken)).toBe(false)
+  })
+
+  it('el de verdad sigue avisando', () => {
+    expect(parseTex('\\porque{a}{b sin cerrar\n\notra cosa\n').some(b => b.flags?.broken)).toBe(true)
+  })
+})

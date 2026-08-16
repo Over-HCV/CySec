@@ -59,7 +59,8 @@ web/app/features/visual/
 │   ├── scan.ts           primitivas: readGroup, rawBlocks, fillGaps
 │   ├── parse-bib.ts      BibTeX → bloques
 │   ├── parse-tex.ts      LaTeX  → bloques
-│   ├── catalog.ts        definición de cada tipo de bloque (campos, icono, plantilla)
+│   ├── inline.ts         marcas dentro de un párrafo (negrita, cursiva, código)
+│   ├── catalog.ts        definición de cada tipo de bloque + macros con nombre
 │   ├── api.ts            lo que el árbol de bloques puede hacer (inject)
 │   └── doc-sync.ts       Y.Text ⇄ bloques (parches por rango, origin 'visual')
 ├── composables/
@@ -67,6 +68,8 @@ web/app/features/visual/
 └── components/
     ├── VisualEditor.vue  lista de bloques de primer nivel + añadir
     ├── BlockNode.vue     un bloque y sus hijos; recursivo
+    ├── RichText.vue      texto con formato (contenteditable → LaTeX)
+    ├── FormatBar.vue     barra fija: negrita, cursiva, código
     └── BlockField.vue    campo con borrador local mientras tiene el foco
 ```
 
@@ -86,7 +89,7 @@ dentro de nada se pinte igual a cualquier profundidad. Las acciones no suben por
 type BlockKind =
   | 'section' | 'caso' | 'fuentes' | 'fuente' | 'pregunta' | 'respuesta'
   | 'mcq' | 'opcion' | 'porque' | 'input' | 'env' | 'preamble'
-  | 'bibEntry' | 'raw'
+  | 'paragraph' | 'atom' | 'meta' | 'bibEntry' | 'raw'
 
 interface Span { from: number, to: number }          // offsets en el Y.Text
 interface Field { name: string, span: Span, value: string }   // span del VALOR
@@ -126,6 +129,29 @@ párrafos de LaTeX crudo separados por el contenido del documento.
 
 El invariante no cambia, solo se vuelve recursivo: los hijos de un contenedor
 particionan su cuerpo, y los tests lo comprueban a cualquier profundidad.
+
+### Nada de LaTeX en pantalla
+
+Tres tipos más, que son los que quitan el código de la vista:
+
+- **`paragraph`** — un hueco de prosa. Se edita con `RichText`, que pinta las
+  marcas (`\textbf`/`\term` negrita, `\emph`/`\eng` cursiva, `\texttt` código) y
+  al guardar vuelve a escribir el mismo LaTeX, byte a byte (`lib/inline.ts`).
+  Lo que no se sabe representar —un `\cite{…}`, un comentario— se queda como
+  ficha: se mueve o se borra entera, pero no se rompe por dentro.
+  Un tramo que solo son comentarios se marca `flags.comment` y se enseña como
+  nota del autor, sin los `%`.
+- **`atom`** — macro suelta con nombre en cristiano: `\makewsheader` es «Portada
+  del taller» y `\printbibliography` es «Bibliografía» (`ATOMS` en el catálogo).
+- **`meta`** — los `\ws*` de `meta.tex`, agrupados en «Datos del taller»: un
+  campo por dato, sin contenido propio.
+
+Y el `raw` que quede deja de ser un muro: una línea plegada con las primeras
+palabras. Si dentro hay un macro del catálogo **que abre una línea** y aun así no
+se pudo leer, se marca `flags.broken` y se avisa de que le falta cerrar una
+llave. La condición de «abre una línea» es la que evita el aviso falso en
+`\titleformat{\section}{…}` o en `\newcommand{\wsnumber}[1]{…}`, y los
+comentarios no cuentan: `cysec.cls` explica en los suyos cómo se usa `\input`.
 
 ### Interfaz
 
@@ -300,13 +326,20 @@ mide mal desde `display: none`.
   preguntas) sin escribir una sola macro.
 
 ### M6 — Párrafos con marcas y citas
-- [ ] Bloque `paragraph` con negrita/cursiva/código (`⌘B`, `⌘I`) mapeadas a
-      `\textbf`, `\emph`, `\texttt`.
-- [ ] Chip de cita: `\cite{clave}` con selector que lee las entradas del `.bib`
-      del proyecto.
-- [ ] Pegar texto plano crea párrafos; pegar LaTeX crea un bloque `raw`.
+- [x] Bloque `paragraph` con negrita/cursiva/código (`⌘B`, `⌘I`, `⌘E`) mapeadas
+      a `\textbf`/`\term`, `\emph`/`\eng`, `\texttt`, más barra fija de formato
+      en la cabecera del panel (`FormatBar.vue`).
+- [x] Lo que no se sabe representar (`\cite{…}`, un comentario) se queda como
+      ficha: se mueve y se borra entera, no se rompe por dentro.
+- [x] Macros con nombre (`atom`): `\makewsheader` → «Portada del taller»,
+      `\printbibliography` → «Bibliografía», los `\ws*` de `meta.tex` agrupados
+      en «Datos del taller» con un campo por dato.
+- [x] El LaTeX que no se representa deja de ser un muro: una línea plegada.
+- [x] Pegar en un párrafo pega texto plano.
+- [ ] Selector de cita que lea las entradas del `.bib` del proyecto.
 - **Listo cuando**: un párrafo con las tres marcas y una cita vuelve idéntico
-  tras un ida y vuelta.
+  tras un ida y vuelta. ✔ `test/inline.test.ts` lo comprueba sobre cada línea de
+  los archivos reales del curso.
 
 ### M7 — Pulido
 - [ ] Presencia: mostrar en qué bloque está cada colaborador (reusa el awareness
@@ -320,6 +353,10 @@ mide mal desde `display: none`.
 
 ## Verificación
 
+0. **Banco de pruebas**: `http://localhost:3000/dev/visual` monta el modo visual
+   sobre un `Y.Text` en memoria — sin sesión, sin base de datos y sin compilador—
+   con los archivos del curso a un desplegable de distancia y el LaTeX resultante
+   al lado. Es la forma rápida de ver de verdad cada cambio en vez de suponerlo.
 1. **Unitaria**: `pnpm test` en `web/` — 89 tests sobre los archivos reales del
    repo (`latex/tex/bib/refs.bib`, `latex/workshops/ws-01/**`). Es la red de
    seguridad del principio 4; si esto pasa, no se corrompen documentos. La

@@ -153,6 +153,38 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     collapsed.value = next
   }
 
+  /**
+   * Escribe texto al final de un contenedor: es lo que hace la línea en blanco
+   * que cierra cada bloque con hijos.
+   *
+   * Se inserta con sus saltos de línea propios para que al reparsear salga un
+   * párrafo de verdad y no se pegue al bloque anterior.
+   */
+  function writeInside(container: Block, value: string) {
+    const fresh = resolve(container)
+    if (!fresh) { refresh(); return }
+    const at = insideOf(fresh)
+    if (at === null) return
+
+    const before = text.value.slice(0, at)
+    const prefix = before.endsWith('\n\n') || before.endsWith('\n') ? '' : '\n'
+    // Dentro de una lista, escribir crea el elemento que toca: en «Fuentes» un
+    // enlace y en una pregunta de selección múltiple una opción. En cualquier
+    // otro contenedor, un párrafo.
+    const cuerpo = fresh.kind === 'fuentes' ? `  \\fuente{${value}}\n`
+      : fresh.kind === 'mcq' ? `  \\opcion{${value}}\n`
+        : `${value}\n`
+    const problem = applyFieldEdit(ytext, {
+      name: 'nuevo',
+      span: { from: at, to: at },
+      value: ''
+    }, `${prefix}${cuerpo}`)
+    if (problem === STALE) {
+      refresh()
+      warn('El documento cambió mientras tanto. Inténtalo otra vez.')
+    }
+  }
+
   /** Añade un hijo al final de un contenedor. */
   function addInside(container: Block, blockKind?: BlockKind) {
     structural(container, (fresh) => {
@@ -184,6 +216,7 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     rename,
     addInside,
     insert,
+    writeInside,
     remove: (block: Block) => structural(block, f => removeBlock(ytext, f, text.value)),
     duplicate: (block: Block) => structural(block, f => duplicateBlock(ytext, f, text.value)),
     toggle: (block: Block) => structural(block, f => toggleOption(ytext, f, text.value)),

@@ -165,16 +165,27 @@ export function plainText(nodes: InlineNode[]): string {
 }
 
 /**
+ * Macros que aparecen *dentro* de un párrafo. No sabemos pintarlas, pero no
+ * sacan al texto de ser texto: se quedan como una ficha en medio de la frase.
+ */
+const INLINE_OK = new Set([
+  '\\cite', '\\citep', '\\citet', '\\url', '\\href', '\\ref', '\\cref', '\\Cref',
+  '\\footnote', '\\label', '\\textsc', '\\textsl', '\\underline', '\\ ', '\\\\'
+])
+
+/**
  * ¿Este texto se puede enseñar como prosa con formato?
  *
  * Es lo que decide si un hueco del documento se pinta como párrafo editable o
- * como bloque de LaTeX plegado. Un nodo opaco que no sea un comentario ya es
- * motivo suficiente para no fingir que es prosa.
+ * como bloque de LaTeX plegado. Manda lo que hay: un `\cite` en medio de una
+ * frase sigue siendo una frase; un `\begin{table}` o un `\newcommand`, no.
  */
 export function isProse(latex: string): boolean {
   if (latex.trim() === '') return false
   return parseInline(latex).every(node =>
-    node.kind !== 'opaque' || node.label === 'comentario')
+    node.kind !== 'opaque'
+    || node.label === 'comentario'
+    || INLINE_OK.has(node.label))
 }
 
 /** Nombre del macro que empieza en la barra de `i`, con su estrella. */

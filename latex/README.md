@@ -6,10 +6,10 @@ seguridad* (32310005). La capa reutilizable vive en `tex/`; cada entrega es una 
 
 ## Dos formas de compilar lo mismo
 
-| | Dónde | Cómo |
-|---|---|---|
-| **Terminal** | esta carpeta | `make ws-01` llama a `latexmk` y deja el PDF en `build/ws-01/main.pdf` |
-| **Texel** | navegador | el servicio de compilación ejecuta el mismo `latexmk`; no hace falta `make` |
+|              | Dónde        | Cómo                                                                        |
+| ------------ | ------------ | --------------------------------------------------------------------------- |
+| **Terminal** | esta carpeta | `make ws-01` llama a `latexmk` y deja el PDF en `build/ws-01/main.pdf`      |
+| **Texel**    | navegador    | el servicio de compilación ejecuta el mismo `latexmk`; no hace falta `make` |
 
 `build/` es solo salida: se regenera en cada compilación y está en `.gitignore`.
 El `Makefile` no es parte del documento, es el atajo para no escribir el comando

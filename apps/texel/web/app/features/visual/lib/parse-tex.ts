@@ -55,11 +55,23 @@ function classify(text: string, blocks: Block[]): Block[] {
     if (isProse(source)) {
       block.kind = 'paragraph'
       block.fields = [{ name: 'texto', span: block.span, value: source }]
+      // Un tramo que solo son comentarios es una nota del autor —los separadores
+      // «% — Caso de estudio ———» del taller—, no un párrafo del documento. Se
+      // pinta como nota y no como texto vacío.
+      if (uncommented(source).trim() === '') block.flags = { ...block.flags, comment: true }
       continue
     }
 
+    // Lo que esté comentado no cuenta: `cysec.cls` explica en sus comentarios
+    // cómo se usa `\input{common/…}`, y avisar ahí de un macro «sin cerrar»
+    // sería mentir sobre un texto que LaTeX ni mira.
+    // Solo cuenta si el macro **abre la línea**. Dentro de otra cosa
+    // (`\titleformat{\section}{…}`) es un argumento, no un bloque que se haya
+    // intentado escribir, y avisar ahí sería ruido.
+    const live = defined(uncommented(source))
     const broken = KNOWN_COMMANDS.find(cmd =>
-      new RegExp(`\\\\${cmd}\\b`).test(source) || source.includes(`\\begin{${cmd}}`))
+      new RegExp(`^[ \\t]*\\\\${cmd}\\b`, 'm').test(live)
+      || new RegExp(`^[ \\t]*\\\\begin\\{${cmd}\\}`, 'm').test(live))
     if (broken) {
       block.flags = { ...block.flags, broken: true }
       block.meta = { ...block.meta, cmd: broken }
@@ -100,6 +112,30 @@ function groupMeta(text: string, blocks: Block[]): Block[] {
 
 function isWsMeta(block: Block): boolean {
   return block.kind === 'atom' && WS_META.has(block.meta?.cmd ?? '')
+}
+
+/**
+ * Quita las *definiciones* de macros, dejando solo los usos.
+ *
+ * `cysec.cls` define `\wsnumber` con `\newcommand{\wsnumber}[1]{…}`. Ahí el
+ * nombre aparece, pero no se está usando el bloque: avisar de que «le falta
+ * cerrar una llave» sería falso.
+ */
+function defined(text: string): string {
+  return text.replace(/\\(?:new|renew|provide)command\s*\*?\s*\{\\[A-Za-z@]+\}/g, '')
+    .replace(/\\(?:def|let)\\[A-Za-z@]+/g, '')
+    .replace(/\\newenvironment\s*\*?\s*\{[^}]*\}/g, '')
+}
+
+/** El texto sin lo que va detrás de un `%` sin escapar: lo que LaTeX sí lee. */
+function uncommented(text: string): string {
+  return text.split('\n').map((line) => {
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '\\') { i++; continue }
+      if (line[i] === '%') return line.slice(0, i)
+    }
+    return line
+  }).join('\n')
 }
 
 /**

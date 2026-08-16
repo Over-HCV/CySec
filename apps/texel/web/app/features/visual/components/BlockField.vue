@@ -13,7 +13,6 @@
  * El foco se escucha con `focusin`/`focusout`, no con `focus`/`blur`: estos
  * últimos no burbujean y el campo de macvue envuelve su `<input>` en un div.
  */
-import { MacTextField } from '@macvue/core'
 
 const props = defineProps<{
   value: string
@@ -24,6 +23,12 @@ const props = defineProps<{
   /** Aviso de validación: el valor no llegó a escribirse. */
   problem?: string
   mono?: boolean
+  /**
+   * Tope de líneas antes de hacer scroll dentro del campo. Cuando alguien
+   * despliega un bloque de LaTeX quiere leerlo entero: ahí no se pone tope, se
+   * deja crecer y que haga scroll la página.
+   */
+  maxRows?: number
 }>()
 
 const emit = defineEmits<{ commit: [string] }>()
@@ -63,7 +68,7 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
  * dejaría un agujero debajo de cada párrafo. Siguen ahí: el texto no se toca.
  */
 const rows = computed(() =>
-  Math.min(Math.max(draft.value.replace(/\s+$/, '').split('\n').length, 1), 20))
+  Math.min(Math.max(draft.value.replace(/\s+$/, '').split('\n').length, 1), props.maxRows ?? 20))
 </script>
 
 <template>
@@ -78,16 +83,16 @@ const rows = computed(() =>
       :class="{ 'area-mono': mono, 'area-bad': problem }"
       @input="onInput(($event.target as HTMLTextAreaElement).value)"
     />
-    <MacTextField
+    <input
       v-else
-      class="w-full"
-      :model-value="draft"
+      :value="draft"
       :disabled="disabled"
       :placeholder="label"
-      size="small"
-      @update:model-value="onInput"
+      class="flat"
+      :class="{ 'flat-mono': mono, 'flat-bad': problem }"
+      @input="onInput(($event.target as HTMLInputElement).value)"
       @keydown.enter.prevent="commit"
-    />
+    >
 
     <span v-if="problem" class="block text-[11px] text-[var(--danger)]">{{ problem }}</span>
   </div>
@@ -95,9 +100,33 @@ const rows = computed(() =>
 
 <style scoped>
 /*
-  El multilínea es propio: macvue no trae área de texto. Sin borde hasta que se
-  usa, para que veinte bloques seguidos no sean veinte cajas.
+  Los campos de un bloque se leen como texto, no como formulario: sin caja ni
+  fondo hasta que el ratón pasa por encima. Un documento con treinta campos
+  pintados como treinta cajas negras no hay quien lo lea.
 */
+.flat {
+  display: block;
+  width: 100%;
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--macvue-ref-radius-5, 5px);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+.flat::placeholder { color: var(--text-faint); }
+.flat:hover:not(:disabled) { background: var(--bg-hover); }
+.flat:focus {
+  background: var(--bg-hover);
+  border-color: var(--macvue-material-glass-regular-rim, var(--border));
+}
+.flat:disabled { color: var(--text-muted); }
+.flat-mono { font-family: var(--font-mono); font-size: 12px; }
+.flat-bad { border-color: var(--danger); }
+
 .area {
   display: block;
   width: 100%;
@@ -112,16 +141,13 @@ const rows = computed(() =>
   resize: none;
   overflow: hidden;
 }
-.area:hover:not(:disabled) {
-  border-color: var(--macvue-material-glass-regular-rim, var(--border));
-}
+.area:hover:not(:disabled) { background: var(--bg-hover); }
 .area:focus {
   outline: none;
   overflow: auto;
   resize: vertical;
-  background: var(--macvue-control-bg, var(--bg-raised));
-  border-color: var(--accent);
-  box-shadow: 0 0 0 var(--macvue-focus-ring-width, 3.5px) var(--macvue-focus-ring, var(--accent-soft));
+  background: var(--bg-hover);
+  border-color: var(--macvue-material-glass-regular-rim, var(--border));
 }
 .area:disabled { color: var(--text-muted); cursor: default; }
 .area-mono { font-family: var(--font-mono); font-size: 12px; }

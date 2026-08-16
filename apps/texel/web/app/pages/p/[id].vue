@@ -336,6 +336,10 @@ async function focusFile(path: string, line?: number) {
             <MacSegment value="visual">Visual</MacSegment>
           </MacSegmentedControl>
 
+          <!-- Formato del modo visual: fija y siempre a la vista, porque quien
+               no sabe LaTeX no va a adivinar que `\textbf{…}` existe. -->
+          <FormatBar v-if="tab === 'visual' && canWrite" />
+
           <span class="font-mono text-[11.5px] text-[var(--text-muted)] truncate">
             {{ activeFile?.path ?? 'sin archivo' }}
           </span>

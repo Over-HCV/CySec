@@ -12,8 +12,8 @@
  */
 import { MacBadge, MacCheckbox } from '@macvue/core'
 import * as lucide from 'lucide-vue-next'
-import { Braces, ChevronRight, Code2, Copy, Plus, Trash2 } from 'lucide-vue-next'
-import { fieldSpecOf, specOf } from '../lib/catalog'
+import { AlertTriangle, Braces, ChevronRight, Code2, Copy, Plus, Trash2 } from 'lucide-vue-next'
+import { ATOMS, fieldSpecOf, specOf } from '../lib/catalog'
 import { VISUAL_API } from '../lib/api'
 import type { Block, Field } from '../lib/types'
 
@@ -27,21 +27,45 @@ const api = inject(VISUAL_API)!
 const spec = computed(() => specOf(props.block.kind))
 const isContainer = computed(() => props.block.items !== undefined)
 const isRaw = computed(() => props.block.kind === 'raw')
+/** Prosa: se edita con formato, no como código. */
+const isParagraph = computed(() =>
+  props.block.kind === 'paragraph' && !props.block.flags?.comment)
+/** Comentario del autor: se lee, no se imprime en el PDF. */
+const isComment = computed(() =>
+  props.block.kind === 'paragraph' && props.block.flags?.comment === true)
+
+/** El texto de la nota sin los `%`, que son ruido para quien no sabe LaTeX. */
+const commentText = computed(() => api.source(props.block)
+  .split('\n')
+  .map(line => line.replace(/^\s*%\s?/, ''))
+  .join('\n')
+  .trim())
+
+/** Al guardar se devuelven los `%`, línea por línea. */
+function onCommentEdit(value: string) {
+  const source = api.source(props.block)
+  const trailing = /\n*$/.exec(source)?.[0] ?? '\n'
+  const next = value.split('\n').map(line => `% ${line}`.trimEnd()).join('\n') + trailing
+  api.edit(props.block, rawField.value, next)
+}
+/** Ficha de una macro con nombre (`\makewsheader`, `\wstitle{…}`). */
+const atom = computed(() => ATOMS[props.block.meta?.cmd ?? ''] ?? null)
 const open = computed(() => !api.collapsed.value.has(props.block.id))
 const canWrite = computed(() => api.canWrite)
 
 /** Los hijos en blanco existen en el documento pero no se pintan. */
 const items = computed(() => (props.block.items ?? []).filter(b => !b.flags?.blank))
 
-/** Nombre visible: el del entorno cuando lo hay, si no el del catálogo. */
-const title = computed(() => props.block.meta?.env ?? spec.value.label)
+/** Nombre visible: el de la macro, el del entorno, o el del catálogo. */
+const title = computed(() =>
+  atom.value?.label ?? props.block.meta?.env ?? spec.value.label)
 
 /**
  * El icono del catálogo, que va por nombre. Se busca en `lucide` en vez de
  * importar veinte iconos a mano; si el nombre no existe, se ve el genérico.
  */
 const icon = computed(() =>
-  (lucide as unknown as Record<string, unknown>)[spec.value.icon] ?? Braces)
+  (lucide as unknown as Record<string, unknown>)[atom.value?.icon ?? spec.value.icon] ?? Braces)
 
 /**
  * Los campos de una línea van en la cabecera y los largos, debajo. Un `\input`
@@ -52,6 +76,10 @@ const icon = computed(() =>
  * valor», que sigue costando una línea por campo pero se entiende.
  */
 const shortFields = computed(() => props.block.fields.filter(f => !isLong(f)))
+/** Etiqueta del campo: la de la macro si la tiene, si no la del catálogo. */
+function labelOf(name: string): string {
+  return atom.value?.field ?? fieldSpecOf(props.block.kind, name).label
+}
 const headerFields = computed(() => (shortFields.value.length <= 2 ? shortFields.value : []))
 const listFields = computed(() => (shortFields.value.length > 2 ? shortFields.value : []))
 const blockFields = computed(() => props.block.fields.filter(f => isLong(f)))
@@ -76,6 +104,12 @@ function isArea(field: Field): boolean {
 }
 
 const showSource = ref(false)
+/** El LaTeX crudo empieza plegado: una línea, y se abre si hace falta. */
+const rawOpen = ref(false)
+
+/** Primeros caracteres del LaTeX, para saber qué hay ahí sin desplegarlo. */
+const peek = computed(() =>
+  api.source(props.block).trim().replace(/\s+/g, ' ').slice(0, 60))
 
 /**
  * Borrar un contenedor se lleva por delante todo lo que tiene dentro, así que
@@ -108,6 +142,21 @@ function onAddInside() {
   api.addInside(props.block)
 }
 
+/** Marca de agua de la línea final, distinta según lo que se espere ahí. */
+const emptyHint = computed(() => {
+  if (props.block.kind === 'respuesta') return 'Escribe aquí tu respuesta…'
+  if (props.block.kind === 'caso') return 'Escribe el enunciado del caso…'
+  if (props.block.kind === 'fuentes') return 'Pega aquí un enlace…'
+  if (props.block.kind === 'mcq') return 'Escribe otra opción…'
+  return 'Escribe aquí…'
+})
+
+/** Lo que se escriba en la línea final se añade al final del contenedor. */
+function onWriteInside(value: string) {
+  if (!value.trim()) return
+  api.writeInside(props.block, value)
+}
+
 function onRename(name: string) {
   renaming.value = false
   if (name !== props.block.meta?.env) api.rename(props.block, name)
@@ -130,8 +179,9 @@ const rawField = computed<Field>(() => ({
 
 <template>
   <div class="group/node">
-    <!-- Cabecera: una sola línea, pase lo que pase. -->
-    <div v-if="!isRaw" class="row">
+    <!-- Cabecera: una sola línea, pase lo que pase. La prosa y las notas no la
+         llevan: son texto, y una etiqueta encima de cada párrafo sobra. -->
+    <div v-if="!isRaw && !isParagraph && !isComment" class="row">
       <button
         v-if="isContainer"
         class="twist"
@@ -177,10 +227,10 @@ const rawField = computed<Field>(() => ({
       </span>
 
       <template v-for="field in headerFields" :key="field.name">
-        <span class="flabel">{{ fieldSpecOf(block.kind, field.name).label }}</span>
+        <span class="flabel">{{ labelOf(field.name) }}</span>
         <BlockField
           :value="field.value"
-          :label="fieldSpecOf(block.kind, field.name).label"
+          :label="labelOf(field.name)"
           :multiline="isArea(field)"
           :disabled="!canWrite"
           :problem="api.problems.value[`${block.id}:${field.name}`]"
@@ -219,13 +269,11 @@ const rawField = computed<Field>(() => ({
       </div>
     </div>
 
-    <!-- Un `raw` no tiene cabecera: es texto y punto. Las acciones aparecen al pasar. -->
-    <div v-else class="row row-raw">
-      <BlockField
-        multiline
-        mono
+    <!-- Prosa: se escribe como en cualquier editor, sin ver una sola barra. -->
+    <div v-else-if="isParagraph" class="row row-raw">
+      <RichText
         :value="rawField.value"
-        label="LaTeX"
+        placeholder="Escribe aquí…"
         :disabled="!canWrite"
         :problem="api.problems.value[`${block.id}:raw`]"
         @commit="api.edit(block, rawField, $event)"
@@ -245,13 +293,82 @@ const rawField = computed<Field>(() => ({
       </div>
     </div>
 
+    <!-- Nota del autor: no sale en el PDF, así que se lee pero no compite con
+         el contenido. Se edita sin el `%`, que es ruido para quien no sabe LaTeX. -->
+    <div v-else-if="isComment" class="row row-raw">
+      <BlockField
+        multiline
+        class="note"
+        :value="commentText"
+        label="Nota"
+        :disabled="!canWrite"
+        @commit="onCommentEdit"
+      />
+      <div class="actions self-start">
+        <template v-if="canWrite">
+          <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
+            <ChevronRight :size="12" class="-rotate-90" />
+          </button>
+          <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
+            <ChevronRight :size="12" class="rotate-90" />
+          </button>
+          <button class="icon-btn" title="Borrar" @click="onRemove">
+            <Trash2 :size="12" />
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- LaTeX que el editor no representa: una línea, no un muro. Se abre solo
+         si hace falta, y si es un macro conocido que no se pudo leer, lo dice. -->
+    <div v-else class="row">
+      <button class="twist" :class="{ 'twist-open': rawOpen }" @click="rawOpen = !rawOpen">
+        <ChevronRight :size="12" />
+      </button>
+      <component :is="block.flags?.broken ? AlertTriangle : Code2" :size="12"
+                 :class="block.flags?.broken ? 'text-[var(--warning)] shrink-0' : 'text-[var(--text-faint)] shrink-0'" />
+      <span class="name name-static">{{ block.flags?.broken ? 'Sin cerrar' : 'LaTeX' }}</span>
+      <span class="rawpeek">{{ peek }}</span>
+
+      <div class="actions">
+        <template v-if="canWrite">
+          <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
+            <ChevronRight :size="12" class="-rotate-90" />
+          </button>
+          <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
+            <ChevronRight :size="12" class="rotate-90" />
+          </button>
+          <button class="icon-btn" title="Borrar" @click="onRemove">
+            <Trash2 :size="12" />
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <div v-if="isRaw && rawOpen" class="pl-[15px]">
+      <p v-if="block.flags?.broken" class="m-0 mb-1 text-[11.5px] text-[var(--warning)]">
+        A <code>\{{ block.meta?.cmd }}</code> le falta cerrar una llave, así que el
+        editor no puede representarlo. Ábrelo en la pestaña Código.
+      </p>
+      <BlockField
+        multiline
+        mono
+        :max-rows="400"
+        :value="rawField.value"
+        label="LaTeX"
+        :disabled="!canWrite"
+        :problem="api.problems.value[`${block.id}:raw`]"
+        @commit="api.edit(block, rawField, $event)"
+      />
+    </div>
+
     <!-- Muchos campos cortos: uno por línea, con su etiqueta delante. -->
-    <div v-if="listFields.length" class="pl-[15px]">
+    <div v-if="listFields.length && !isParagraph && !isComment" class="pl-[15px]">
       <div v-for="field in listFields" :key="field.name" class="flex items-center gap-2">
-        <span class="flabel w-[86px] shrink-0">{{ fieldSpecOf(block.kind, field.name).label }}</span>
+        <span class="flabel w-[86px] shrink-0">{{ labelOf(field.name) }}</span>
         <BlockField
           :value="field.value"
-          :label="fieldSpecOf(block.kind, field.name).label"
+          :label="labelOf(field.name)"
           :disabled="!canWrite"
           :problem="api.problems.value[`${block.id}:${field.name}`]"
           @commit="api.edit(block, field, $event)"
@@ -259,14 +376,15 @@ const rawField = computed<Field>(() => ({
       </div>
     </div>
 
-    <!-- Campos largos: debajo, alineados con el riel de los hijos. -->
-    <div v-if="blockFields.length && !isRaw" class="pl-[15px]">
-      <BlockField
+    <!-- Campos largos: debajo, alineados con el riel de los hijos. La prosa y
+         las notas ya se pintan arriba con su propio editor: aquí saldrían dos
+         veces. -->
+    <div v-if="blockFields.length && !isRaw && !isParagraph && !isComment" class="pl-[15px]">
+      <RichText
         v-for="field in blockFields"
         :key="field.name"
-        multiline
         :value="field.value"
-        :label="fieldSpecOf(block.kind, field.name).label"
+        :placeholder="labelOf(field.name)"
         :disabled="!canWrite"
         :problem="api.problems.value[`${block.id}:${field.name}`]"
         @commit="api.edit(block, field, $event)"
@@ -284,11 +402,17 @@ const rawField = computed<Field>(() => ({
         :depth="depth + 1"
       />
 
-      <!-- Un contenedor vacío no puede quedarse sin nada que enseñar: parecería
-           roto y no habría dónde pulsar para empezar a escribir dentro. -->
-      <button v-if="!items.length" class="empty" :disabled="!canWrite" @click="onAddInside">
-        <Plus :size="11" /> <span>{{ canWrite ? 'escribir dentro' : 'vacío' }}</span>
-      </button>
+      <!-- Línea siempre disponible al final del contenedor: es donde se escribe.
+           Antes había un botón que insertaba un salto de línea invisible, así
+           que parecía que la aplicación no respondía. -->
+      <RichText
+        v-if="canWrite"
+        :value="''"
+        clear-on-commit
+        :placeholder="emptyHint"
+        @commit="onWriteInside"
+      />
+      <div v-else-if="!items.length" class="empty">vacío</div>
     </div>
   </div>
 </template>
@@ -324,6 +448,17 @@ const rawField = computed<Field>(() => ({
 }
 
 /* Etiqueta de campo: la mínima para saber qué se está escribiendo. */
+.rawpeek {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .flabel {
   font-size: 10.5px;
   color: var(--text-faint);

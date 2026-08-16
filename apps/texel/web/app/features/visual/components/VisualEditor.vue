@@ -29,7 +29,7 @@ const ytext = props.provider.doc.getText('content')
 
 const {
   text, blocks, sourceOf, problems, notice, collapsed, toggleCollapse,
-  edit, editBody, rename, addInside, insert, remove, duplicate, move, toggle
+  edit, editBody, rename, addInside, writeInside, insert, remove, duplicate, move, toggle
 } = useBlocks(ytext, kind.value)
 
 /** Los huecos de solo espacios forman parte del documento, pero no se pintan. */
@@ -48,6 +48,7 @@ provide(VISUAL_API, {
   editBody,
   rename,
   addInside,
+  writeInside,
   move,
   duplicate,
   remove,

@@ -23,6 +23,8 @@ export interface VisualApi {
   rename: (block: Block, name: string) => void
   /** Añade un hijo al final del contenedor. */
   addInside: (container: Block, kind?: BlockKind) => void
+  /** Escribe texto al final del contenedor: la línea que cierra cada bloque. */
+  writeInside: (container: Block, value: string) => void
   /** Intercambia el bloque con su vecino visible; resuelve hermanos por sí solo. */
   move: (block: Block, dir: -1 | 1) => void
   duplicate: (block: Block) => void
