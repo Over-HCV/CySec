@@ -6,33 +6,55 @@
  * no hay estado incremental que pueda desincronizarse del texto, que es el
  * único fallo del que no se vuelve.
  *
+ * Toda acción vuelve a buscar su bloque en el árbol recién parseado antes de
+ * escribir (`resolve`), y toda escritura comprueba que el documento siga
+ * diciendo lo que el bloque cree (`STALE`). Entre lo que se pinta y lo que se
+ * pulsa caben 300 ms del campo que se estaba escribiendo, 120 ms de un cambio
+ * ajeno y un segundo clic; sin las dos cosas, esos huecos escriben en el sitio
+ * equivocado y descolocan el archivo.
+ *
  * El foco no se conserva por identidad de bloque: cada campo guarda su borrador
  * mientras lo estás escribiendo y no se repinta hasta que lo sueltas (ver
- * `BlockField.vue`). Así da igual que los `id` cambien entre reparseos.
+ * `BlockField.vue`).
  */
 import type * as Y from 'yjs'
 import {
   applyBodyEdit, applyFieldEdit, duplicateBlock, insertBlock, insideOf, moveBlock, parseDoc,
-  removeBlock, renameEnv, toggleOption, VISUAL_ORIGIN
+  removeBlock, renameEnv, STALE, toggleOption, VISUAL_ORIGIN, type EditProblem
 } from '../lib/doc-sync'
 import { childKind } from '../lib/catalog'
-import type { Block, BlockKind, DocKind, Field } from '../lib/types'
+import { blockAt, siblingsAt, type Block, type BlockKind, type DocKind, type Field } from '../lib/types'
 
 /** Espera antes de repintar por un cambio ajeno, para no parpadear al teclear. */
 const REMOTE_DEBOUNCE_MS = 120
+
+/** Cuánto se enseña el aviso de «el documento cambió». */
+const NOTICE_MS = 4000
 
 export function useBlocks(ytext: Y.Text, kind: DocKind) {
   const text = shallowRef(ytext.toString())
   const blocks = shallowRef<Block[]>(parseDoc(text.value, kind))
   /** Último aviso de validación, por campo. */
   const problems = ref<Record<string, string>>({})
+  /** Aviso pasajero cuando una acción llegó tarde. */
+  const notice = ref<string | null>(null)
   /**
    * Bloques plegados, por `id`. Es estado de vista: no toca el documento y se
-   * pierde al cerrar. El preámbulo empieza plegado porque es andamiaje.
+   * pierde al cerrar. El preámbulo empieza plegado porque es andamiaje, no
+   * contenido.
    */
-  const collapsed = ref(new Set<string>(['preamble#1']))
+  const collapsed = ref(new Set<string>(
+    blocks.value.filter(b => b.kind === 'preamble').map(b => b.id)
+  ))
 
   let timer: ReturnType<typeof setTimeout> | null = null
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null
+  /**
+   * Hay una acción que cambió la estructura y la interfaz aún no se ha
+   * repintado. Las direcciones (`2.1.0`) todavía apuntan al árbol de antes, así
+   * que un segundo clic se ignora hasta el siguiente pintado.
+   */
+  let restructuring = false
 
   function refresh() {
     if (timer) { clearTimeout(timer); timer = null }
@@ -51,6 +73,7 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
   ytext.observe(onChange as never)
   onScopeDispose(() => {
     if (timer) clearTimeout(timer)
+    if (noticeTimer) clearTimeout(noticeTimer)
     ytext.unobserve(onChange as never)
   })
 
@@ -59,8 +82,24 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     return text.value.slice(block.span.from, block.span.to)
   }
 
+  /** El mismo bloque, pero del parseo de ahora mismo. */
+  function resolve(block: Block): Block | null {
+    return blockAt(blocks.value, block.id)
+  }
+
+  function warn(message: string) {
+    notice.value = message
+    if (noticeTimer) clearTimeout(noticeTimer)
+    noticeTimer = setTimeout(() => { notice.value = null }, NOTICE_MS)
+  }
+
   /** Deja constancia del aviso de un campo, o lo retira si ya se resolvió. */
-  function report(key: string, problem: string | null) {
+  function report(key: string, problem: EditProblem) {
+    if (problem === STALE) {
+      refresh()
+      warn('El documento cambió mientras tanto. Inténtalo otra vez.')
+      return
+    }
     if (problem) problems.value = { ...problems.value, [key]: problem }
     else if (problems.value[key]) {
       const next = { ...problems.value }
@@ -69,16 +108,43 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     }
   }
 
+  /**
+   * Ejecuta una acción que cambia la estructura del documento: se resuelve el
+   * bloque contra el árbol de ahora y se bloquean las siguientes hasta repintar.
+   */
+  function structural(block: Block, fn: (fresh: Block) => EditProblem) {
+    if (restructuring) return
+    const fresh = resolve(block)
+    if (!fresh) { refresh(); warn('El bloque ya no está donde estaba.'); return }
+
+    const problem = fn(fresh)
+    if (problem === STALE) {
+      refresh()
+      warn('El documento cambió mientras tanto. Inténtalo otra vez.')
+      return
+    }
+    restructuring = true
+    void nextTick(() => { restructuring = false })
+  }
+
   function edit(block: Block, field: Field, value: string) {
-    report(`${block.id}:${field.name}`, applyFieldEdit(ytext, field, value))
+    // El campo se busca en el árbol de ahora: entre que se tecleó y que se
+    // guarda (300 ms) el documento ha podido moverse por debajo.
+    const fresh = resolve(block)
+    const target = fresh?.fields.find(f => f.name === field.name) ?? field
+    report(`${block.id}:${field.name}`, applyFieldEdit(ytext, target, value))
   }
 
   function editBody(block: Block, value: string) {
-    report(`${block.id}:cuerpo`, applyBodyEdit(ytext, block, value))
+    const fresh = resolve(block)
+    if (!fresh) return
+    report(`${block.id}:cuerpo`, applyBodyEdit(ytext, fresh, value, text.value))
   }
 
   function rename(block: Block, name: string) {
-    report(`${block.id}:env`, renameEnv(ytext, block, name))
+    const fresh = resolve(block)
+    if (!fresh) return
+    report(`${block.id}:env`, renameEnv(ytext, fresh, name))
   }
 
   function toggleCollapse(id: string) {
@@ -89,9 +155,17 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
 
   /** Añade un hijo al final de un contenedor. */
   function addInside(container: Block, blockKind?: BlockKind) {
-    const at = insideOf(container)
-    if (at === null) return
-    insertBlock(ytext, at, blockKind ?? childKind(container.kind))
+    structural(container, (fresh) => {
+      const at = insideOf(fresh)
+      if (at === null) return null
+      const guard = { span: fresh.span, expected: sourceOf(fresh) }
+      const result = insertBlock(ytext, at, blockKind ?? childKind(fresh.kind), guard)
+      return result === STALE ? STALE : null
+    })
+  }
+
+  function insert(at: number, blockKind: BlockKind) {
+    if (insertBlock(ytext, at, blockKind) === STALE) refresh()
   }
 
   return {
@@ -99,6 +173,8 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     blocks,
     /** Avisos de validación, indexados por `«id de bloque»:«campo»`. */
     problems,
+    /** Aviso pasajero cuando una acción llegó tarde; `null` si no hay. */
+    notice,
     collapsed,
     toggleCollapse,
     refresh,
@@ -107,10 +183,15 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     editBody,
     rename,
     addInside,
-    insert: (at: number, blockKind: BlockKind) => insertBlock(ytext, at, blockKind),
-    remove: (block: Block) => removeBlock(ytext, block),
-    duplicate: (block: Block) => duplicateBlock(ytext, block),
-    toggle: (block: Block) => toggleOption(ytext, block),
-    move: (siblings: Block[], index: number, dir: -1 | 1) => moveBlock(ytext, siblings, index, dir)
+    insert,
+    remove: (block: Block) => structural(block, f => removeBlock(ytext, f, text.value)),
+    duplicate: (block: Block) => structural(block, f => duplicateBlock(ytext, f, text.value)),
+    toggle: (block: Block) => structural(block, f => toggleOption(ytext, f, text.value)),
+    move: (block: Block, dir: -1 | 1) => structural(block, (fresh) => {
+      const siblings = siblingsAt(blocks.value, fresh.id)
+      const index = siblings.indexOf(fresh)
+      if (index === -1) return STALE
+      return moveBlock(ytext, siblings, index, dir, text.value)
+    })
   }
 }

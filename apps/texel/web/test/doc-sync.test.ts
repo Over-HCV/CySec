@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import {
   applyBodyEdit, applyFieldEdit, checkValue, duplicateBlock, insertBlock, insideOf, moveBlock,
-  parseDoc, removeBlock, renameEnv, toggleOption
+  parseDoc, removeBlock, renameEnv, STALE, toggleOption
 } from '../app/features/visual/lib/doc-sync'
 import type { Block } from '../app/features/visual/lib/types'
-import { joined, REFS_BIB, repoFile, SECTIONS } from './fixtures'
+import { flatten, joined, REFS_BIB, repoFile, SECTIONS, WS01 } from './fixtures'
 
 const bib = repoFile(REFS_BIB)
 const tex = repoFile(SECTIONS[0]!)
@@ -45,7 +45,7 @@ describe('applyFieldEdit', () => {
   it('deja el documento parseable y con partición total', () => {
     const { ytext } = docWith(tex)
     const blocks = parseDoc(tex, 'tex')
-    applyBodyEdit(ytext, blocks.find(b => b.kind === 'respuesta')!, '\nUna respuesta escrita.\n')
+    applyBodyEdit(ytext, blocks.find(b => b.kind === 'respuesta')!, '\nUna respuesta escrita.\n', tex)
 
     const after = ytext.toString()
     const reparsed = parseDoc(after, 'tex')
@@ -133,7 +133,7 @@ describe('operaciones de bloque', () => {
   it('removeBlock borra el bloque entero y nada más', () => {
     const { ytext } = docWith(tex)
     const caso = parseDoc(tex, 'tex').find(b => b.kind === 'caso')!
-    removeBlock(ytext, caso)
+    removeBlock(ytext, caso, tex)
 
     const after = ytext.toString()
     expect(after).toBe(tex.slice(0, caso.span.from) + tex.slice(caso.span.to))
@@ -144,7 +144,7 @@ describe('operaciones de bloque', () => {
   it('duplicateBlock repite el bloque tal cual', () => {
     const { ytext } = docWith(tex)
     const caso = parseDoc(tex, 'tex').find(b => b.kind === 'caso')!
-    duplicateBlock(ytext, caso)
+    duplicateBlock(ytext, caso, tex)
 
     const after = ytext.toString()
     expect(parseDoc(after, 'tex').filter(b => b.kind === 'caso')).toHaveLength(2)
@@ -157,7 +157,7 @@ describe('operaciones de bloque', () => {
     // Vecino de la primera pregunta es su respuesta, no la siguiente pregunta:
     // entre ambas solo hay un salto de línea, que no se pinta.
     const first = blocks.findIndex(b => b.kind === 'pregunta')
-    moveBlock(ytext, blocks, first, 1)
+    moveBlock(ytext, blocks, first, 1, tex)
 
     const after = ytext.toString()
     expect(after).toContain('\\begin{respuesta}\n\\end{respuesta}\n\\pregunta{¿Qué tipos de datos fueron expuestos?}')
@@ -170,7 +170,7 @@ describe('operaciones de bloque', () => {
     const { ytext } = docWith(tex)
     const opcion = parseDoc(tex, 'tex').find(b => b.kind === 'mcq')!.items!
       .find(b => b.kind === 'opcion')!
-    toggleOption(ytext, opcion)
+    toggleOption(ytext, opcion, tex)
 
     const marcada = ytext.toString()
     expect(marcada.slice(opcion.span.from, opcion.span.from + 8)).toBe('\\opcion*')
@@ -179,14 +179,14 @@ describe('operaciones de bloque', () => {
     const otra = parseDoc(marcada, 'tex').find(b => b.kind === 'mcq')!.items!
       .find(b => b.kind === 'opcion')!
     expect(otra.flags!.correcta).toBe(true)
-    toggleOption(ytext, otra)
+    toggleOption(ytext, otra, marcada)
     expect(ytext.toString()).toBe(tex)
   })
 
   it('moveBlock no hace nada si no hay vecino visible', () => {
     const { ytext } = docWith(tex)
     const blocks = parseDoc(tex, 'tex')
-    moveBlock(ytext, blocks, 0, -1)
+    moveBlock(ytext, blocks, 0, -1, tex)
     expect(ytext.toString()).toBe(tex)
   })
 
@@ -195,7 +195,7 @@ describe('operaciones de bloque', () => {
     const fuentes = parseDoc(tex, 'tex').find(b => b.kind === 'fuentes')!
     const items = fuentes.items!
     const primera = items.findIndex(b => b.kind === 'fuente')
-    moveBlock(ytext, items, primera, 1)
+    moveBlock(ytext, items, primera, 1, tex)
 
     const after = ytext.toString()
     expect(after.length).toBe(tex.length)
@@ -205,6 +205,97 @@ describe('operaciones de bloque', () => {
     // La segunda fuente pasa a ser la primera.
     expect(urls[0]).toContain('digitalguardian.com')
     expect(urls[1]).toContain('wikipedia.org')
+  })
+})
+
+describe('el documento cambió bajo los pies (regresión: ws-01 descolocado)', () => {
+  const main = repoFile(`${WS01}/main.tex`)
+
+  /** El árbol tal y como lo pintó la interfaz, antes de que nada se moviera. */
+  function pintado() {
+    return { snapshot: main, blocks: parseDoc(main, 'tex') }
+  }
+
+  function inputs(text: string): number {
+    return text.split('\\input{sections/').length - 1
+  }
+
+  it('borrar con el árbol viejo no toca el documento', () => {
+    const { ytext } = docWith(main)
+    const { snapshot, blocks } = pintado()
+
+    // El usuario escribe en la nota de borrador: el campo se guarda 300 ms
+    // después, y a partir de ahí todo lo que viene detrás se ha desplazado.
+    const porque = flatten(blocks).find(b => b.kind === 'porque')!
+    expect(applyFieldEdit(ytext, porque.fields.find(f => f.name === 'texto')!, ' nota corta.\n'))
+      .toBeNull()
+    const despues = ytext.toString()
+
+    // Y sin esperar al repintado pulsa borrar en un \input. Con los rangos
+    // viejos, esto es lo que se comía media línea y dejaba `.%nput{…}`.
+    const input = flatten(blocks).filter(b => b.kind === 'input')[2]!
+    expect(removeBlock(ytext, input, snapshot)).toBe(STALE)
+
+    expect(ytext.toString()).toBe(despues)
+    expect(inputs(ytext.toString())).toBe(4)
+  })
+
+  it('mover con el árbol viejo no descoloca nada', () => {
+    const { ytext } = docWith(main)
+    const { snapshot, blocks } = pintado()
+    const doc = blocks.find(b => b.kind === 'env')!
+    const items = doc.items!
+
+    // Un primer movimiento sí se aplica…
+    const primero = items.findIndex(b => b.kind === 'input')
+    expect(moveBlock(ytext, items, primero, 1, snapshot)).toBeNull()
+    const despues = ytext.toString()
+
+    // …y el segundo clic, con el árbol de antes del movimiento, no.
+    expect(moveBlock(ytext, items, primero, 1, snapshot)).toBe(STALE)
+    expect(ytext.toString()).toBe(despues)
+    expect(inputs(despues)).toBe(4)
+    expect(despues.length).toBe(main.length)
+  })
+
+  it('duplicar y marcar opción también comprueban antes de escribir', () => {
+    const { ytext } = docWith(main)
+    const { snapshot, blocks } = pintado()
+    const input = flatten(blocks).filter(b => b.kind === 'input')[1]!
+
+    ytext.insert(0, '% alguien escribe arriba\n')   // cambio ajeno, todo se desplaza
+    expect(duplicateBlock(ytext, input, snapshot)).toBe(STALE)
+    expect(inputs(ytext.toString())).toBe(4)
+  })
+
+  it('con el árbol al día, la misma acción sí se aplica', () => {
+    const { ytext } = docWith(main)
+    const input = flatten(parseDoc(main, 'tex')).filter(b => b.kind === 'input')[2]!
+
+    expect(removeBlock(ytext, input, main)).toBeNull()
+    expect(inputs(ytext.toString())).toBe(3)
+    expect(ytext.toString()).not.toContain('sections/02-integridad')
+    expect(joined(ytext.toString(), parseDoc(ytext.toString(), 'tex'))).toBe(ytext.toString())
+  })
+
+  it('una secuencia larga de acciones caducadas deja el archivo intacto', () => {
+    const { ytext } = docWith(main)
+    const { snapshot, blocks } = pintado()
+    const todos = flatten(blocks).filter(b => !b.flags?.blank)
+
+    // Alguien edita por su cuenta y todos los rangos del árbol pintado caducan.
+    ytext.insert(0, '% otra persona\n')
+    const despues = ytext.toString()
+
+    for (const block of todos) {
+      removeBlock(ytext, block, snapshot)
+      duplicateBlock(ytext, block, snapshot)
+      toggleOption(ytext, block, snapshot)
+      applyBodyEdit(ytext, block, 'roto', snapshot)
+      for (const field of block.fields) applyFieldEdit(ytext, field, 'roto')
+    }
+
+    expect(ytext.toString()).toBe(despues)
   })
 })
 
@@ -248,7 +339,7 @@ describe('contenedores', () => {
     const original = '\\begin{mio}\nviejo\n\\end{mio}\n'
     const { ytext } = docWith(original)
     const env = parseDoc(original, 'tex')[0]!
-    expect(applyBodyEdit(ytext, env, '\nnuevo\n')).toBeNull()
+    expect(applyBodyEdit(ytext, env, '\nnuevo\n', original)).toBeNull()
     expect(ytext.toString()).toBe('\\begin{mio}\nnuevo\n\\end{mio}\n')
   })
 })

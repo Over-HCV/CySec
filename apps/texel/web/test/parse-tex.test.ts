@@ -64,7 +64,9 @@ describe('parseTex reconoce la estructura de 01-confidencialidad', () => {
     expect(value(caso, 'titulo')).toBe('Fuga de datos del portal Ashley Madison (2015)')
     expect(bodyOf(text, caso).trim())
       .toBe('Investigar sobre el caso de fuga de datos del portal Ashley Madison del 2015.')
-    expect(caso.items!.some(b => b.kind === 'raw')).toBe(true)
+    // El enunciado es prosa, así que entra como párrafo editable y no como
+    // LaTeX crudo: es lo que lee quien no sabe LaTeX.
+    expect(caso.items!.some(b => b.kind === 'paragraph')).toBe(true)
   })
 
   it('lee las 3 fuentes y deja el \\item suelto como raw', () => {

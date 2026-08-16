@@ -42,7 +42,34 @@ cd ../web && cp .env.example .env
 pnpm install && pnpm dev             # http://localhost:3000
 ```
 
-## Empezar con un proyecto que ya existe
+## Atajos del editor
+
+| | |
+|---|---|
+| `⌘S` / `Ctrl+S` | formatea el `.tex` y guarda |
+| `⌘⏎` / `Ctrl+⏎` | guarda y compila |
+
+El formateador (`web/app/features/editor/lib/format-tex.ts`) es a propósito corto
+de miras: espacios de sobra, líneas en blanco de más, indentación por entorno y
+salto final. No reordena ni parte párrafos, así que **no puede cambiar el PDF**,
+y se aplica por parches sobre el documento compartido: quien esté escribiendo en
+otro párrafo no pierde ni el texto ni el cursor.
+
+## Empezar
+
+**Nuevo proyecto** crea la plantilla del curso completa —`cysec.cls`,
+`tex/common/*`, la bibliografía y un taller en `workshops/ws-01/`—, así que
+compila desde el primer clic. La plantilla se genera desde el repo:
+
+```sh
+cd web && pnpm build:template   # relee ../../latex y regenera template.generated.ts
+```
+
+Si cambias `latex/tex/**` o `latex/workshops/_template/**` y no la regeneras,
+`pnpm test` lo dice. **Duplicar**, en la lista de proyectos, copia un proyecto
+entero (archivos y adjuntos) para partir del taller anterior.
+
+## Cargar un proyecto que ya existe
 
 En la lista de proyectos, **Cargar proyecto** abre el selector de carpetas (o se
 arrastra la carpeta encima). Se conservan las subcarpetas (`sections/`, `bib/`),

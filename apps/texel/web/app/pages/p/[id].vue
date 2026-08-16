@@ -3,6 +3,8 @@ import { MacButton, MacSegment, MacSegmentedControl, MacSpinner } from '@macvue/
 import {
   Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight
 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { formatTex, minimalPatch } from '~/features/editor/lib/format-tex'
 import type { Project, ProjectFile, Diagnostic } from '~/shared/types/database'
 import type { ProviderUser, SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
 import { docKindOf } from '~/features/visual/lib/types'
@@ -123,15 +125,77 @@ function dragLog({ y }: { y: number }) {
   setLogHeight(dragStart.log - y)
 }
 
-// ── Acciones ─────────────────────────────────────────────────────────────────
-async function runCompile() {
-  if (!activeFile.value || !editor.value) return
-  await supabase
+// ── Guardar, formatear y compilar ────────────────────────────────────────────
+/**
+ * Vuelca el documento vivo a `files.content`, que es lo que lee el compilador.
+ *
+ * La condición del proveedor no es una precaución de más: mientras conecta, el
+ * texto del editor está vacío, y guardar en ese momento dejaba el archivo en
+ * blanco en la base de datos.
+ */
+async function saveActive(): Promise<boolean> {
+  if (!activeFile.value || !provider.value || !canWrite.value) return false
+  const { error } = await supabase
     .from('files')
-    .update({ content: editor.value.getText(), updated_by: user.value?.id })
+    .update({ content: provider.value.text, updated_by: user.value?.id })
     .eq('id', activeFile.value.id)
+  return !error
+}
+
+/**
+ * ⌘S: ordena el archivo y lo guarda.
+ *
+ * Se formatea sobre el documento compartido y **por parches**: se escribe solo
+ * el tramo que cambia, así que quien esté escribiendo en otro párrafo no pierde
+ * lo que lleva ni el sitio del cursor. Ver `format-tex.ts`.
+ */
+const saving = ref(false)
+
+async function saveAndFormat() {
+  if (!provider.value || !canWrite.value || saving.value) return
+  saving.value = true
+  try {
+    if (visualKind.value === 'tex') {
+      const ytext = provider.value.doc.getText('content')
+      const before = ytext.toString()
+      const patch = minimalPatch(before, formatTex(before))
+      if (patch) {
+        ytext.doc!.transact(() => {
+          if (patch.remove > 0) ytext.delete(patch.from, patch.remove)
+          if (patch.insert) ytext.insert(patch.from, patch.insert)
+        }, 'format')
+      }
+    }
+    const ok = await saveActive()
+    if (ok) toast.success('Guardado y formateado')
+    else toast.error('No se pudo guardar')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function runCompile() {
+  if (!activeFile.value || !provider.value) return
+  await saveActive()
   await compile()
 }
+
+/** ⌘S guarda y formatea; ⌘⏎ compila. Sin pasar por el menú del navegador. */
+function onKeydown(event: KeyboardEvent) {
+  if (!(event.metaKey || event.ctrlKey)) return
+  if (event.key === 's') {
+    event.preventDefault()
+    void saveAndFormat()
+    return
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    if (!compiling.value) void runCompile()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 async function onCreateFile(path: string) {
   const file = await create(path, `% ${path}\n`)
@@ -203,7 +267,15 @@ async function focusFile(path: string, line?: number) {
           <Users :size="13" class="mr-1 inline align-[-2px]" /> Compartir
         </MacButton>
 
-        <MacButton size="small" variant="prominent" :disabled="compiling || !canWrite" @click="runCompile">
+        <!-- Sin proveedor no hay documento que guardar: compilar ahora subiría
+             un archivo vacío. Ver `saveActive`. -->
+        <MacButton
+          size="small"
+          variant="prominent"
+          :disabled="compiling || !canWrite || !provider"
+          title="Compilar (⌘⏎)"
+          @click="runCompile"
+        >
           <MacSpinner v-if="compiling" size="small" class="mr-1 inline align-[-2px]" />
           <Play v-else :size="13" class="mr-1 inline align-[-2px]" />
           {{ compiling ? 'Compilando' : 'Compilar' }}

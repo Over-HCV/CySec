@@ -8,7 +8,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:template": "node --experimental-strip-types scripts/build-template.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",

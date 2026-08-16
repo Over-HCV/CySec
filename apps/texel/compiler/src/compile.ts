@@ -68,7 +68,14 @@ export async function compileProject(projectId: string, userId: string): Promise
     }
 
     const engineFlag = ENGINE_FLAG[project.engine as string] ?? '-pdfxe'
+    // `-cd`: latexmk entra en la carpeta del archivo raíz antes de compilar, así
+    // que un `\input{meta}` de `workshops/ws-01/main.tex` resuelve dentro del
+    // taller y no en la raíz del proyecto. Es lo mismo que hace el `Makefile`
+    // del repo, y sin ello un proyecto con la estructura del curso no compila.
+    // El `latexmkrc` de la raíz se lee antes del `-cd`, con lo que su
+    // `TEXINPUTS` sigue apuntando a `tex/` del proyecto.
     const root = project.root_file as string
+    const outdir = path.join(path.dirname(root), 'build')
     let log = ''
     let failed = false
 
@@ -79,6 +86,7 @@ export async function compileProject(projectId: string, userId: string): Promise
         'latexmk',
         [
           engineFlag,
+          '-cd',
           '-synctex=1',
           '-interaction=nonstopmode',
           '-file-line-error',
@@ -100,14 +108,14 @@ export async function compileProject(projectId: string, userId: string): Promise
 
     // El .log de latexmk trae mucho más detalle que stdout.
     const base = path.basename(root, path.extname(root))
-    const detailed = await readFile(path.join(workdir, 'build', `${base}.log`), 'utf8').catch(() => '')
+    const detailed = await readFile(path.join(workdir, outdir, `${base}.log`), 'utf8').catch(() => '')
     const fullLog = detailed || log
 
     const prefix = `${projectId}/${compilationId}`
     let pdfPath: string | null = null
     let synctexPath: string | null = null
 
-    const pdf = await readFile(path.join(workdir, 'build', `${base}.pdf`)).catch(() => null)
+    const pdf = await readFile(path.join(workdir, outdir, `${base}.pdf`)).catch(() => null)
     if (pdf) {
       pdfPath = `${prefix}/${base}.pdf`
       const { error } = await admin.storage.from('compiled').upload(pdfPath, pdf, {
@@ -117,7 +125,7 @@ export async function compileProject(projectId: string, userId: string): Promise
       if (error) throw new HttpError(500, `subida del PDF: ${error.message}`)
     }
 
-    const synctex = await readFile(path.join(workdir, 'build', `${base}.synctex.gz`)).catch(() => null)
+    const synctex = await readFile(path.join(workdir, outdir, `${base}.synctex.gz`)).catch(() => null)
     if (synctex) {
       synctexPath = `${prefix}/${base}.synctex.gz`
       await admin.storage.from('compiled').upload(synctexPath, synctex, {

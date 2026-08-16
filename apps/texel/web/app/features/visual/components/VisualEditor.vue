@@ -28,7 +28,7 @@ const kind = computed(() => docKindOf(props.path) ?? 'tex')
 const ytext = props.provider.doc.getText('content')
 
 const {
-  text, blocks, sourceOf, problems, collapsed, toggleCollapse,
+  text, blocks, sourceOf, problems, notice, collapsed, toggleCollapse,
   edit, editBody, rename, addInside, insert, remove, duplicate, move, toggle
 } = useBlocks(ytext, kind.value)
 
@@ -65,7 +65,17 @@ function addAtEnd(blockKind: BlockKind) {
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto px-4 py-3" data-macvue-glass="on">
+  <div class="h-full overflow-y-auto px-4 py-3 relative" data-macvue-glass="on">
+    <!-- Una acción llegó tarde y no se escribió nada. Es preferible a escribir
+         donde no toca, pero hay que decirlo o parece que la app no responde. -->
+    <div
+      v-if="notice"
+      class="sticky top-0 z-10 mx-auto mb-2 max-w-[820px] rounded-[var(--radius)] px-3 py-1.5
+             text-[12px] text-[var(--text)] bg-[var(--accent-soft)] border border-[var(--accent)]"
+    >
+      {{ notice }}
+    </div>
+
     <div v-if="visible.length === 0" class="text-center text-[var(--text-muted)] text-[12.5px] py-10">
       El archivo está vacío. Añade un bloque para empezar.
     </div>
@@ -74,10 +84,10 @@ function addAtEnd(blockKind: BlockKind) {
       <MacGlassPanel
         v-for="block in visible"
         :key="block.id"
-        material="regular"
+        material="clear"
         class="px-2 py-1.5"
       >
-        <BlockNode :block="block" :siblings="blocks" :depth="0" />
+        <BlockNode :block="block" :depth="0" />
       </MacGlassPanel>
 
       <div v-if="canWrite" class="relative self-start mt-1">

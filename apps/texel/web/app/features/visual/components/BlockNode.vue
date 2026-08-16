@@ -19,8 +19,6 @@ import type { Block, Field } from '../lib/types'
 
 const props = defineProps<{
   block: Block
-  /** Lista a la que pertenece; es lo que entiende `move`. */
-  siblings: Block[]
   depth: number
 }>()
 
@@ -77,8 +75,25 @@ function isArea(field: Field): boolean {
     || field.value.includes('\n')
 }
 
-const index = computed(() => props.siblings.indexOf(props.block))
 const showSource = ref(false)
+
+/**
+ * Borrar un contenedor se lleva por delante todo lo que tiene dentro, así que
+ * pide un segundo clic. Una línea suelta se borra a la primera: pedir
+ * confirmación para todo enseña a confirmar sin leer.
+ */
+const confirming = ref(false)
+const needsConfirm = computed(() => items.value.length > 0)
+
+function onRemove() {
+  if (needsConfirm.value && !confirming.value) {
+    confirming.value = true
+    setTimeout(() => { confirming.value = false }, 3000)
+    return
+  }
+  confirming.value = false
+  api.remove(props.block)
+}
 
 /**
  * Solo se renombra un entorno genérico: cambiarle el nombre a un `caso` o a un
@@ -183,16 +198,21 @@ const rawField = computed<Field>(() => ({
           <button v-if="isContainer" class="icon-btn" title="Añadir dentro" @click="onAddInside">
             <Plus :size="12" />
           </button>
-          <button class="icon-btn" title="Subir" @click="api.move(siblings, index, -1)">
+          <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
             <ChevronRight :size="12" class="-rotate-90" />
           </button>
-          <button class="icon-btn" title="Bajar" @click="api.move(siblings, index, 1)">
+          <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
             <ChevronRight :size="12" class="rotate-90" />
           </button>
           <button class="icon-btn" title="Duplicar" @click="api.duplicate(block)">
             <Copy :size="12" />
           </button>
-          <button class="icon-btn" title="Borrar" @click="api.remove(block)">
+          <button
+            class="icon-btn"
+            :class="{ 'icon-btn-warn': confirming }"
+            :title="confirming ? '¿Seguro? Se borra con lo que tiene dentro' : 'Borrar'"
+            @click="onRemove"
+          >
             <Trash2 :size="12" />
           </button>
         </template>
@@ -212,13 +232,13 @@ const rawField = computed<Field>(() => ({
       />
       <div class="actions self-start">
         <template v-if="canWrite">
-          <button class="icon-btn" title="Subir" @click="api.move(siblings, index, -1)">
+          <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
             <ChevronRight :size="12" class="-rotate-90" />
           </button>
-          <button class="icon-btn" title="Bajar" @click="api.move(siblings, index, 1)">
+          <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
             <ChevronRight :size="12" class="rotate-90" />
           </button>
-          <button class="icon-btn" title="Borrar" @click="api.remove(block)">
+          <button class="icon-btn" title="Borrar" @click="onRemove">
             <Trash2 :size="12" />
           </button>
         </template>
@@ -261,7 +281,6 @@ const rawField = computed<Field>(() => ({
         v-for="child in items"
         :key="child.id"
         :block="child"
-        :siblings="block.items!"
         :depth="depth + 1"
       />
 
@@ -297,6 +316,12 @@ const rawField = computed<Field>(() => ({
   cursor: pointer;
 }
 .name-static { cursor: default; }
+
+/* Borrado a la espera de confirmación. */
+:deep(.icon-btn-warn) {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
 
 /* Etiqueta de campo: la mínima para saber qué se está escribiendo. */
 .flabel {

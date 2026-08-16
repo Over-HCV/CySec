@@ -111,12 +111,21 @@ async function mountEditor() {
   emit('ready', provider)
 }
 
-function teardown() {
-  const fileId = props.fileId
+/**
+ * Cierra el editor del archivo `fileId`.
+ *
+ * El orden importa y por eso es asíncrono: primero se espera a que el proveedor
+ * escriba en el log lo último que se tecleó, y solo después se invoca
+ * `flush-doc`. Al revés, la función compacta sin ver esos últimos segundos y
+ * los da por podados.
+ */
+async function teardown(fileId: string) {
   view?.destroy()
   view = null
-  provider?.destroy()
+  const closing = provider?.destroy()
   provider = null
+  await closing
+
   doc?.destroy()
   doc = null
 
@@ -129,12 +138,14 @@ function teardown() {
 }
 
 onMounted(mountEditor)
-onBeforeUnmount(teardown)
+onBeforeUnmount(() => { void teardown(props.fileId) })
 
 // Cambiar de archivo = documento Yjs distinto: se desmonta y se vuelve a montar.
-watch(() => props.fileId, async () => {
+// `previous` y no `props.fileId`: aquí el prop ya vale el archivo nuevo, y hay
+// que cerrar el viejo.
+watch(() => props.fileId, async (_next, previous) => {
   loading.value = true
-  teardown()
+  await teardown(previous)
   await nextTick()
   await mountEditor()
 })

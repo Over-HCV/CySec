@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { MacButton, MacProgress, MacTextField } from '@macvue/core'
-import { Plus, Trash2, FileText, FolderUp } from 'lucide-vue-next'
+import { Plus, Trash2, FileText, FolderUp, Copy } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
-const { projects, pending, refresh, create, remove } = useProjects()
-const { progress, importFolder } = useProjectImport()
+import type { Project } from '~/shared/types/database'
+
+const { projects, pending, refresh, remove } = useProjects()
+const { progress, importFolder, createFromTemplate, duplicateProject } = useProjectImport()
 const user = useMe()
 const supabase = useSupabaseClient()
 
@@ -12,13 +14,30 @@ const creating = ref(false)
 const name = ref('')
 const error = ref('')
 
+/**
+ * Un proyecto nuevo nace de la plantilla del repo: clase, preámbulo,
+ * bibliografía y un taller listo. Antes nacía con un `main.tex` de ejemplo que
+ * no encontraba su clase, así que no compilaba hasta subir media carpeta.
+ */
 async function onCreate() {
   if (!name.value.trim()) return
   try {
-    const id = await create(name.value.trim())
+    const id = await createFromTemplate(name.value.trim())
     await navigateTo(`/p/${id}`)
   } catch (e) {
     error.value = (e as Error).message
+  }
+}
+
+async function onDuplicate(project: Project) {
+  error.value = ''
+  try {
+    const id = await duplicateProject(project)
+    toast.success(`Copiado: ${project.name}`)
+    await navigateTo(`/p/${id}`)
+  } catch (e) {
+    error.value = (e as Error).message
+    toast.error('No se pudo duplicar')
   }
 }
 
@@ -111,12 +130,18 @@ onMounted(refresh)
         @change="onPick"
       >
 
-      <form v-if="creating" class="glass rounded-[var(--radius-lg)] p-4 mb-4 flex gap-2" @submit.prevent="onCreate">
-        <span class="flex-1">
-          <MacTextField v-model="name" placeholder="Nombre del proyecto" />
-        </span>
-        <MacButton variant="prominent" type="submit">Crear</MacButton>
-        <MacButton type="button" @click="creating = false; name = ''">Cancelar</MacButton>
+      <form v-if="creating" class="glass rounded-[var(--radius-lg)] p-4 mb-4" @submit.prevent="onCreate">
+        <div class="flex gap-2">
+          <span class="flex-1">
+            <MacTextField v-model="name" placeholder="Nombre del proyecto" />
+          </span>
+          <MacButton variant="prominent" type="submit" :disabled="!!progress">Crear</MacButton>
+          <MacButton type="button" @click="creating = false; name = ''">Cancelar</MacButton>
+        </div>
+        <p class="m-0 mt-2 text-[11.5px] text-[var(--text-faint)]">
+          Se crea con la plantilla del curso: clase <code>cysec</code>, preámbulo,
+          bibliografía y un taller en <code>workshops/ws-01/</code>. Compila tal cual.
+        </p>
       </form>
 
       <div v-if="progress" class="glass rounded-[var(--radius-lg)] p-4 mb-4">
@@ -146,6 +171,14 @@ onMounted(refresh)
                 {{ p.engine }} · {{ p.root_file }} · actualizado {{ fmt(p.updated_at) }}
               </span>
             </span>
+            <button
+              class="icon-btn w-7 h-7"
+              title="Duplicar: copia los archivos a un proyecto nuevo"
+              :disabled="!!progress"
+              @click.prevent="onDuplicate(p)"
+            >
+              <Copy :size="14" />
+            </button>
             <button
               v-if="p.owner_id === user?.id"
               class="icon-btn w-7 h-7 hover:text-[var(--danger)]"

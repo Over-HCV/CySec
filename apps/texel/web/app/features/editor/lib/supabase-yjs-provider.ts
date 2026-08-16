@@ -19,6 +19,7 @@ import * as Y from 'yjs'
 import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness'
 import { toBase64, fromBase64 } from 'lib0/buffer'
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
+import { seedDoc } from './seed'
 
 /** Intervalo de agrupación de updates antes de emitirlos por el canal. */
 const FLUSH_MS = 50
@@ -126,7 +127,12 @@ export class SupabaseYjsProvider {
     }
   }
 
-  destroy(): void {
+  /**
+   * Cierra el proveedor. **Hay que esperarlo**: dentro va la última escritura al
+   * log, y quien cierre sin esperar (o invoque `flush-doc` a la vez) puede
+   * dejar fuera del snapshot lo último que se tecleó.
+   */
+  async destroy(): Promise<void> {
     if (this.destroyed) return
     this.destroyed = true
 
@@ -134,9 +140,21 @@ export class SupabaseYjsProvider {
     this.awareness.off('update', this.handleAwarenessUpdate)
     if (this.flushTimer) clearTimeout(this.flushTimer)
     if (this.persistTimer) clearInterval(this.persistTimer)
+    this.flushTimer = null
+    this.persistTimer = null
+
+    // Lo que quedara sin emitir se manda ahora: quien siga conectado lo aplica
+    // sin esperar a recargar la página.
+    if (this.channel && this.pendingBroadcast.length > 0) {
+      const merged = Y.mergeUpdates(this.pendingBroadcast)
+      this.pendingBroadcast = []
+      this.channel.send({ type: 'broadcast', event: 'update', payload: { u: toBase64(merged) } })
+    }
 
     removeAwarenessStates(this.awareness, [this.doc.clientID], 'local')
-    void this.persist()
+    // Un reintento: ya no queda temporizador que recoja lo que falle, y lo que
+    // no llegue al log no lo ve nadie nunca más.
+    if (!await this.persist()) await this.persist()
 
     if (this.channel) void this.supabase.removeChannel(this.channel)
     this.channel = null
@@ -203,20 +221,24 @@ export class SupabaseYjsProvider {
 
     // Documento nunca editado: sembramos con el contenido plano del archivo,
     // que es lo que existe cuando el proyecto se creó o se importó.
+    //
+    // La siembra va por `seedDoc` y no por un `insert` suelto: dos clientes que
+    // abran el archivo antes de que ninguno haya persistido siembran los dos, y
+    // solo un update determinista evita que Yjs entrelace el documento consigo
+    // mismo. Ver `lib/seed.ts`.
     if (this.doc.getText('content').length === 0 && !snapshot && (updates?.length ?? 0) === 0) {
       const { data: file } = await this.supabase
         .from('files')
         .select('content')
         .eq('id', this.fileId)
         .single()
-      if (file?.content) {
-        this.doc.getText('content').insert(0, file.content)
-      }
+      if (file?.content) seedDoc(this.doc, file.content, this.canWrite)
     }
   }
 
-  private async persist(): Promise<void> {
-    if (!this.canWrite || this.pendingPersist.length === 0) return
+  /** `false` si quedó algo sin escribir; el llamador decide si reintenta. */
+  private async persist(): Promise<boolean> {
+    if (!this.canWrite || this.pendingPersist.length === 0) return true
     const merged = Y.mergeUpdates(this.pendingPersist)
     this.pendingPersist = []
     const { error } = await this.supabase.from('doc_updates').insert({
@@ -225,7 +247,11 @@ export class SupabaseYjsProvider {
       client_id: String(this.doc.clientID)
     })
     // Si falla, devolvemos el update a la cola: se reintenta en el siguiente ciclo.
-    if (error) this.pendingPersist.unshift(merged)
+    if (error) {
+      this.pendingPersist.unshift(merged)
+      return false
+    }
+    return true
   }
 
   private emitPeers() {

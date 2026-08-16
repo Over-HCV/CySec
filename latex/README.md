@@ -4,6 +4,24 @@ Proyecto LaTeX de la asignatura *Seguridad para Arquitectura Empresarial y gesti
 seguridad* (32310005). La capa reutilizable vive en `tex/`; cada entrega es una carpeta en
 `workshops/`.
 
+## Dos formas de compilar lo mismo
+
+| | Dónde | Cómo |
+|---|---|---|
+| **Terminal** | esta carpeta | `make ws-01` llama a `latexmk` y deja el PDF en `build/ws-01/main.pdf` |
+| **Texel** | navegador | el servicio de compilación ejecuta el mismo `latexmk`; no hace falta `make` |
+
+`build/` es solo salida: se regenera en cada compilación y está en `.gitignore`.
+El `Makefile` no es parte del documento, es el atajo para no escribir el comando
+de `latexmk` entero cada vez (y `make new WS=ws-02` copia `workshops/_template`).
+
+**Qué se sube a Texel**: la carpeta `latex/` entera, no un taller suelto.
+`workshops/ws-01/main.tex` hace `\documentclass[es]{cysec}` y `\input{meta}`, y
+la clase, el preámbulo y la bibliografía viven en `tex/`; sin ellos no compila.
+En Texel, «Nuevo proyecto» ya crea esa estructura completa a partir de
+`workshops/_template` + `tex/` (ver `apps/texel/web/scripts/build-template.ts`),
+así que solo hace falta cargar la carpeta si quieres subir un taller ya escrito.
+
 ## Compilar
 
 ```sh

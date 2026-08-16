@@ -23,7 +23,8 @@ export interface VisualApi {
   rename: (block: Block, name: string) => void
   /** Añade un hijo al final del contenedor. */
   addInside: (container: Block, kind?: BlockKind) => void
-  move: (siblings: Block[], index: number, dir: -1 | 1) => void
+  /** Intercambia el bloque con su vecino visible; resuelve hermanos por sí solo. */
+  move: (block: Block, dir: -1 | 1) => void
   duplicate: (block: Block) => void
   remove: (block: Block) => void
   toggleOption: (block: Block) => void

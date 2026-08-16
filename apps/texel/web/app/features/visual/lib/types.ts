@@ -40,6 +40,9 @@ export type BlockKind =
   | 'input'      // \input{ruta}
   | 'env'        // \begin{cualquiera}{args…} … \end{cualquiera}
   | 'preamble'   // todo lo anterior a \begin{document}, agrupado
+  | 'paragraph'  // prosa: se edita con formato, no como código
+  | 'atom'       // macro suelta con nombre propio (\makewsheader, \wstitle…)
+  | 'meta'       // los \ws* de meta.tex, agrupados
   | 'bibEntry'   // @tipo{clave, campo = {…}}
   | 'raw'        // cualquier otra cosa: se conserva tal cual
 
@@ -55,6 +58,8 @@ export type BlockKind =
 export interface BlockMeta {
   nivel?: number
   env?: string
+  /** Macro que representa un `atom`, o el que no se pudo leer en un `raw`. */
+  cmd?: string
   bodyFrom?: number
   bodyTo?: number
   nameFrom?: number
@@ -104,17 +109,37 @@ export function sliceOf(text: string, span: Span): string {
 }
 
 /**
- * Identidad para el `:key` de la lista. No intenta sobrevivir a un reparseo con
- * el contenido cambiado — no hace falta: los campos con el foco guardan su
- * borrador local y no se repintan mientras se escribe (ver `useBlocks`).
+ * Identidad por posición en el árbol: `2.1.0` es el primer hijo del segundo hijo
+ * del tercer bloque. Sirve de `:key` y, sobre todo, de dirección: una acción de
+ * la interfaz vuelve a buscar su bloque **en el árbol recién parseado** antes de
+ * escribir, en vez de fiarse del objeto que tenía cuando se pintó.
+ *
+ * Antes era `kind#ordinal` por lista, y el mismo `raw#1` existía dentro de cada
+ * contenedor: el estado de plegado y los avisos de un bloque se los comía otro.
  */
-export function assignIds(blocks: Block[]): Block[] {
-  const seen = new Map<string, number>()
-  for (const block of blocks) {
-    const n = (seen.get(block.kind) ?? 0) + 1
-    seen.set(block.kind, n)
-    block.id = `${block.kind}#${n}`
-    if (block.items) assignIds(block.items)
-  }
+export function assignIds(blocks: Block[], prefix = ''): Block[] {
+  blocks.forEach((block, i) => {
+    block.id = prefix === '' ? String(i) : `${prefix}.${i}`
+    if (block.items) assignIds(block.items, block.id)
+  })
   return blocks
+}
+
+/** El bloque que hoy ocupa esa dirección, o `null` si el árbol ya no llega ahí. */
+export function blockAt(blocks: Block[], id: string): Block | null {
+  let list = blocks
+  let found: Block | null = null
+  for (const part of id.split('.')) {
+    found = list[Number(part)] ?? null
+    if (!found) return null
+    list = found.items ?? []
+  }
+  return found
+}
+
+/** Los hermanos de esa dirección: la lista donde vive el bloque. */
+export function siblingsAt(blocks: Block[], id: string): Block[] {
+  const parent = id.slice(0, id.lastIndexOf('.'))
+  if (!id.includes('.')) return blocks
+  return blockAt(blocks, parent)?.items ?? []
 }

@@ -30,20 +30,24 @@ Deno.serve(async (req) => {
 
   const doc = new Y.Doc()
 
-  const { data: snapshot } = await admin
+  const { data: snapshot, error: readSnapshot } = await admin
     .from('doc_snapshots')
     .select('state, through_seq')
     .eq('file_id', fileId)
     .maybeSingle()
 
+  if (readSnapshot) return fail('no se pudo leer el snapshot', readSnapshot)
+
   if (snapshot?.state) Y.applyUpdate(doc, decodeBase64(snapshot.state))
 
-  const { data: updates } = await admin
+  const { data: updates, error: readUpdates } = await admin
     .from('doc_updates')
     .select('seq, update')
     .eq('file_id', fileId)
     .gt('seq', snapshot?.through_seq ?? 0)
     .order('seq', { ascending: true })
+
+  if (readUpdates) return fail('no se pudo leer el log', readUpdates)
 
   if (!updates?.length) {
     return new Response(JSON.stringify({ ok: true, compacted: 0 }), {
@@ -53,26 +57,53 @@ Deno.serve(async (req) => {
 
   for (const row of updates) Y.applyUpdate(doc, decodeBase64(row.update))
 
-  const through = updates.at(-1)!.seq
+  const seqs = updates.map(row => row.seq as number)
+  const through = Math.max(...seqs, snapshot?.through_seq ?? 0)
   const state = encodeBase64(Y.encodeStateAsUpdate(doc))
   const text = doc.getText('content').toString()
 
-  await admin.from('doc_snapshots').upsert({
+  // A partir de aquí se comprueba cada escritura y se aborta a la primera que
+  // falle. El orden no es casual: nada se poda hasta que el snapshot y el texto
+  // están a salvo. Si se podara antes, un fallo de red dejaría el documento sin
+  // log y sin snapshot, es decir, en la versión de hace horas.
+  const { error: wroteSnapshot } = await admin.from('doc_snapshots').upsert({
     file_id: fileId,
     state,
     through_seq: through,
     updated_at: new Date().toISOString()
   })
 
-  await admin.from('files').update({
+  if (wroteSnapshot) return fail('no se pudo guardar el snapshot', wroteSnapshot)
+
+  const { error: wroteFile } = await admin.from('files').update({
     content: text,
     size_bytes: new TextEncoder().encode(text).length
   }).eq('id', fileId)
 
-  // Ya están dentro del snapshot: el log puede podarse.
-  await admin.from('doc_updates').delete().eq('file_id', fileId).lte('seq', through)
+  if (wroteFile) return fail('no se pudo escribir el archivo', wroteFile)
+
+  // Se podan **solo las filas que se han leído**, no todo lo que quede por
+  // debajo de `through`. `seq` es un `bigserial`: una fila puede tener asignado
+  // un número menor y confirmarse después de nuestra lectura, así que un
+  // `lte(seq, through)` borraría una edición que no está en el snapshot. Esa
+  // edición no la recupera nadie.
+  const { error: pruned } = await admin
+    .from('doc_updates')
+    .delete()
+    .eq('file_id', fileId)
+    .in('seq', seqs)
+
+  if (pruned) return fail('no se pudo podar el log', pruned)
 
   return new Response(JSON.stringify({ ok: true, compacted: updates.length, through }), {
     headers: { 'content-type': 'application/json' }
   })
 })
+
+function fail(message: string, error: { message?: string }): Response {
+  console.error(`[flush-doc] ${message}: ${error.message ?? ''}`)
+  return new Response(JSON.stringify({ error: message }), {
+    status: 500,
+    headers: { 'content-type': 'application/json' }
+  })
+}

@@ -11,6 +11,8 @@
  */
 import type { Block, BlockMeta, Field, Span } from './types'
 import { fillGaps, readGroup, skipSpace } from './scan'
+import { ATOMS, KNOWN_COMMANDS, WS_META } from './catalog'
+import { isProse } from './inline'
 
 /**
  * Entornos cuyo interior NO se convierte en bloques: tablas, flotantes y
@@ -32,7 +34,72 @@ const SECTION_LEVEL: Record<string, number> = {
 
 export function parseTex(text: string): Block[] {
   const blocks = fillGaps(text, scanRange(text, 0, text.length), 0, text.length)
-  return groupPreamble(blocks)
+  return groupMeta(text, groupPreamble(classify(text, blocks)))
+}
+
+/**
+ * Segunda pasada sobre los huecos: decide si un `raw` es prosa o es LaTeX.
+ *
+ * Un hueco cuyo texto solo lleva marcas (`\textbf`, `\texttt`, escapes) es un
+ * **párrafo** y se edita como texto normal. Lo demás sigue siendo `raw`, pero si
+ * dentro hay un macro que el editor sí conoce, es señal de que no se pudo leer
+ * —una llave sin cerrar— y se marca para poder avisar en vez de soltar el
+ * código en la cara del usuario.
+ */
+function classify(text: string, blocks: Block[]): Block[] {
+  for (const block of blocks) {
+    if (block.items) classify(text, block.items)
+    if (block.kind !== 'raw' || block.flags?.blank) continue
+
+    const source = text.slice(block.span.from, block.span.to)
+    if (isProse(source)) {
+      block.kind = 'paragraph'
+      block.fields = [{ name: 'texto', span: block.span, value: source }]
+      continue
+    }
+
+    const broken = KNOWN_COMMANDS.find(cmd =>
+      new RegExp(`\\\\${cmd}\\b`).test(source) || source.includes(`\\begin{${cmd}}`))
+    if (broken) {
+      block.flags = { ...block.flags, broken: true }
+      block.meta = { ...block.meta, cmd: broken }
+    }
+  }
+  return blocks
+}
+
+/**
+ * Agrupa los `\ws*` de `meta.tex` en un bloque «Datos del taller».
+ *
+ * Igual que el preámbulo: agrupación pura, el bloque abarca exactamente a sus
+ * hijos, así que la partición se conserva. Sin esto son cinco macros sueltas
+ * que nadie relaciona entre sí.
+ */
+function groupMeta(text: string, blocks: Block[]): Block[] {
+  const first = blocks.findIndex(isWsMeta)
+  if (first === -1) return blocks
+
+  let last = first
+  for (let i = first; i < blocks.length; i++) {
+    if (isWsMeta(blocks[i]!)) last = i
+    else if (!blocks[i]!.flags?.blank) break
+  }
+  if (last === first && blocks.filter(isWsMeta).length < 2) return blocks
+
+  const items = blocks.slice(first, last + 1)
+  const group: Block = {
+    id: '',
+    kind: 'meta',
+    span: { from: items[0]!.span.from, to: items[items.length - 1]!.span.to },
+    fields: [],
+    items,
+    meta: { bodyFrom: items[0]!.span.from, bodyTo: items[items.length - 1]!.span.to }
+  }
+  return [...blocks.slice(0, first), group, ...blocks.slice(last + 1)]
+}
+
+function isWsMeta(block: Block): boolean {
+  return block.kind === 'atom' && WS_META.has(block.meta?.cmd ?? '')
 }
 
 /**
@@ -150,7 +217,41 @@ function readCommand(
     })
   }
 
+  const atom = ATOMS[name.value]
+  if (atom) return readAtom(text, at, name, atom.arg, limit)
+
   return null
+}
+
+/**
+ * Macro con nombre propio: `\makewsheader`, `\wstitle{…}`,
+ * `\printbibliography[…]`. Se convierte en un bloque con etiqueta en cristiano
+ * y, si lleva un dato dentro, con su campo editable.
+ */
+function readAtom(
+  text: string,
+  at: number,
+  name: Named,
+  arg: 'none' | 'group' | 'option',
+  limit: number
+): { block: Block, end: number } | null {
+  const meta: BlockMeta = { cmd: name.value }
+
+  if (arg === 'group') {
+    const group = argument(text, name.end, limit)
+    if (!group) return null
+    return block('atom', at, group.end, [field(text, 'valor', group.inner)], undefined, undefined, meta)
+  }
+
+  if (arg === 'option') {
+    // `[…]` es opcional: sin él el bloque sigue siendo válido.
+    const start = skipSpace(text, name.end)
+    const option = text[start] === '[' ? readGroup(text, start, true, '[', ']') : null
+    const end = option && option.end <= limit ? option.end : name.end
+    return block('atom', at, end, [], undefined, undefined, meta)
+  }
+
+  return block('atom', at, name.end, [], undefined, undefined, meta)
 }
 
 function readEnvironment(

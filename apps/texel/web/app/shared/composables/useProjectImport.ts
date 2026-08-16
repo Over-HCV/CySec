@@ -13,7 +13,8 @@
 import {
   guessEngine, pickRoot, planImport, type ImportPlan, type PlannedFile
 } from '~/features/projects/lib/import-folder'
-import type { TexEngine } from '~/shared/types/database'
+import { TEMPLATE_FILES, TEMPLATE_ROOT } from '~/features/projects/lib/template.generated'
+import type { ProjectFile, TexEngine } from '~/shared/types/database'
 
 /** Filas por lote. Ni una a una (lento) ni todas juntas (una carga enorme). */
 const BATCH = 40
@@ -85,6 +86,112 @@ export function useProjectImport() {
     return { id, plan }
   }
 
+  /**
+   * Crea un proyecto a partir de la plantilla del repo: la capa compartida
+   * (`cysec.cls`, `tex/common/*`, la bibliografía) y un taller listo para
+   * escribir. Es lo que hace que un proyecto nuevo compile al primer clic, en
+   * vez de nacer con un `main.tex` de ejemplo que no encuentra su clase.
+   */
+  async function createFromTemplate(name: string): Promise<string> {
+    const texts = Object.entries(TEMPLATE_FILES).map(([path, content]) => ({ path, content }))
+    progress.value = { done: 0, total: texts.length, label: 'Creando desde la plantilla…' }
+
+    const { data, error } = await supabase.rpc('create_project', {
+      p_name: name.slice(0, 120),
+      p_engine: 'xelatex' as TexEngine
+    })
+    if (error) { progress.value = null; throw error }
+    const id = data as string
+
+    try {
+      await writeTexts(id, texts)
+      // La RPC deja un `main.tex` de ejemplo. Si la plantilla trae el suyo, el
+      // `upsert` ya lo ha sustituido; borrarlo aquí se llevaría el bueno.
+      if (!texts.some(t => t.path === 'main.tex')) {
+        await supabase.from('files').delete().eq('project_id', id).eq('path', 'main.tex')
+      }
+      const { error: rootError } = await supabase.from('projects')
+        .update({ root_file: TEMPLATE_ROOT }).eq('id', id)
+      if (rootError) throw rootError
+    } catch (e) {
+      await supabase.from('projects').delete().eq('id', id)
+      progress.value = null
+      throw e
+    }
+
+    progress.value = null
+    return id
+  }
+
+  /**
+   * Copia un proyecto entero a uno nuevo: filas de `files` y objetos de
+   * `project-assets`. Es «parto del taller anterior y sigo» sin bajar nada al
+   * disco.
+   *
+   * Se copia desde `files.content`, que es lo que el compilador lee; si alguien
+   * tiene el archivo abierto con cambios sin volcar, la copia se queda en el
+   * último guardado. Es la misma foto que compilaría ahora mismo.
+   */
+  async function duplicateProject(source: { id: string, name: string, root_file: string, engine: TexEngine }): Promise<string> {
+    const { data: rows, error: readError } = await supabase
+      .from('files')
+      .select('path, kind, content, storage_path, size_bytes')
+      .eq('project_id', source.id)
+    if (readError) throw readError
+
+    const files = (rows ?? []) as Pick<ProjectFile, 'path' | 'kind' | 'content' | 'storage_path' | 'size_bytes'>[]
+    progress.value = { done: 0, total: files.length, label: `Copiando ${source.name}…` }
+
+    const { data, error } = await supabase.rpc('create_project', {
+      p_name: `${source.name} (copia)`.slice(0, 120),
+      p_engine: source.engine
+    })
+    if (error) { progress.value = null; throw error }
+    const id = data as string
+
+    try {
+      await writeTexts(id, files.filter(f => f.kind === 'text').map(f => ({
+        path: f.path,
+        content: f.content ?? ''
+      })))
+
+      for (const file of files.filter(f => f.kind === 'binary' && f.storage_path)) {
+        bump(1, file.path)
+        const { data: blob, error: downloadError } = await supabase.storage
+          .from('project-assets').download(file.storage_path!)
+        if (downloadError) throw downloadError
+
+        const storagePath = `${id}/${file.path}`
+        const { error: uploadError } = await supabase.storage
+          .from('project-assets').upload(storagePath, blob, { upsert: true })
+        if (uploadError) throw uploadError
+
+        const { error: rowError } = await supabase.from('files').upsert({
+          project_id: id,
+          path: file.path,
+          kind: 'binary' as const,
+          storage_path: storagePath,
+          size_bytes: file.size_bytes
+        }, { onConflict: 'project_id,path' })
+        if (rowError) throw rowError
+      }
+
+      if (!files.some(f => f.path === 'main.tex')) {
+        await supabase.from('files').delete().eq('project_id', id).eq('path', 'main.tex')
+      }
+      const { error: rootError } = await supabase.from('projects')
+        .update({ root_file: source.root_file }).eq('id', id)
+      if (rootError) throw rootError
+    } catch (e) {
+      await supabase.from('projects').delete().eq('id', id)
+      progress.value = null
+      throw e
+    }
+
+    progress.value = null
+    return id
+  }
+
   async function writeTexts(projectId: string, texts: { path: string, content: string }[]) {
     for (let i = 0; i < texts.length; i += BATCH) {
       const chunk = texts.slice(i, i + BATCH)
@@ -133,7 +240,7 @@ export function useProjectImport() {
     }
   }
 
-  return { progress, importFolder }
+  return { progress, importFolder, createFromTemplate, duplicateProject }
 }
 
 /**
