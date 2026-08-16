@@ -1,9 +1,9 @@
 <script setup lang="ts">
 const { current: wallpaper } = useWallpaper()
 
-/** La piscina va a cámara superlenta (0.125×): a velocidad real el agua
- *  parece metraje de stock; lenta es lo que da la calma. Se reaplica cada
- *  vez que el <video> se monta, porque cambiar de fondo lo destruye. */
+/** La piscina va a cámara lenta (0.4×): a velocidad real el agua parece
+ *  metraje de stock; lenta es lo que da la calma. Se reaplica cada vez que
+ *  el <video> se monta, porque cambiar de fondo lo destruye. */
 const pool = ref<HTMLVideoElement | null>(null)
 watchEffect(() => {
   if (pool.value) pool.value.playbackRate = 0.4
@@ -14,9 +14,9 @@ watchEffect(() => {
   <!-- `data-macvue-glass="on"` enciende la lente de macvue en toda la aplicación:
        sin este atributo en algún ancestro, `MacGlassPanel` se queda en un blur
        plano y nunca refracta (ver `GlassLens` en @macvue/core).
-       `data-accent` cambia el acento según el fondo: sobre «agua» todo es azul
-       y el azul de macOS se pierde, así que ahí se usa turquesa (theme.css). -->
-  <div class="h-full" data-macvue-glass="on" :data-accent="wallpaper === 'agua' || wallpaper === 'aqua' ? 'aqua' : null">
+       `data-accent` cambia el acento según el fondo: sobre «sky» y «aqua»
+       todo es azul y el de macOS se pierde, así que ahí va turquesa. -->
+  <div class="h-full" data-macvue-glass="on" :data-accent="wallpaper === 'sky' || wallpaper === 'aqua' ? 'aqua' : null">
     <!-- Fondo de la ventana. Es lo que el cristal refracta, así que su detalle
          importa tanto como el de los paneles; el CSS está en shared/styles/theme.css. -->
     <div class="app-backdrop" :class="`app-backdrop--${wallpaper}`" aria-hidden="true">
@@ -37,9 +37,8 @@ watchEffect(() => {
       />
 
       <!-- Agua, cáusticas y rayos: tres capas para que la luz se cruce a
-           distintas velocidades. Existen en los fondos animados («agua» y
-           «heaven», que comparten movimiento con paletas distintas). -->
-      <template v-if="wallpaper === 'agua' || wallpaper === 'heaven'">
+           distintas velocidades. Solo existen en el fondo animado «sky». -->
+      <template v-if="wallpaper === 'sky'">
         <div class="wall-water" />
         <div class="wall-caustics" />
         <div class="wall-caustics-2" />

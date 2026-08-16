@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { MacGlassPanel, MacSearchField } from '@macvue/core'
-import { ChevronRight, FileText, FilePlus, FolderPlus, Trash2, Image, FileCode } from 'lucide-vue-next'
+import { ChevronRight, FileText, FilePlus, FolderPlus, Trash2, Image, FileCode, Folder, FolderOpen } from 'lucide-vue-next'
 import type { ProjectFile } from '~/shared/types/database'
 
 const props = defineProps<{
@@ -106,20 +106,10 @@ watch(query, (value) => { if (value) collapsed.value = new Set() })
       <span class="flex-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)] pl-1">
         Archivos
       </span>
-      <button
-        v-if="canWrite"
-        class="icon-btn"
-        title="Nuevo archivo"
-        @click="startCreate('file')"
-      >
+      <button v-if="canWrite" class="icon-btn" title="Nuevo archivo" @click="startCreate('file')">
         <FilePlus :size="14" />
       </button>
-      <button
-        v-if="canWrite"
-        class="icon-btn"
-        title="Nueva carpeta"
-        @click="startCreate('folder')"
-      >
+      <button v-if="canWrite" class="icon-btn" title="Nueva carpeta" @click="startCreate('folder')">
         <FolderPlus :size="14" />
       </button>
     </header>
@@ -130,72 +120,51 @@ watch(query, (value) => { if (value) collapsed.value = new Set() })
 
     <div class="flex-1 overflow-y-auto overflow-x-hidden pb-2 pane">
       <div v-if="creating" class="px-2 pb-1">
-        <input
-          v-model="newPath"
-          data-new-path
-          class="input text-xs py-1"
-          :placeholder="creating === 'folder' ? 'sections' : 'sections/02-nueva.tex'"
-          @keyup.enter="confirmCreate"
-          @keyup.escape="creating = null; newPath = ''"
-          @blur="confirmCreate"
-        >
+        <input v-model="newPath" data-new-path class="input text-xs py-1"
+          :placeholder="creating === 'folder' ? 'sections' : 'sections/02-nueva.tex'" @keyup.enter="confirmCreate"
+          @keyup.escape="creating = null; newPath = ''" @blur="confirmCreate">
       </div>
 
       <template v-for="folder in folders" :key="folder.name || 'root'">
-        <button
-          v-if="folder.name"
+
+        <button v-if="folder.name"
           class="w-full flex items-center gap-1 px-2 py-1 border-none bg-transparent text-[11px] text-[var(--text-muted)] hover:text-[var(--text)]"
-          @click="toggleFolder(folder.name)"
-        >
-          <ChevronRight
-            :size="12"
-            class="transition-transform duration-150"
-            :class="collapsed.has(folder.name) ? '' : 'rotate-90'"
-          />
+          @click="toggleFolder(folder.name)">
+
+          <ChevronRight :size="12" class="transition-transform duration-150"
+            :class="collapsed.has(folder.name) ? '' : 'rotate-90'" />
+
+          <component :is="collapsed.has(folder.name) ? Folder : FolderOpen" :size="12" class="shrink-0" />
+
           <span class="truncate">{{ folder.name }}</span>
         </button>
 
         <ul v-show="!collapsed.has(folder.name)" class="list-none m-0 p-0">
           <li v-for="file in folder.files" :key="file.id">
-            <div
-              class="group flex items-center gap-1.5 mx-1.5 px-2 py-[3px] rounded-md cursor-default"
+            <div class="group flex items-center gap-1.5 mx-1.5 px-2 py-[3px] rounded-md cursor-default"
               :class="file.id === activeId ? 'bg-[var(--bg-selected)]' : 'hover:bg-[var(--bg-hover)]'"
-              :style="folder.name ? 'padding-left: 22px' : ''"
-              :title="file.path"
-              @click="emit('select', file)"
-            >
+              :style="folder.name ? 'padding-left: 22px' : ''" :title="file.path" @click="emit('select', file)">
               <component :is="iconFor(file)" :size="13" class="shrink-0 text-[var(--text-muted)]" />
               <span class="flex-1 truncate text-[12px]">{{ leaf(file.path) }}</span>
 
-              <span
-                v-if="file.path === rootFile"
-                class="chip h-[15px] px-1 text-[9px]"
-                title="Archivo raíz de la compilación"
-              >raíz</span>
+              <span v-if="file.path === rootFile" class="chip h-[15px] px-1 text-[9px]"
+                title="Archivo raíz de la compilación">raíz</span>
 
               <template v-else-if="canWrite">
-                <button
-                  class="icon-btn w-5 h-5 hidden group-hover:grid"
-                  title="Marcar como archivo raíz"
-                  @click.stop="emit('setRoot', file)"
-                >
+                <button class="icon-btn w-5 h-5 hidden group-hover:grid" title="Marcar como archivo raíz"
+                  @click.stop="emit('setRoot', file)">
                   <FileCode :size="11" />
                 </button>
-                <button
-                  class="icon-btn w-5 h-5 hidden group-hover:grid hover:text-[var(--danger)]"
-                  title="Eliminar archivo"
-                  @click.stop="emit('remove', file)"
-                >
+                <button class="icon-btn w-5 h-5 hidden group-hover:grid hover:text-[var(--danger)]"
+                  title="Eliminar archivo" @click.stop="emit('remove', file)">
                   <Trash2 :size="11" />
                 </button>
               </template>
             </div>
           </li>
 
-          <li
-            v-if="folder.name && !folder.files.length"
-            class="px-2 py-0.5 pl-[30px] text-[11px] text-[var(--text-muted)] italic"
-          >
+          <li v-if="folder.name && !folder.files.length"
+            class="px-2 py-0.5 pl-[30px] text-[11px] text-[var(--text-muted)] italic">
             carpeta vacía
           </li>
         </ul>

@@ -16,7 +16,7 @@
   /* Superficies */
   --bg:            #ffffff;
   --bg-deep:       #e9eaef;          /* lienzo bajo el cristal */
-  /* Fondo «agua» en claro: aguas someras iluminadas — azul con cuerpo, espuma
+  /* Fondo «sky» en claro: aguas someras iluminadas — azul con cuerpo, espuma
      azulada (nunca blanca pura: las cáusticas van en blanco con `screen` y un
      fondo claro las convierte en lejía) y un toque turquesa que engancha con
      el acento de `data-accent='aqua'`. En oscuro hay otra paleta abajo. */
@@ -97,7 +97,7 @@
   :root:not([data-theme='light']) {
     --bg:            #1c1c1e;
     --bg-deep:       #0b0c10;
-    /* Aquí abajo «agua» es mar profundo: la letra es blanca y un fondo claro
+    /* Aquí abajo «sky» es mar profundo: la letra es blanca y un fondo claro
        la mata, y además los rayos de sol solo brillan sobre un azul con
        profundidad. Azules vivos (no apagados) + el mismo turquesa del acento.
        El comentario de "piscina siempre clara" anterior era otra época. */
@@ -257,12 +257,13 @@ a { color: var(--accent); }
    los paneles quedan planos. De ahí que el fondo de salida sea la imagen, con
    sus franjas de alto contraste.
 
-   Tres variantes, elegibles desde la lista de proyectos (`useWallpaper`):
+   Cuatro variantes, elegibles desde la lista de proyectos (`useWallpaper`):
      · aurora — imagen; la que mejor luce el cristal
-     · agua   — degradados animados en CSS, sin imagen
+     · sky    — degradados animados en CSS, sin imagen
+     · aqua   — vídeo de piscina a cámara lenta
      · liso   — color plano
 
-   Las capas `.wall-*` y los `--wall-*` pertenecen solo a «agua». */
+   Las capas `.wall-*` y los `--wall-*` pertenecen solo a «sky». */
 
 .app-backdrop {
   position: fixed;
@@ -275,7 +276,7 @@ a { color: var(--accent); }
   background: url('/assets/background.png') center / cover no-repeat fixed;
 }
 
-.app-backdrop--agua {
+.app-backdrop--sky {
   background: var(--wall-base);
 }
 
@@ -296,21 +297,6 @@ a { color: var(--accent); }
   object-fit: cover;
 }
 
-/* «Heaven»: el mismo movimiento del agua, pero etéreo — perla, un lila muy
-   tenue y un hilo de oro. Las capas `.wall-*` leen los `--wall-*` por
-   herencia, así que basta con redefinirlos aquí debajo. El acento sigue
-   siendo el azul de macOS: sobre blanco contrasta de sobra. */
-.app-backdrop--heaven {
-  --wall-base:     #f4f6fb;
-  --wall-1:        #ffffff;
-  --wall-2:        #eef1f8;
-  --wall-3:        #f0e9f7;
-  --wall-4:        #fff7ea;
-  --wall-caustic:  rgba(255, 255, 255, 0.65);
-  --wall-ray:      rgba(255, 252, 245, 0.55);
-  background: var(--wall-base);
-}
-
 .app-backdrop--liso {
   background: var(--bg-deep);
 }
@@ -322,7 +308,7 @@ a { color: var(--accent); }
   pointer-events: none;
 }
 
-/* Fondo «agua»: tres capas superpuestas con `screen`, cada una a su ritmo:
+/* Fondo «sky»: tres capas superpuestas con `screen`, cada una a su ritmo:
      1. masas de color que respiran (el agua),
      2. la red de cáusticas — dos tramas cónicas desalineadas que, al moverse a
         distinta velocidad, dibujan esos filamentos de luz,
@@ -395,7 +381,7 @@ a { color: var(--accent); }
   to   { transform: translate3d(10%, 4%, 0) rotate(2deg); }
 }
 
-/* El fondo «agua» se mueve siempre, a propósito. Si algún día quieres respetar
+/* El fondo «sky» se mueve siempre, a propósito. Si algún día quieres respetar
    el ajuste de accesibilidad del sistema (macOS → Accesibilidad → Pantalla →
    Reducir movimiento), descomenta esto:
 
@@ -405,11 +391,11 @@ a { color: var(--accent); }
 */
 
 /* ── Acento según el fondo ──────────────────────────────────────────────────
-   Sobre «agua» todo es azul, y el acento azul de macOS se pierde dentro. Un
-   turquesa complementario mantiene las acciones visibles sin romper la
-   sensación de piscina. `app.vue` marca la raíz con `data-accent='aqua'`
-   cuando el fondo activo es «agua»; retocar `--macvue-accent` retiñe solos
-   los controles de la librería (botones, casillas, segmentados). */
+   Sobre «sky» y «aqua» todo es azul, y el acento azul de macOS se pierde
+   dentro. Un turquesa complementario mantiene las acciones visibles sin
+   romper la sensación de piscina. `app.vue` marca la raíz con
+   `data-accent='aqua'` cuando el fondo activo es uno de los dos; retocar
+   `--macvue-accent` retiñe solos los controles de la librería. */
 [data-accent='aqua'] {
   --accent:        #00a39b;
   --accent-soft:   rgba(0, 163, 155, 0.14);

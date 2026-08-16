@@ -2,12 +2,12 @@
 import {
   MacButton, MacGlassPanel, MacPopUpButton, MacPopUpButtonItem, MacProgress, MacTextField
 } from '@macvue/core'
-import { Plus, Trash2, FileText, FolderUp, Copy, User, SunMoon, Palette } from 'lucide-vue-next'
+import { Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, CopyPlus, Edit } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 import type { Project } from '~/shared/types/database'
 
-const { projects, pending, refresh, remove } = useProjects()
+const { projects, pending, refresh, remove, rename } = useProjects()
 const { progress, importFolder, createFromTemplate, duplicateProject } = useProjectImport()
 const user = useMe()
 const supabase = useSupabaseClient()
@@ -20,6 +20,13 @@ const { current: appearance, options: appearances } = useAppearance()
 const creating = ref(false)
 const name = ref('')
 const error = ref('')
+
+/** Proyecto cuyo nombre se edita en la propia fila (Enter guarda, Esc cancela). */
+const editingId = ref<string | null>(null)
+const draftName = ref('')
+// La referencia-función del input se reevalúa en cada parcheo; sin esto se
+// re-seleccionaría el texto a cada tecleo.
+let renameInput: HTMLInputElement | null = null
 
 /**
  * Un proyecto nuevo nace de la plantilla del repo: clase, preámbulo,
@@ -45,6 +52,34 @@ async function onDuplicate(project: Project) {
   } catch (e) {
     error.value = (e as Error).message
     toast.error('No se pudo duplicar')
+  }
+}
+
+function startRename(project: Project) {
+  editingId.value = project.id
+  draftName.value = project.name
+}
+
+function focusRename(el: unknown) {
+  const input = el as HTMLInputElement | null
+  if (!input || input === renameInput) return
+  renameInput = input
+  input.focus()
+  input.select()
+}
+
+async function commitRename(project: Project) {
+  if (editingId.value !== project.id) return
+  editingId.value = null
+  const value = draftName.value.trim()
+  // Vacío o sin cambios: lo mismo que cancelar (la BD exige 1–120 tras trim).
+  if (!value || value === project.name) return
+  try {
+    await rename(project.id, value.slice(0, 120))
+    toast.success(`Renombrado a «${value}»`)
+  } catch (e) {
+    error.value = (e as Error).message
+    toast.error('No se pudo renombrar')
   }
 }
 
@@ -109,7 +144,7 @@ onMounted(refresh)
       </template>
       <template #trailing>
         <!-- Claro, oscuro o el del sistema. Sin esto, la app solo cambiaba
-             con macOS y de noche el fondo «agua» quedaba apagado. -->
+             con macOS y de noche el fondo «sky» quedaba apagado. -->
         <SunMoon :size="18" class="text-white shrink-0" />
         <MacPopUpButton v-model="appearance" size="small" aria-label="Apariencia de la interfaz">
           <MacPopUpButtonItem v-for="option in appearances" :key="option.id" :value="option.id"
@@ -186,16 +221,31 @@ onMounted(refresh)
           <MacGlassPanel material="regular" class="hover:brightness-110 transition-all">
             <NuxtLink :to="`/p/${p.id}`" class="p-4 flex items-center gap-3 no-underline text-[var(--text)]">
               <FileText :size="16" class="text-muted" />
-              <span class="flex-1">
-                <span class="block font-medium">{{ p.name }}</span>
+              <span class="flex-1 min-w-0">
+                <!-- Mismo cuerpo tipográfico que el `span` que sustituye: la
+                     fila no cambia de alto, solo gana un subrayado. -->
+                <input v-if="editingId === p.id" v-model="draftName" :ref="focusRename" :maxlength="120"
+                  class="block w-full font-medium text-inherit bg-transparent outline-none px-0 py-0 border-0 border-b border-[var(--text-muted)]"
+                  @click.stop.prevent @keydown.enter.prevent="commitRename(p)"
+                  @keydown.escape="editingId = null" @blur="commitRename(p)">
+                <span v-else class="block font-medium">{{ p.name }}</span>
                 <span class="block text-xs text-[var(--text-muted)]">
                   {{ p.engine }} · {{ p.root_file }} · actualizado {{ fmt(p.updated_at) }}
                 </span>
               </span>
+
+              <!-- Renombrar solo lo ve el dueño: el RLS de `projects` rechaza
+                   el update de anyone else. -->
+              <button v-if="p.owner_id === user?.id" class="icon-btn w-7 h-7" title="Renombrar proyecto"
+                :disabled="!!progress" @click.prevent="startRename(p)">
+                <Edit :size="14" />
+              </button>
+
               <button class="icon-btn w-7 h-7" title="Duplicar: copia los archivos a un proyecto nuevo"
                 :disabled="!!progress" @click.prevent="onDuplicate(p)">
-                <Copy :size="14" />
+                <CopyPlus :size="14" />
               </button>
+
               <button v-if="p.owner_id === user?.id" class="icon-btn w-7 h-7 hover:text-[var(--danger)]"
                 title="Eliminar proyecto" @click.prevent="remove(p.id)">
                 <Trash2 :size="14" />

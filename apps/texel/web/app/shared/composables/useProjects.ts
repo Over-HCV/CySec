@@ -31,7 +31,15 @@ export function useProjects() {
     projects.value = projects.value.filter(p => p.id !== id)
   }
 
-  return { projects, pending, refresh, create, remove }
+  /** Sin `refresh()`: el trigger `projects_touch` toca `updated_at` y la fila
+      saltaría de sitio (la lista ordena por él) nada más renombrarla. */
+  async function rename(id: string, name: string) {
+    const { error } = await supabase.from('projects').update({ name }).eq('id', id)
+    if (error) throw error
+    projects.value = projects.value.map(p => (p.id === id ? { ...p, name } : p))
+  }
+
+  return { projects, pending, refresh, create, remove, rename }
 }
 
 /** Miembros de un proyecto, con su perfil, y gestión de invitaciones. */
