@@ -59,6 +59,52 @@ export function applyFieldEdit(ytext: Y.Text, field: Field, value: string): stri
   return null
 }
 
+/**
+ * Reemplaza el cuerpo entero de un contenedor (lo que hay entre su `\begin` y
+ * su `\end`). Es la vía para escribir dentro de un contenedor vacío, donde
+ * todavía no hay ningún hijo al que apuntar.
+ */
+export function applyBodyEdit(ytext: Y.Text, block: Block, value: string): string | null {
+  const from = block.meta?.bodyFrom
+  const to = block.meta?.bodyTo
+  if (from === undefined || to === undefined) return null
+  return applyFieldEdit(ytext, {
+    name: 'cuerpo',
+    span: { from, to },
+    value: ytext.toString().slice(from, to)
+  }, value)
+}
+
+/**
+ * Renombra el entorno de un contenedor: hay que tocar el nombre del `\begin` y
+ * el del `\end` a la vez o el archivo queda roto. Se escribe primero el rango
+ * de más adelante, porque escribir el primero desplazaría al segundo.
+ */
+export function renameEnv(ytext: Y.Text, block: Block, name: string): string | null {
+  const { nameFrom, nameTo, endNameFrom, endNameTo } = block.meta ?? {}
+  if (nameFrom === undefined || nameTo === undefined
+    || endNameFrom === undefined || endNameTo === undefined) return null
+  if (!/^[A-Za-z][A-Za-z0-9*@-]*$/.test(name)) return 'Nombre de entorno no válido'
+
+  ytext.doc!.transact(() => {
+    ytext.delete(endNameFrom, endNameTo - endNameFrom)
+    ytext.insert(endNameFrom, name)
+    ytext.delete(nameFrom, nameTo - nameFrom)
+    ytext.insert(nameFrom, name)
+  }, VISUAL_ORIGIN)
+  return null
+}
+
+/**
+ * Punto de inserción para un hijo nuevo: detrás del último hijo, o al principio
+ * del cuerpo si el contenedor está vacío.
+ */
+export function insideOf(container: Block): number | null {
+  const items = container.items ?? []
+  if (items.length) return items[items.length - 1]!.span.to
+  return container.meta?.bodyFrom ?? null
+}
+
 /** Inserta la plantilla de un tipo de bloque. Devuelve dónde queda el cursor. */
 export function insertBlock(ytext: Y.Text, at: number, kind: BlockKind): number {
   const template = specOf(kind).template ?? ''

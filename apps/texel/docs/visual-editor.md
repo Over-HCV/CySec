@@ -6,7 +6,9 @@
 > (parseo con ida y vuelta demostrable) son la red de seguridad de todo lo
 > demás, así que no se empieza la interfaz sin ellos.
 >
-> Estado: **M0–M4 hechos**. Última revisión: 15 de agosto de 2026.
+> Estado: **M0–M4 hechos**, M5 a medias. Última revisión: 15 de agosto de 2026,
+> con los **bloques contenedores** (un `\begin…\end` es un bloque que contiene a
+> otros) y el pase de cristal de macvue.
 
 ## Contexto
 
@@ -58,31 +60,33 @@ web/app/features/visual/
 │   ├── parse-bib.ts      BibTeX → bloques
 │   ├── parse-tex.ts      LaTeX  → bloques
 │   ├── catalog.ts        definición de cada tipo de bloque (campos, icono, plantilla)
+│   ├── api.ts            lo que el árbol de bloques puede hacer (inject)
 │   └── doc-sync.ts       Y.Text ⇄ bloques (parches por rango, origin 'visual')
 ├── composables/
-│   └── useBlocks.ts      estado reactivo para la UI
+│   └── useBlocks.ts      estado reactivo para la UI, incluido el plegado
 └── components/
-    ├── VisualEditor.vue  contenedor: lista de bloques + añadir
-    ├── BlockShell.vue    marco común: etiqueta, acciones, «ver LaTeX»
-    ├── BlockField.vue    campo con borrador local mientras tiene el foco
-    └── Block*.vue        BibEntry, Fuentes, Mcq, Respuesta, Raw, Generic
+    ├── VisualEditor.vue  lista de bloques de primer nivel + añadir
+    ├── BlockNode.vue     un bloque y sus hijos; recursivo
+    └── BlockField.vue    campo con borrador local mientras tiene el foco
 ```
 
 No hay `serialize.ts`: un bloque intacto **es** su substring del documento, así
 que no hay nada que serializar. Solo se escribe el rango del campo editado.
 
-Tampoco hay un componente por tipo: los que solo son «etiqueta + campos»
-(sección, caso, pregunta, nota de borrador, `\input`) comparten `BlockGeneric`,
-que lee sus campos del catálogo. Tienen componente propio los que hacen algo
-más: lista de hijos (`Fuentes`, `Mcq`), estado semántico (`Respuesta`), campos
-variables (`BibEntry`) o texto plano (`Raw`).
+Tampoco hay un componente por tipo. Lo hubo (`BlockShell` + seis `Block*.vue`) y
+sobraba: todos repetían el mismo marco y el catálogo ya dice qué campos tiene
+cada bloque. Con el anidamiento sin límite, un componente recursivo —
+`BlockNode` — es además la única forma de que un `caso` dentro de un `document`
+dentro de nada se pinte igual a cualquier profundidad. Las acciones no suben por
+`emit` de padre en padre: se inyectan una vez (`lib/api.ts`).
 
 ### Modelo
 
 ```ts
 type BlockKind =
   | 'section' | 'caso' | 'fuentes' | 'fuente' | 'pregunta' | 'respuesta'
-  | 'mcq' | 'opcion' | 'porque' | 'input' | 'bibEntry' | 'raw'
+  | 'mcq' | 'opcion' | 'porque' | 'input' | 'env' | 'preamble'
+  | 'bibEntry' | 'raw'
 
 interface Span { from: number, to: number }          // offsets en el Y.Text
 interface Field { name: string, span: Span, value: string }   // span del VALOR
@@ -92,11 +96,48 @@ interface Block {
   kind: BlockKind
   span: Span
   fields: Field[]
-  items?: Block[]            // hijos de fuentes y mcq
+  items?: Block[]            // hijos; particionan el cuerpo del padre
   flags?: Record<string, boolean>       // \opcion* → correcta; \section* → starred
-  meta?: Record<string, number | string> // nivel de sección
+  meta?: BlockMeta           // nivel, nombre del entorno y rangos del cuerpo
 }
 ```
+
+### Contenedores
+
+Un `\begin{lo que sea}` … `\end{lo que sea}` es **un** bloque con hijos dentro,
+no tres bloques sueltos. Antes solo lo eran `fuentes` y `mcq`, y `document`
+era el caso más visible del problema: el escáner entraba dentro sin crear
+bloque, así que `\begin{document}` y `\end{document}` aparecían como dos
+párrafos de LaTeX crudo separados por el contenido del documento.
+
+- Cualquier entorno sin ficha propia sale como `env`, con `meta.env` y sus
+  hijos. Los `{…}` que estén **en la misma línea** que el `\begin` son campos
+  (`arg1`, `arg2`, …); un `{` en la línea siguiente es cuerpo, no argumento.
+- `caso` y `respuesta` también son contenedores: su cuerpo ya no es un campo de
+  texto gigante sino bloques anidados.
+- Los opacos (`table`, `verbatim`, …) siguen saliendo enteros como `raw`.
+- Todo contenedor lleva `meta.bodyFrom`/`bodyTo` — hace falta para insertar en
+  uno vacío — y los dos rangos del nombre (`nameFrom/nameTo`,
+  `endNameFrom/endNameTo`), que es lo que permite renombrarlo sin romper el
+  archivo: `renameEnv` escribe los dos en la misma transacción, el de más
+  adelante primero.
+- Lo anterior a `\begin{document}` se agrupa en un bloque `preamble` que abarca
+  exactamente a sus hijos. Es andamiaje, así que la interfaz lo pinta plegado.
+
+El invariante no cambia, solo se vuelve recursivo: los hijos de un contenedor
+particionan su cuerpo, y los tests lo comprueban a cualquier profundidad.
+
+### Interfaz
+
+Una línea por bloque: pliegue · icono · nombre · campos cortos · acciones al
+pasar el ratón; los hijos indentados detrás de un riel de un píxel. Un campo
+solo baja de la cabecera cuando de verdad no cabe (tiene saltos de línea o pasa
+de 60 caracteres), y a partir de tres campos cortos se pasa a una lista de
+«etiqueta: valor» — una entrada `.bib` en una sola fila no se lee.
+
+Cada bloque de primer nivel es un `MacGlassPanel`; los anidados van
+transparentes encima, porque apilar `backdrop-filter` cuesta caro y emborrona el
+texto. El panel visual marca `data-macvue-glass="on"`.
 
 Diferencias con el diseño original, aprendidas al implementarlo:
 
@@ -150,10 +191,12 @@ cambió durante la implementación, por tres razones:
 | Bloque | LaTeX que representa | Campos en la UI |
 |---|---|---|
 | Sección | `\section{…}` / `\subsection{…}`, con o sin `*` | título (nivel y estrella como etiqueta) |
-| Caso | `\begin{caso}{título} … \end{caso}` | título, cuerpo |
+| Caso | `\begin{caso}{título} … \end{caso}` | título + bloques dentro |
 | Fuentes | `\begin{fuentes}\fuente{url}…\end{fuentes}` | lista de URLs, añadir/quitar |
 | Pregunta | `\pregunta{…}` | enunciado |
-| Respuesta | `\begin{respuesta} … \end{respuesta}` | cuerpo (vacío ⇒ avisa «pendiente») |
+| Respuesta | `\begin{respuesta} … \end{respuesta}` | bloques dentro (vacío ⇒ avisa «pendiente») |
+| Entorno | cualquier `\begin{x}{args…} … \end{x}` | nombre editable, argumentos y bloques dentro |
+| Preámbulo | todo lo anterior a `\begin{document}` | agrupación plegable |
 | Selección múltiple | `\begin{mcq}{enunciado}\opcion{…}\opcion*{…}\end{mcq}` | enunciado + opciones con marca de correcta |
 | Nota de borrador | `\porque{título}{texto}` | título, texto |
 | Archivo incluido | `\input{ruta}` | ruta |
@@ -246,8 +289,10 @@ existía sin usar. Al volver a Código se llama a `remeasure()`, porque CodeMirr
 mide mal desde `display: none`.
 
 ### M5 — Menú `/` y acciones de bloque
-- [x] Duplicar, borrar, subir/bajar y «ver LaTeX» en `BlockShell`.
+- [x] Duplicar, borrar, subir/bajar y «ver LaTeX» en la fila del bloque.
 - [x] Añadir bloque desde un menú con las plantillas del catálogo.
+- [x] Bloques contenedores: anidamiento sin límite, plegado, añadir dentro y
+      renombrar el entorno. Ver «Contenedores».
 - [ ] `SlashMenu.vue`: abrir con `/`, filtrar al teclear, teclado completo.
 - [ ] Handle con arrastrar-soltar (hoy se reordena con las flechas).
 - [ ] Convertir un bloque a otro tipo.
@@ -275,9 +320,11 @@ mide mal desde `display: none`.
 
 ## Verificación
 
-1. **Unitaria**: `pnpm test` en `web/` — 61 tests sobre los archivos reales del
+1. **Unitaria**: `pnpm test` en `web/` — 89 tests sobre los archivos reales del
    repo (`latex/tex/bib/refs.bib`, `latex/workshops/ws-01/**`). Es la red de
-   seguridad del principio 4; si esto pasa, no se corrompen documentos.
+   seguridad del principio 4; si esto pasa, no se corrompen documentos. La
+   partición se comprueba también dentro de cada contenedor, a cualquier
+   profundidad.
 2. **Concurrencia**: en `test/doc-sync.test.ts`, con dos `Y.Doc` en memoria —
    uno edita por bloques y el otro por texto. Sin red ni Supabase, así que corre
    en cada `pnpm test` en vez de a mano como `web/scripts/collab-smoke.ts`.

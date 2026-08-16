@@ -126,6 +126,23 @@ export const CATALOG: BlockSpec[] = [
     template: '\\input{|}\n'
   },
   {
+    kind: 'env',
+    label: 'Entorno',
+    icon: 'Box',
+    hint: 'Cualquier \\begin…\\end; contiene otros bloques',
+    doc: 'tex',
+    fields: [],
+    template: '\\begin{itemize}\n  \\item |\n\\end{itemize}\n\n'
+  },
+  {
+    kind: 'preamble',
+    label: 'Preámbulo',
+    icon: 'Settings2',
+    hint: 'Clase, paquetes y ajustes: andamiaje, no contenido',
+    doc: 'tex',
+    fields: []
+  },
+  {
     kind: 'bibEntry',
     label: 'Referencia',
     icon: 'BookMarked',
@@ -156,6 +173,24 @@ export function specOf(kind: BlockKind): BlockSpec {
 
 /** Tipos que se pueden crear desde el menú, para un archivo dado. */
 export function insertable(doc: DocKind): BlockSpec[] {
-  const hidden = new Set<BlockKind>(['fuente', 'opcion', 'raw'])
+  // `preamble` es agrupación, no algo que se inserte; `fuente` y `opcion` se
+  // añaden desde dentro de su contenedor.
+  const hidden = new Set<BlockKind>(['fuente', 'opcion', 'raw', 'preamble'])
   return CATALOG.filter(spec => spec.doc === doc && !hidden.has(spec.kind))
+}
+
+/**
+ * Ficha de un campo. Los campos que no están en el catálogo — los argumentos de
+ * un entorno cualquiera, los campos de una entrada `.bib` — se describen con su
+ * propio nombre.
+ */
+export function fieldSpecOf(kind: BlockKind, name: string): FieldSpec {
+  return specOf(kind).fields.find(f => f.name === name) ?? { name, label: name }
+}
+
+/** Qué tipo de hijo ofrece un contenedor al pulsar «añadir dentro». */
+export function childKind(parent: BlockKind): BlockKind {
+  if (parent === 'fuentes') return 'fuente'
+  if (parent === 'mcq') return 'opcion'
+  return 'raw'
 }

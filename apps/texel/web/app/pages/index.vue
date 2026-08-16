@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { MacButton } from '@macvue/core'
-import { Plus, Trash2, FileText } from 'lucide-vue-next'
+import { MacButton, MacProgress, MacTextField } from '@macvue/core'
+import { Plus, Trash2, FileText, FolderUp } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 
 const { projects, pending, refresh, create, remove } = useProjects()
+const { progress, importFolder } = useProjectImport()
 const user = useMe()
 const supabase = useSupabaseClient()
 
@@ -20,6 +22,41 @@ async function onCreate() {
   }
 }
 
+// ── Cargar una carpeta del ordenador ─────────────────────────────────────────
+// Dos caminos hacia lo mismo: el selector nativo (`webkitdirectory`, que rellena
+// `webkitRelativePath`) y soltar la carpeta encima, que da entradas del sistema
+// de archivos y hay que recorrer a mano.
+const picker = ref<HTMLInputElement>()
+const dragging = ref(false)
+
+async function run(entries: { relativePath: string, file: File }[]) {
+  error.value = ''
+  try {
+    const { id, plan } = await importFolder(entries)
+    const omitidos = plan.skipped.length ? `, ${plan.skipped.length} omitidos` : ''
+    toast.success(`Importados ${plan.texts.length + plan.binaries.length} archivos${omitidos}`)
+    await navigateTo(`/p/${id}`)
+  } catch (e) {
+    error.value = (e as Error).message
+    toast.error('No se pudo importar la carpeta')
+  }
+}
+
+async function onPick(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (!files.length) return
+  await run(files.map(file => ({ relativePath: file.webkitRelativePath || file.name, file })))
+}
+
+async function onDrop(event: DragEvent) {
+  dragging.value = false
+  const items = event.dataTransfer?.items
+  if (!items?.length) return
+  await run(await readDropped(items))
+}
+
 async function signOut() {
   await supabase.auth.signOut()
   await navigateTo('/auth')
@@ -33,36 +70,67 @@ onMounted(refresh)
 </script>
 
 <template>
-  <div class="min-h-full">
-    <header class="chrome flex items-center gap-3 px-5 h-14 border-b border-[var(--macvue-material-glass-regular-rim)]">
-      <FileText :size="18" class="text-accent" />
-      <strong>Texel</strong>
-      <span class="text-[var(--text-muted)] text-xs">editor LaTeX colaborativo</span>
-      <span class="flex-1" />
-      <span class="text-[12px] text-[var(--text-muted)]">{{ user?.email }}</span>
-      <MacButton size="small" @click="signOut">Salir</MacButton>
-    </header>
+  <div
+    class="h-full flex flex-col overflow-hidden"
+    @dragover.prevent="dragging = true"
+    @dragleave.self="dragging = false"
+    @drop.prevent="onDrop"
+  >
+    <AppHeader>
+      <template #leading>
+        <FileText :size="18" class="text-accent shrink-0" />
+        <strong>Texel</strong>
+        <span class="text-[var(--text-muted)] text-xs truncate">editor LaTeX colaborativo</span>
+      </template>
+      <template #trailing>
+        <span class="text-[12px] text-[var(--text-muted)]">{{ user?.email }}</span>
+        <MacButton size="small" @click="signOut">Salir</MacButton>
+      </template>
+    </AppHeader>
 
-    <main class="max-w-4xl mx-auto px-5 py-8">
-      <div class="flex items-center mb-5">
+    <main class="flex-1 overflow-y-auto pane max-w-4xl mx-auto px-5 py-8 w-full">
+      <div class="flex items-center gap-2 mb-5">
         <h1 class="text-xl font-semibold m-0 text-[var(--text)]">Proyectos</h1>
         <span class="flex-1" />
+        <MacButton size="regular" :disabled="!!progress" @click="picker?.click()">
+          <FolderUp :size="15" class="inline align-[-3px] mr-1" /> Cargar proyecto
+        </MacButton>
         <MacButton size="regular" variant="prominent" @click="creating = true">
           <Plus :size="15" class="inline align-[-3px] mr-1" /> Nuevo proyecto
         </MacButton>
       </div>
 
+      <!-- `webkitdirectory` no está en los tipos de Vue, de ahí el atributo suelto. -->
+      <input
+        ref="picker"
+        type="file"
+        multiple
+        webkitdirectory
+        directory
+        class="hidden"
+        @change="onPick"
+      >
+
       <form v-if="creating" class="glass rounded-[var(--radius-lg)] p-4 mb-4 flex gap-2" @submit.prevent="onCreate">
-        <input v-model="name" class="input flex-1" placeholder="Nombre del proyecto" autofocus>
-        <button class="btn-primary" type="submit">Crear</button>
-        <button class="btn" type="button" @click="creating = false; name = ''">Cancelar</button>
+        <span class="flex-1">
+          <MacTextField v-model="name" placeholder="Nombre del proyecto" />
+        </span>
+        <MacButton variant="prominent" type="submit">Crear</MacButton>
+        <MacButton type="button" @click="creating = false; name = ''">Cancelar</MacButton>
       </form>
+
+      <div v-if="progress" class="glass rounded-[var(--radius-lg)] p-4 mb-4">
+        <p class="text-[12.5px] text-[var(--text-muted)] m-0 mb-2">
+          Importando {{ progress.done }} / {{ progress.total }} — {{ progress.label }}
+        </p>
+        <MacProgress :value="progress.done" :max="progress.total" label="Importando carpeta" />
+      </div>
 
       <p v-if="error" class="text-danger text-sm">{{ error }}</p>
       <p v-if="pending" class="text-[var(--text-muted)] text-sm">Cargando…</p>
 
       <p v-else-if="!projects.length" class="text-[var(--text-muted)] text-sm">
-        Todavía no hay proyectos. Crea el primero.
+        Todavía no hay proyectos. Crea el primero, o arrastra aquí una carpeta con tu LaTeX.
       </p>
 
       <ul class="list-none p-0 m-0 grid gap-2">
@@ -90,5 +158,15 @@ onMounted(refresh)
         </li>
       </ul>
     </main>
+
+    <!-- Sombra de destino mientras se arrastra: sin esto no se sabe si vale soltar. -->
+    <div
+      v-if="dragging"
+      class="fixed inset-4 z-30 grid place-items-center rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] pointer-events-none"
+    >
+      <span class="text-[15px] font-medium text-[var(--text)]">
+        Suelta la carpeta para crear el proyecto
+      </span>
+    </div>
   </div>
 </template>

@@ -9,14 +9,14 @@
  * La superficie es pequeña a propósito: la clase no usa xparse, tiene un único
  * comando estrellado (`\opcion*`) y un único argumento opcional (`\todoans[]`).
  */
-import type { Block, Field } from './types'
+import type { Block, BlockMeta, Field, Span } from './types'
 import { fillGaps, readGroup, skipSpace } from './scan'
 
 /**
- * Entornos cuyo interior NO se convierte en bloques: tablas, flotantes, listas
- * y verbatim. Se conservan enteros como `raw`, que es lo prometido para «todo
- * lo demás» de la v1. Un entorno desconocido *no* entra aquí: se sigue
- * escaneando dentro, porque `document` es justamente uno de ellos.
+ * Entornos cuyo interior NO se convierte en bloques: tablas, flotantes y
+ * verbatim. Se conservan enteros como `raw`, que es lo prometido para «todo lo
+ * demás» de la v1. Un entorno desconocido *no* entra aquí: se convierte en un
+ * contenedor genérico y se sigue escaneando dentro.
  */
 const OPAQUE = new Set([
   'table', 'tabular', 'tabularx', 'longtable', 'figure', 'center',
@@ -31,7 +31,31 @@ const SECTION_LEVEL: Record<string, number> = {
 }
 
 export function parseTex(text: string): Block[] {
-  return fillGaps(text, scanRange(text, 0, text.length), 0, text.length)
+  const blocks = fillGaps(text, scanRange(text, 0, text.length), 0, text.length)
+  return groupPreamble(blocks)
+}
+
+/**
+ * Mete todo lo anterior a `\begin{document}` en un solo bloque `preamble`.
+ *
+ * Es agrupación pura: el bloque abarca exactamente a sus hijos, así que la
+ * partición se conserva. Sirve para que la interfaz pueda plegar de una vez el
+ * `\documentclass` y los `\usepackage`, que es andamiaje, no contenido.
+ */
+function groupPreamble(blocks: Block[]): Block[] {
+  const i = blocks.findIndex(b => b.kind === 'env' && b.meta?.env === 'document')
+  if (i <= 0) return blocks
+
+  const head = blocks.slice(0, i)
+  const preamble: Block = {
+    id: '',
+    kind: 'preamble',
+    span: { from: head[0]!.span.from, to: head[head.length - 1]!.span.to },
+    fields: [],
+    items: head,
+    meta: { bodyFrom: head[0]!.span.from, bodyTo: head[head.length - 1]!.span.to }
+  }
+  return [preamble, ...blocks.slice(i)]
 }
 
 /** Bloques reconocidos dentro de `[from, to)`, en orden y sin solaparse. */
@@ -147,47 +171,75 @@ function readEnvironment(
     return { block: rawEnv(at, close.end), end: close.end }
   }
 
+  /** Un entorno es un contenedor: sus argumentos son campos y su cuerpo, hijos. */
+  const container = (
+    kind: Block['kind'],
+    fields: Field[],
+    bodyFrom: number
+  ): { block: Block, end: number } => {
+    const items = fillGaps(
+      text,
+      scanRange(text, bodyFrom, close.bodyEnd),
+      bodyFrom,
+      close.bodyEnd
+    )
+    return block(kind, at, close.end, fields, undefined, items, {
+      env,
+      bodyFrom,
+      bodyTo: close.bodyEnd,
+      nameFrom: nameArg.inner.from,
+      nameTo: nameArg.inner.to,
+      endNameFrom: close.name.from,
+      endNameTo: close.name.to
+    })
+  }
+
   switch (env) {
     case 'caso': {
       const titulo = argument(text, nameArg.end, close.bodyEnd)
       if (!titulo) return null
-      return block('caso', at, close.end, [
-        field(text, 'titulo', titulo.inner),
-        field(text, 'cuerpo', { from: titulo.end, to: close.bodyEnd })
-      ])
+      return container('caso', [field(text, 'titulo', titulo.inner)], titulo.end)
     }
-    case 'respuesta': {
-      return block('respuesta', at, close.end, [
-        field(text, 'cuerpo', { from: nameArg.end, to: close.bodyEnd })
-      ])
-    }
-    case 'fuentes': {
-      const items = fillGaps(
-        text,
-        scanRange(text, nameArg.end, close.bodyEnd),
-        nameArg.end,
-        close.bodyEnd
-      )
-      return block('fuentes', at, close.end, [], undefined, items)
-    }
+    case 'respuesta':
+      return container('respuesta', [], nameArg.end)
+    case 'fuentes':
+      return container('fuentes', [], nameArg.end)
     case 'mcq': {
       const enunciado = argument(text, nameArg.end, close.bodyEnd)
       if (!enunciado) return null
-      const items = fillGaps(
-        text,
-        scanRange(text, enunciado.end, close.bodyEnd),
-        enunciado.end,
-        close.bodyEnd
-      )
-      return block('mcq', at, close.end, [
-        field(text, 'enunciado', enunciado.inner)
-      ], undefined, items)
+      return container('mcq', [field(text, 'enunciado', enunciado.inner)], enunciado.end)
     }
   }
 
-  // Entorno desconocido (`document`, por ejemplo): no es un bloque, pero
-  // tampoco una barrera. Se sigue escaneando dentro.
-  return null
+  // Entorno sin ficha propia (`document`, `itemize`, `abstract`…): contenedor
+  // genérico. Los `{…}` que vengan en la misma línea que el `\begin` son sus
+  // entradas; el resto es cuerpo, y dentro se sigue escaneando.
+  const args = sameLineArgs(text, nameArg.end, close.bodyEnd)
+  const bodyFrom = args.length ? args[args.length - 1]!.end : nameArg.end
+  const fields = args.map((arg, i) => field(text, `arg${i + 1}`, arg.inner))
+  return container('env', fields, bodyFrom)
+}
+
+/**
+ * Grupos `{…}` consecutivos a partir de `i`, **sin cruzar un salto de línea**.
+ *
+ * La restricción es lo que separa un argumento del entorno de un `{` que en
+ * realidad abría el cuerpo: `\begin{mio}{título}` sí, pero `\begin{mio}\n{esto
+ * es contenido}` no.
+ */
+function sameLineArgs(text: string, i: number, limit: number): { inner: Span, end: number }[] {
+  const out: { inner: Span, end: number }[] = []
+  let j = i
+  for (;;) {
+    let k = j
+    while (k < limit && (text[k] === ' ' || text[k] === '\t')) k++
+    if (k >= limit || text[k] !== '{') break
+    const group = readGroup(text, k)
+    if (!group || group.end > limit) break
+    out.push(group)
+    j = group.end
+  }
+  return out
 }
 
 /**
@@ -199,7 +251,7 @@ function findEnd(
   from: number,
   env: string,
   limit: number
-): { bodyStart: number, bodyEnd: number, end: number } | null {
+): { bodyStart: number, bodyEnd: number, end: number, name: Span } | null {
   let depth = 1
   let i = from
 
@@ -218,7 +270,7 @@ function findEnd(
 
     if (name.value === 'begin') { depth++; i = arg.end; continue }
     depth--
-    if (depth === 0) return { bodyStart: from, bodyEnd: i, end: arg.end }
+    if (depth === 0) return { bodyStart: from, bodyEnd: i, end: arg.end, name: arg.inner }
     i = arg.end
   }
 
@@ -250,7 +302,7 @@ function block(
   fields: Field[],
   flags?: Record<string, boolean>,
   items?: Block[],
-  meta?: Record<string, number | string>
+  meta?: BlockMeta
 ): { block: Block, end: number } {
   const b: Block = { id: '', kind, span: { from, to }, fields }
   if (flags) b.flags = flags

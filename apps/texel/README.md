@@ -42,12 +42,26 @@ cd ../web && cp .env.example .env
 pnpm install && pnpm dev             # http://localhost:3000
 ```
 
+## Empezar con un proyecto que ya existe
+
+En la lista de proyectos, **Cargar proyecto** abre el selector de carpetas (o se
+arrastra la carpeta encima). Se conservan las subcarpetas (`sections/`, `bib/`),
+los `.tex`/`.bib` van a la tabla `files` y las imágenes a `project-assets`. Se
+descartan los subproductos de compilar (`.aux`, `.log`, `.synctex.gz`, …),
+`.git/` y `node_modules/`. El `.tex` raíz y el motor se deducen del contenido:
+`main.tex` o el que declare la clase, y `xelatex` si usa `fontspec` o `cysec`.
+
+Las reglas viven en `web/app/features/projects/lib/import-folder.ts` y se prueban
+sin red (`web/test/import-folder.test.ts`); la subida, en
+`web/app/shared/composables/useProjectImport.ts`.
+
 ## Hoja de ruta
 
 - [`docs/visual-editor.md`](docs/visual-editor.md) — modo visual por bloques
   (tipo Notion) sincronizado con el LaTeX, para que colaboren personas que no
-  escriben LaTeX. Plan con hitos y casillas; **M0–M4 hechos** (pestañas
-  Código|Visual funcionando), queda el menú `/`, párrafos con marcas y pulido.
+  escriben LaTeX. Plan con hitos y casillas; **M0–M4 hechos** y M5 a medias: un
+  `\begin…\end` es un bloque que contiene a otros, con plegado y anidamiento sin
+  límite. Queda el menú `/`, párrafos con marcas y pulido.
 
 ## Pruebas
 

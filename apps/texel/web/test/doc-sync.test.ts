@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import {
-  applyFieldEdit, checkValue, duplicateBlock, insertBlock, moveBlock, parseDoc, removeBlock,
-  toggleOption
+  applyBodyEdit, applyFieldEdit, checkValue, duplicateBlock, insertBlock, insideOf, moveBlock,
+  parseDoc, removeBlock, renameEnv, toggleOption
 } from '../app/features/visual/lib/doc-sync'
 import type { Block } from '../app/features/visual/lib/types'
 import { joined, REFS_BIB, repoFile, SECTIONS } from './fixtures'
@@ -45,13 +45,14 @@ describe('applyFieldEdit', () => {
   it('deja el documento parseable y con partición total', () => {
     const { ytext } = docWith(tex)
     const blocks = parseDoc(tex, 'tex')
-    applyFieldEdit(ytext, fieldOf(blocks, 'respuesta', 'cuerpo'), '\nUna respuesta escrita.\n')
+    applyBodyEdit(ytext, blocks.find(b => b.kind === 'respuesta')!, '\nUna respuesta escrita.\n')
 
     const after = ytext.toString()
     const reparsed = parseDoc(after, 'tex')
     expect(joined(after, reparsed)).toBe(after)
     expect(reparsed.filter(b => b.kind === 'respuesta')).toHaveLength(3)
-    expect(reparsed.find(b => b.kind === 'respuesta')!.fields[0]!.value.trim())
+    const primera = reparsed.find(b => b.kind === 'respuesta')!
+    expect(after.slice(primera.meta!.bodyFrom!, primera.meta!.bodyTo!).trim())
       .toBe('Una respuesta escrita.')
   })
 
@@ -187,5 +188,67 @@ describe('operaciones de bloque', () => {
     const blocks = parseDoc(tex, 'tex')
     moveBlock(ytext, blocks, 0, -1)
     expect(ytext.toString()).toBe(tex)
+  })
+
+  it('moveBlock ordena también entre hermanos anidados', () => {
+    const { ytext } = docWith(tex)
+    const fuentes = parseDoc(tex, 'tex').find(b => b.kind === 'fuentes')!
+    const items = fuentes.items!
+    const primera = items.findIndex(b => b.kind === 'fuente')
+    moveBlock(ytext, items, primera, 1)
+
+    const after = ytext.toString()
+    expect(after.length).toBe(tex.length)
+    expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
+    const urls = parseDoc(after, 'tex').find(b => b.kind === 'fuentes')!.items!
+      .filter(b => b.kind === 'fuente').map(b => b.fields[0]!.value)
+    // La segunda fuente pasa a ser la primera.
+    expect(urls[0]).toContain('digitalguardian.com')
+    expect(urls[1]).toContain('wikipedia.org')
+  })
+})
+
+describe('contenedores', () => {
+  it('insideOf apunta detrás del último hijo, o al cuerpo si está vacío', () => {
+    const blocks = parseDoc(tex, 'tex')
+    const fuentes = blocks.find(b => b.kind === 'fuentes')!
+    expect(insideOf(fuentes)).toBe(fuentes.items![fuentes.items!.length - 1]!.span.to)
+
+    const vacio = parseDoc('\\begin{mio}\\end{mio}\n', 'tex')[0]!
+    expect(insideOf(vacio)).toBe(vacio.meta!.bodyFrom)
+  })
+
+  it('insertBlock dentro de un contenedor mantiene la partición', () => {
+    const { ytext } = docWith(tex)
+    const fuentes = parseDoc(tex, 'tex').find(b => b.kind === 'fuentes')!
+    insertBlock(ytext, insideOf(fuentes)!, 'fuente')
+
+    const after = ytext.toString()
+    expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
+    const dentro = parseDoc(after, 'tex').find(b => b.kind === 'fuentes')!
+    expect(dentro.items!.filter(b => b.kind === 'fuente')).toHaveLength(4)
+  })
+
+  it('renameEnv cambia los dos extremos a la vez', () => {
+    const { ytext } = docWith('\\begin{mio}\ncuerpo\n\\end{mio}\n')
+    const env = parseDoc(ytext.toString(), 'tex')[0]!
+    expect(renameEnv(ytext, env, 'tuyo')).toBeNull()
+    expect(ytext.toString()).toBe('\\begin{tuyo}\ncuerpo\n\\end{tuyo}\n')
+  })
+
+  it('renameEnv rechaza un nombre que rompería el archivo', () => {
+    const original = '\\begin{mio}\nx\n\\end{mio}\n'
+    const { ytext } = docWith(original)
+    const env = parseDoc(original, 'tex')[0]!
+    expect(renameEnv(ytext, env, 'con espacio')).toBe('Nombre de entorno no válido')
+    expect(ytext.toString()).toBe(original)
+  })
+
+  it('applyBodyEdit escribe solo entre \\begin y \\end', () => {
+    const original = '\\begin{mio}\nviejo\n\\end{mio}\n'
+    const { ytext } = docWith(original)
+    const env = parseDoc(original, 'tex')[0]!
+    expect(applyBodyEdit(ytext, env, '\nnuevo\n')).toBeNull()
+    expect(ytext.toString()).toBe('\\begin{mio}\nnuevo\n\\end{mio}\n')
   })
 })

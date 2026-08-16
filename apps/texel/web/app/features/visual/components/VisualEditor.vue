@@ -5,18 +5,18 @@
  * No tiene documento propio: trabaja sobre el mismo `Y.Text` que el editor de
  * código, así que lo que se toca aquí se ve allí al instante, y al revés. Solo
  * hay un CRDT.
+ *
+ * Cada bloque de primer nivel es una lámina de cristal; los anidados van
+ * transparentes encima. Apilar `backdrop-filter` en cada nivel cuesta caro y
+ * emborrona el texto de dentro.
  */
+import { MacButton, MacGlassPanel } from '@macvue/core'
 import { Plus } from 'lucide-vue-next'
 import type { SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
 import { useBlocks } from '../composables/useBlocks'
 import { insertable } from '../lib/catalog'
-import { docKindOf, type Block, type BlockKind, type Field } from '../lib/types'
-import BlockBibEntry from './BlockBibEntry.vue'
-import BlockFuentes from './BlockFuentes.vue'
-import BlockGeneric from './BlockGeneric.vue'
-import BlockMcq from './BlockMcq.vue'
-import BlockRaw from './BlockRaw.vue'
-import BlockRespuesta from './BlockRespuesta.vue'
+import { VISUAL_API } from '../lib/api'
+import { docKindOf, type Block, type BlockKind } from '../lib/types'
 
 const props = defineProps<{
   provider: SupabaseYjsProvider
@@ -28,33 +28,31 @@ const kind = computed(() => docKindOf(props.path) ?? 'tex')
 const ytext = props.provider.doc.getText('content')
 
 const {
-  text, blocks, sourceOf, edit, problems,
-  insert, remove, duplicate, move, toggle
+  text, blocks, sourceOf, problems, collapsed, toggleCollapse,
+  edit, editBody, rename, addInside, insert, remove, duplicate, move, toggle
 } = useBlocks(ytext, kind.value)
 
 /** Los huecos de solo espacios forman parte del documento, pero no se pintan. */
 const visible = computed(() => blocks.value.filter(b => !b.flags?.blank))
 
-/** Qué componente representa cada tipo. */
-function componentFor(block: Block) {
-  switch (block.kind) {
-    case 'bibEntry': return BlockBibEntry
-    case 'fuentes': return BlockFuentes
-    case 'mcq': return BlockMcq
-    case 'respuesta': return BlockRespuesta
-    case 'raw': return BlockRaw
-    default: return BlockGeneric
-  }
-}
-
-/** Índice real dentro de `blocks`, que es lo que entiende `move`. */
-function indexOf(block: Block): number {
-  return blocks.value.indexOf(block)
-}
-
-function onEdit(block: Block, field: Field, value: string) {
-  edit(block, field, value)
-}
+// El árbol es recursivo y sin límite de profundidad: las acciones se inyectan
+// una vez en vez de encadenar `emit` de padre en padre.
+provide(VISUAL_API, {
+  canWrite: props.canWrite,
+  text,
+  problems,
+  collapsed,
+  toggleCollapse,
+  source: sourceOf,
+  edit,
+  editBody,
+  rename,
+  addInside,
+  move,
+  duplicate,
+  remove,
+  toggleOption: toggle
+})
 
 /** Añadir al final del documento desde la barra inferior. */
 const menuOpen = ref(false)
@@ -64,46 +62,32 @@ function addAtEnd(blockKind: BlockKind) {
   menuOpen.value = false
   insert(text.value.length, blockKind)
 }
-
-/** Añadir un hijo (fuente u opción) en la posición que pida el bloque. */
-function addItem(parent: Block, at: number) {
-  insert(at, parent.kind === 'fuentes' ? 'fuente' : 'opcion')
-}
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto px-4 py-3">
+  <div class="h-full overflow-y-auto px-4 py-3" data-macvue-glass="on">
     <div v-if="visible.length === 0" class="text-center text-[var(--text-muted)] text-[12.5px] py-10">
       El archivo está vacío. Añade un bloque para empezar.
     </div>
 
-    <div class="flex flex-col gap-2.5 max-w-[760px] mx-auto">
-      <component
-        :is="componentFor(block)"
+    <div class="flex flex-col gap-1.5 max-w-[820px] mx-auto">
+      <MacGlassPanel
         v-for="block in visible"
         :key="block.id"
-        :block="block"
-        :can-write="canWrite"
-        :source="sourceOf(block)"
-        :text="text"
-        :problems="problems"
-        @edit="(field: Field, value: string) => onEdit(block, field, value)"
-        @toggle="toggle"
-        @add-item="(at: number) => addItem(block, at)"
-        @remove-item="remove"
-        @move="(dir: -1 | 1) => move(indexOf(block), dir)"
-        @duplicate="duplicate(block)"
-        @remove="remove(block)"
-      />
+        material="regular"
+        class="px-2 py-1.5"
+      >
+        <BlockNode :block="block" :siblings="blocks" :depth="0" />
+      </MacGlassPanel>
 
       <div v-if="canWrite" class="relative self-start mt-1">
-        <button class="btn text-[12px] py-1" @click="menuOpen = !menuOpen">
-          <Plus :size="12" class="mr-1 inline align-[-2px]" /> Añadir bloque
-        </button>
+        <MacButton size="small" @click="menuOpen = !menuOpen">
+          <Plus :size="12" class="inline align-[-2px] mr-1" /> Añadir bloque
+        </MacButton>
 
         <div
           v-if="menuOpen"
-          class="glass-menu absolute z-20 mt-1 min-w-[220px] rounded-[var(--radius)] p-1"
+          class="glass-menu absolute z-20 mt-1 min-w-[230px] rounded-[var(--radius)] p-1"
         >
           <button
             v-for="spec in opciones"

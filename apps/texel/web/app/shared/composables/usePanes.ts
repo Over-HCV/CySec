@@ -3,7 +3,20 @@
  * qué está plegado. Se guarda en localStorage para que la ventana vuelva como
  * la dejaste.
  */
-const KEY = 'texel:panes'
+/**
+ * La versión va en la clave: al cambiar los valores por defecto, lo guardado en
+ * el navegador los pisaría y el cambio no se notaría en las máquinas que ya
+ * habían abierto la app. El precio es olvidar una vez los anchos de panel.
+ */
+const KEY = 'texel:panes:2'
+
+/**
+ * Lo que **no** se recuerda entre sesiones: cómo se abre un proyecto es una
+ * decisión del producto, no una preferencia. Abrir siempre en Visual y con el
+ * árbol plegado; si en esta sesión te vas a Código o abres el árbol, se queda
+ * así hasta que recargues, y punto.
+ */
+const PER_SESSION = ['editorTab', 'sidebarOpen'] as const
 
 interface LayoutState {
   sidebarWidth: number
@@ -20,11 +33,15 @@ const DEFAULTS: LayoutState = {
   sidebarWidth: 230,
   editorRatio: 0.5,
   logHeight: 180,
-  sidebarOpen: true,
+  // El árbol de archivos se abre cuando hace falta; de salida estorba más de lo
+  // que aporta, sobre todo con un proyecto de un solo archivo.
+  sidebarOpen: false,
   pdfOpen: true,
   logOpen: true,
   wrap: true,
-  editorTab: 'code'
+  // La vista por bloques es la que puede usar quien no escribe LaTeX, que es
+  // para quien se hizo. El código sigue a un clic.
+  editorTab: 'visual'
 }
 
 export const LIMITS = {
@@ -39,7 +56,10 @@ export function usePanes() {
   onMounted(() => {
     try {
       const raw = localStorage.getItem(KEY)
-      if (raw) Object.assign(state.value, JSON.parse(raw) as Partial<LayoutState>)
+      if (!raw) return
+      const saved = JSON.parse(raw) as Partial<LayoutState>
+      for (const key of PER_SESSION) delete saved[key]
+      Object.assign(state.value, saved)
     } catch { /* localStorage puede estar bloqueado; los valores por defecto sirven */ }
   })
 

@@ -33,3 +33,18 @@ export function joinedItems(text: string, parent: Block): string {
 export function countKind(blocks: Block[], kind: Block['kind']): number {
   return blocks.filter(b => b.kind === kind).length
 }
+
+/** Todos los bloques del árbol, en orden de documento. */
+export function flatten(blocks: Block[]): Block[] {
+  const out: Block[] = []
+  for (const block of blocks) {
+    out.push(block)
+    if (block.items) out.push(...flatten(block.items))
+  }
+  return out
+}
+
+/** Texto del cuerpo de un contenedor, con sus hijos dentro. */
+export function bodyOf(text: string, block: Block): string {
+  return text.slice(block.meta!.bodyFrom!, block.meta!.bodyTo!)
+}

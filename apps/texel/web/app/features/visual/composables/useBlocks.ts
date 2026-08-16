@@ -12,9 +12,10 @@
  */
 import type * as Y from 'yjs'
 import {
-  applyFieldEdit, duplicateBlock, insertBlock, moveBlock, parseDoc, removeBlock, toggleOption,
-  VISUAL_ORIGIN
+  applyBodyEdit, applyFieldEdit, duplicateBlock, insertBlock, insideOf, moveBlock, parseDoc,
+  removeBlock, renameEnv, toggleOption, VISUAL_ORIGIN
 } from '../lib/doc-sync'
+import { childKind } from '../lib/catalog'
 import type { Block, BlockKind, DocKind, Field } from '../lib/types'
 
 /** Espera antes de repintar por un cambio ajeno, para no parpadear al teclear. */
@@ -25,6 +26,11 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
   const blocks = shallowRef<Block[]>(parseDoc(text.value, kind))
   /** Último aviso de validación, por campo. */
   const problems = ref<Record<string, string>>({})
+  /**
+   * Bloques plegados, por `id`. Es estado de vista: no toca el documento y se
+   * pierde al cerrar. El preámbulo empieza plegado porque es andamiaje.
+   */
+  const collapsed = ref(new Set<string>(['preamble#1']))
 
   let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -53,9 +59,8 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     return text.value.slice(block.span.from, block.span.to)
   }
 
-  function edit(block: Block, field: Field, value: string) {
-    const key = `${block.id}:${field.name}`
-    const problem = applyFieldEdit(ytext, field, value)
+  /** Deja constancia del aviso de un campo, o lo retira si ya se resolvió. */
+  function report(key: string, problem: string | null) {
     if (problem) problems.value = { ...problems.value, [key]: problem }
     else if (problems.value[key]) {
       const next = { ...problems.value }
@@ -64,18 +69,48 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     }
   }
 
+  function edit(block: Block, field: Field, value: string) {
+    report(`${block.id}:${field.name}`, applyFieldEdit(ytext, field, value))
+  }
+
+  function editBody(block: Block, value: string) {
+    report(`${block.id}:cuerpo`, applyBodyEdit(ytext, block, value))
+  }
+
+  function rename(block: Block, name: string) {
+    report(`${block.id}:env`, renameEnv(ytext, block, name))
+  }
+
+  function toggleCollapse(id: string) {
+    const next = new Set(collapsed.value)
+    if (!next.delete(id)) next.add(id)
+    collapsed.value = next
+  }
+
+  /** Añade un hijo al final de un contenedor. */
+  function addInside(container: Block, blockKind?: BlockKind) {
+    const at = insideOf(container)
+    if (at === null) return
+    insertBlock(ytext, at, blockKind ?? childKind(container.kind))
+  }
+
   return {
     text,
     blocks,
     /** Avisos de validación, indexados por `«id de bloque»:«campo»`. */
     problems,
+    collapsed,
+    toggleCollapse,
     refresh,
     sourceOf,
     edit,
+    editBody,
+    rename,
+    addInside,
     insert: (at: number, blockKind: BlockKind) => insertBlock(ytext, at, blockKind),
     remove: (block: Block) => removeBlock(ytext, block),
     duplicate: (block: Block) => duplicateBlock(ytext, block),
     toggle: (block: Block) => toggleOption(ytext, block),
-    move: (index: number, dir: -1 | 1) => moveBlock(ytext, blocks.value, index, dir)
+    move: (siblings: Block[], index: number, dir: -1 | 1) => moveBlock(ytext, siblings, index, dir)
   }
 }

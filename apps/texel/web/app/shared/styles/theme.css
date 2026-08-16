@@ -102,7 +102,7 @@
 
   --radius: 8px;
   --radius-lg: 12px;
-  --header-h: 44px;
+  --header-h: 48px;
   --bar-h: 34px;
 }
 
@@ -362,6 +362,19 @@ a { color: var(--accent); }
   background: var(--macvue-material-glass-clear-bg);
   backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
   -webkit-backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
+}
+
+/* Cabecera flotante: el material "chrome" (cristal claro + desenfoque) con el
+   borde, radio y sombra de los demás paneles — la barra de título es un panel
+   más, despegada del borde superior de la ventana. */
+.chrome-bar {
+  background: var(--macvue-material-glass-clear-bg);
+  backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--macvue-material-glass-clear-saturation, 180%));
+  border: 1px solid var(--glass-rim);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--macvue-material-glass-regular-shadow),
+              0 12px 32px rgba(0, 0, 0, 0.18);
 }
 
 /* Todo panel que contiene un scroller necesita poder encogerse: sin min-*: 0

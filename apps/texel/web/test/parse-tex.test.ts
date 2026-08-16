@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseTex } from '../app/features/visual/lib/parse-tex'
 import type { Block } from '../app/features/visual/lib/types'
-import { countKind, joined, joinedItems, repoFile, SECTIONS, WS01 } from './fixtures'
+import { bodyOf, countKind, flatten, joined, joinedItems, repoFile, SECTIONS, WS01 } from './fixtures'
 
 const FILES = [...SECTIONS, `${WS01}/main.tex`]
 
@@ -17,13 +17,9 @@ describe('parseTex sobre los archivos reales de ws-01', () => {
       expect(joined(text, blocks)).toBe(text)
     })
 
-    it(`${path}: los hijos cubren el interior de su padre`, () => {
-      for (const parent of blocks.filter(b => b.items)) {
-        const inner = parent.items!
-        const covered = joinedItems(text, parent)
-        const from = inner[0]!.span.from
-        const to = inner[inner.length - 1]!.span.to
-        expect(covered).toBe(text.slice(from, to))
+    it(`${path}: los hijos cubren el cuerpo de su padre, a cualquier profundidad`, () => {
+      for (const parent of flatten(blocks).filter(b => b.items)) {
+        expect(joinedItems(text, parent)).toBe(bodyOf(text, parent))
       }
     })
 
@@ -38,7 +34,7 @@ describe('parseTex sobre los archivos reales de ws-01', () => {
     it(`${path}: ningún bloque raw esconde una macro del catálogo`, () => {
       // Las macros dentro de un `\porque` no cuentan: están en el campo de un
       // bloque reconocido, no sueltas. Por eso solo se miran los `raw`.
-      for (const b of blocks.filter(b => b.kind === 'raw')) {
+      for (const b of flatten(blocks).filter(b => b.kind === 'raw')) {
         const src = text.slice(b.span.from, b.span.to)
         // Los entornos opacos (tablas) sí son raw a propósito.
         if (/\\begin\{(table|tabularx|tabular)\}/.test(src)) continue
@@ -63,11 +59,12 @@ describe('parseTex reconoce la estructura de 01-confidencialidad', () => {
     expect(countKind(blocks, 'porque')).toBe(1)
   })
 
-  it('lee el título y el cuerpo del caso', () => {
+  it('lee el título del caso y su cuerpo queda dentro, como hijos', () => {
     const caso = blocks.find(b => b.kind === 'caso')!
     expect(value(caso, 'titulo')).toBe('Fuga de datos del portal Ashley Madison (2015)')
-    expect(value(caso, 'cuerpo')!.trim())
+    expect(bodyOf(text, caso).trim())
       .toBe('Investigar sobre el caso de fuga de datos del portal Ashley Madison del 2015.')
+    expect(caso.items!.some(b => b.kind === 'raw')).toBe(true)
   })
 
   it('lee las 3 fuentes y deja el \\item suelto como raw', () => {
@@ -81,7 +78,8 @@ describe('parseTex reconoce la estructura de 01-confidencialidad', () => {
 
   it('las tres respuestas están vacías (borrador)', () => {
     for (const r of blocks.filter(b => b.kind === 'respuesta')) {
-      expect(value(r, 'cuerpo')!.trim()).toBe('')
+      expect(bodyOf(text, r).trim()).toBe('')
+      expect(r.items!.every(b => b.flags?.blank)).toBe(true)
     }
   })
 
@@ -112,17 +110,33 @@ describe('parseTex sobre main.tex', () => {
   const text = repoFile(`${WS01}/main.tex`)
   const blocks = parseTex(text)
 
-  it('saca los cuatro \\input como bloques', () => {
-    const inputs = blocks.filter(b => b.kind === 'input')
+  it('saca los cuatro \\input como bloques, dentro del documento', () => {
+    const inputs = flatten(blocks).filter(b => b.kind === 'input')
     expect(inputs).toHaveLength(5)   // meta + 4 secciones
     expect(value(inputs[1]!, 'ruta')).toBe('sections/01-confidencialidad')
   })
 
-  it('el preámbulo y \\begin{document} quedan como raw', () => {
-    const raws = blocks.filter(b => b.kind === 'raw').map(b => text.slice(b.span.from, b.span.to))
-    expect(raws.some(r => r.includes('\\documentclass[es]{cysec}'))).toBe(true)
-    expect(raws.some(r => r.includes('\\begin{document}'))).toBe(true)
-    expect(raws.some(r => r.includes('\\printbibliography'))).toBe(true)
+  it('\\begin{document} … \\end{document} es un solo bloque contenedor', () => {
+    const doc = blocks.find(b => b.kind === 'env' && b.meta!.env === 'document')!
+    expect(doc).toBeDefined()
+    const src = text.slice(doc.span.from, doc.span.to)
+    expect(src.startsWith('\\begin{document}')).toBe(true)
+    expect(src.trimEnd().endsWith('\\end{document}')).toBe(true)
+    // Los `\input` y el `\printbibliography` viven dentro, no al lado.
+    expect(doc.items!.some(b => b.kind === 'input')).toBe(true)
+    expect(bodyOf(text, doc)).toContain('\\printbibliography')
+    // Y ya no hay ningún raw suelto con el delimitador.
+    expect(flatten(blocks).some(b =>
+      b.kind === 'raw' && text.slice(b.span.from, b.span.to).includes('\\begin{document}'))).toBe(false)
+  })
+
+  it('el preámbulo se agrupa en un bloque plegable', () => {
+    expect(blocks[0]!.kind).toBe('preamble')
+    expect(blocks[1]!.kind).toBe('env')
+    expect(text.slice(blocks[0]!.span.from, blocks[0]!.span.to))
+      .toContain('\\documentclass[es]{cysec}')
+    expect(blocks[0]!.span.from).toBe(0)
+    expect(blocks[0]!.span.to).toBe(blocks[1]!.span.from)
   })
 })
 
@@ -189,6 +203,82 @@ describe('parseTex en casos límite', () => {
   it('un argumento no cruza una línea en blanco', () => {
     const s = '\\pregunta\n\n{esto no es su argumento}\n'
     expect(countKind(parseTex(s), 'pregunta')).toBe(0)
+  })
+})
+
+describe('entornos como contenedores', () => {
+  it('un entorno cualquiera se convierte en un bloque con hijos', () => {
+    const s = '\\begin{itemize}\n\\item uno\n\\end{itemize}\n'
+    const [env] = parseTex(s)
+    expect(env!.kind).toBe('env')
+    expect(env!.meta!.env).toBe('itemize')
+    expect(s.slice(env!.meta!.bodyFrom!, env!.meta!.bodyTo!)).toBe('\n\\item uno\n')
+    expect(joined(s, parseTex(s))).toBe(s)
+  })
+
+  it('los argumentos de la misma línea son campos', () => {
+    const s = '\\begin{mio}{uno}{dos}\ncuerpo\n\\end{mio}\n'
+    const [env] = parseTex(s)
+    expect(env!.fields.map(f => f.value)).toEqual(['uno', 'dos'])
+    expect(s.slice(env!.meta!.bodyFrom!, env!.meta!.bodyTo!)).toBe('\ncuerpo\n')
+  })
+
+  it('un grupo en la línea siguiente es cuerpo, no argumento', () => {
+    const s = '\\begin{mio}\n{esto es contenido}\n\\end{mio}\n'
+    const [env] = parseTex(s)
+    expect(env!.fields).toHaveLength(0)
+    expect(s.slice(env!.meta!.bodyFrom!, env!.meta!.bodyTo!)).toBe('\n{esto es contenido}\n')
+  })
+
+  it('el nombre del \\begin y el del \\end se localizan por separado', () => {
+    const s = '\\begin{mio}\nx\n\\end{mio}\n'
+    const env = parseTex(s)[0]!
+    expect(s.slice(env.meta!.nameFrom!, env.meta!.nameTo!)).toBe('mio')
+    expect(s.slice(env.meta!.endNameFrom!, env.meta!.endNameTo!)).toBe('mio')
+    expect(env.meta!.endNameFrom!).toBeGreaterThan(env.meta!.nameTo!)
+  })
+
+  it('entornos anidados del mismo nombre no se confunden', () => {
+    const s = '\\begin{mio}\n\\begin{mio}\ndentro\n\\end{mio}\n\\end{mio}\n'
+    const fuera = parseTex(s)[0]!
+    const dentro = fuera.items!.find(b => b.kind === 'env')!
+    expect(s.slice(fuera.span.from, fuera.span.to)).toBe(s.trimEnd())
+    expect(s.slice(dentro.meta!.bodyFrom!, dentro.meta!.bodyTo!)).toBe('\ndentro\n')
+  })
+
+  it('un entorno sin cerrar sigue sin reconocerse', () => {
+    const s = '\\begin{mio}\ncuerpo\n'
+    expect(countKind(parseTex(s), 'env')).toBe(0)
+    expect(joined(s, parseTex(s))).toBe(s)
+  })
+
+  it('un entorno opaco sigue entero como raw', () => {
+    const s = '\\begin{tabular}{ll}\na & b \\\\\n\\end{tabular}\n'
+    const [tabla] = parseTex(s)
+    expect(tabla!.kind).toBe('raw')
+    expect(tabla!.items).toBeUndefined()
+  })
+
+  it('sin \\begin{document} no se agrupa preámbulo', () => {
+    const s = '\\section{a}\n\ntexto\n'
+    expect(countKind(parseTex(s), 'preamble')).toBe(0)
+  })
+
+  it('la partición se conserva con contenedores anidados', () => {
+    const samples = [
+      '\\begin{document}\n\\begin{caso}{t}\ncuerpo\n\\end{caso}\n\\end{document}\n',
+      '\\documentclass{article}\n\\begin{document}\nHola.\n\\end{document}\n',
+      '\\begin{mio}{a}\n\\begin{otro}\n\\end{otro}\n\\end{mio}\n',
+      '\\begin{document}\\end{document}',
+      '\\begin{document}\n\\end{document}\n% cola\n'
+    ]
+    for (const s of samples) {
+      const blocks = parseTex(s)
+      expect(joined(s, blocks), JSON.stringify(s)).toBe(s)
+      for (const parent of flatten(blocks).filter(b => b.items)) {
+        expect(joinedItems(s, parent)).toBe(bodyOf(s, parent))
+      }
+    }
   })
 })
 

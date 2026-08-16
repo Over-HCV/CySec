@@ -38,8 +38,30 @@ export type BlockKind =
   | 'opcion'     // \opcion{…} / \opcion*{…}, hijo de mcq
   | 'porque'     // \porque{título}{texto}
   | 'input'      // \input{ruta}
+  | 'env'        // \begin{cualquiera}{args…} … \end{cualquiera}
+  | 'preamble'   // todo lo anterior a \begin{document}, agrupado
   | 'bibEntry'   // @tipo{clave, campo = {…}}
   | 'raw'        // cualquier otra cosa: se conserva tal cual
+
+/**
+ * Datos derivados que no son texto del documento.
+ *
+ * Un contenedor (`env`, `caso`, `respuesta`, `fuentes`, `mcq`) lleva siempre
+ * `env`, `bodyFrom` y `bodyTo`: sin el rango del cuerpo no se sabe dónde meter
+ * un hijo en un contenedor vacío. `nameFrom`/`nameTo` y `endNameFrom`/
+ * `endNameTo` apuntan al nombre del entorno en el `\begin` y en el `\end`, que
+ * son los dos rangos que hay que tocar a la vez para renombrarlo.
+ */
+export interface BlockMeta {
+  nivel?: number
+  env?: string
+  bodyFrom?: number
+  bodyTo?: number
+  nameFrom?: number
+  nameTo?: number
+  endNameFrom?: number
+  endNameTo?: number
+}
 
 export interface Block {
   /** Estable dentro de un parseo; sirve de `:key`. Ver `assignIds`. */
@@ -47,12 +69,24 @@ export interface Block {
   kind: BlockKind
   span: Span
   fields: Field[]
-  /** Hijos de `fuentes` y `mcq`. También particionan el interior del padre. */
+  /** Hijos de un contenedor. También particionan el cuerpo del padre. */
   items?: Block[]
   /** `\opcion*` → `{ correcta: true }`; `\section*` → `{ starred: true }`. */
   flags?: Record<string, boolean>
-  /** Datos derivados que no son texto del documento (p. ej. nivel de sección). */
-  meta?: Record<string, number | string>
+  meta?: BlockMeta
+}
+
+/** ¿Es un bloque que contiene a otros y admite hijos nuevos? */
+export function isContainer(block: Block): boolean {
+  return block.items !== undefined && block.meta?.bodyFrom !== undefined
+}
+
+/** Recorre el árbol de bloques en orden de documento. */
+export function walkBlocks(blocks: Block[], fn: (block: Block, parent: Block | null) => void, parent: Block | null = null): void {
+  for (const block of blocks) {
+    fn(block, parent)
+    if (block.items) walkBlocks(block.items, fn, block)
+  }
 }
 
 /** Qué escáner toca, según la extensión del archivo. */

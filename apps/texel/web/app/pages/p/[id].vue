@@ -65,6 +65,12 @@ const me = computed<ProviderUser>(() => ({
 }))
 
 onMounted(async () => {
+  // Un proyecto se abre siempre igual: por bloques y sin el árbol de archivos
+  // delante. Lo que se toque después vale para esta sesión, no para la próxima
+  // vez que se entre (ver `PER_SESSION` en `usePanes`).
+  layout.value.editorTab = 'visual'
+  layout.value.sidebarOpen = false
+
   const { data: p } = await supabase.from('projects').select('*').eq('id', projectId).single()
   project.value = p as Project
 
@@ -176,11 +182,10 @@ async function focusFile(path: string, line?: number) {
 
 <template>
   <div class="h-full flex flex-col overflow-hidden">
-    <!-- Barra de título -->
-    <!-- La cabecera nunca debe empujar el ancho de la ventana: el bloque de la
-         izquierda se encoge y trunca, el de la derecha se queda fijo. -->
-    <header class="chrome flex items-center gap-2 px-3 h-[var(--header-h)] shrink-0 border-b border-[var(--border)] overflow-hidden">
-      <div class="flex items-center gap-2 min-w-0 flex-1">
+    <!-- Barra de título flotante (AppHeader): el contenido cambia según el
+         contexto, pero el material es el mismo en toda la aplicación. -->
+    <AppHeader>
+      <template #leading>
         <NuxtLink to="/" class="icon-btn shrink-0" title="Volver a proyectos">
           <ArrowLeft :size="15" />
         </NuxtLink>
@@ -189,9 +194,9 @@ async function focusFile(path: string, line?: number) {
         <span class="chip shrink-0 hidden lg:inline-flex">{{ project?.engine }}</span>
         <span class="chip shrink-0 font-mono hidden xl:inline-flex">{{ project?.root_file }}</span>
         <span v-if="!canWrite" class="chip shrink-0">solo lectura</span>
-      </div>
+      </template>
 
-      <div class="flex items-center gap-2 shrink-0">
+      <template #trailing>
         <PresenceBar :me="me" :peers="peers" />
 
         <MacButton size="small" :disabled="!isOwner" @click="showShare = true">
@@ -203,13 +208,13 @@ async function focusFile(path: string, line?: number) {
           <Play v-else :size="13" class="mr-1 inline align-[-2px]" />
           {{ compiling ? 'Compilando' : 'Compilar' }}
         </MacButton>
-      </div>
-    </header>
+      </template>
+    </AppHeader>
 
     <!-- Cuerpo: barra lateral | editor | PDF.
          Los paneles flotan separados sobre el fondo: sin ese hueco el cristal
          no tendría nada que refractar y volvería a verse plano. -->
-    <div ref="body" class="flex-1 flex min-h-0 overflow-hidden gap-3 px-3 pb-3 pt-1">
+    <div ref="body" class="flex-1 flex min-h-0 overflow-hidden gap-3 p-3">
       <FileTree
         v-show="layout.sidebarOpen"
         :style="{ width: `${layout.sidebarWidth}px`, flex: `0 0 ${layout.sidebarWidth}px` }"
