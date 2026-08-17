@@ -73,6 +73,15 @@
   --glass-rim:     rgba(255, 255, 255, 0.55);
   --menu-bg:       rgba(250, 250, 252, 0.94);
 
+  /* Panel en detalle «bajo»: mismo sitio que el cristal, sin desenfoque.
+     Translúcido y no opaco —el fondo tiene que seguir viéndose—, pero más
+     cargado que el cristal: sin los 12 px de blur, las franjas del fondo
+     atraviesan el panel y compiten con el texto. El velo hace ese trabajo.
+     El `regular` (árbol, visor) va por encima del `clear` (cabecera, editor)
+     porque es el que tapa contenido denso. */
+  --pane-flat-regular: rgba(250, 250, 252, 0.80);
+  --pane-flat-clear:   rgba(250, 250, 252, 0.70);
+
   /* Sintaxis del editor */
   --code-comment: #6a7383;
   --code-keyword: #9a3fb8;
@@ -129,6 +138,12 @@
 
     --glass-rim:     rgba(255, 255, 255, 0.14);
     --menu-bg:       rgba(30, 32, 38, 0.94);
+
+    /* Panel plano en oscuro: aquí el velo sí es oscuro. El tinte blanco del
+       cristal funciona porque hay desenfoque detrás; sin él solo aclara las
+       franjas del fondo y el texto se pierde. */
+    --pane-flat-regular: rgba(26, 27, 33, 0.74);
+    --pane-flat-clear:   rgba(26, 27, 33, 0.64);
 
     /* Sigue siendo blanco, no negro: el cristal oscurecido se lee como un velo
        sucio, mientras que un poco de blanco sobre un fondo oscuro es luz
@@ -187,6 +202,9 @@
 
   --glass-rim:     rgba(255, 255, 255, 0.14);
   --menu-bg:       rgba(30, 32, 38, 0.94);
+
+  --pane-flat-regular: rgba(26, 27, 33, 0.74);
+  --pane-flat-clear:   rgba(26, 27, 33, 0.64);
 
   --macvue-glass-panel-bg-regular: rgba(255, 255, 255, 0.07);
   --macvue-glass-panel-rim-regular: rgba(255, 255, 255, 0.20);
@@ -452,6 +470,85 @@ a { color: var(--accent); }
   border-radius: var(--radius);
   background: var(--bg-sunken);
   border: 1px solid var(--macvue-material-glass-regular-rim, var(--border));
+  /* El editor visual no virtualiza: pinta el documento entero, con un
+     `contenteditable` por campo. `content-visibility` deja al navegador saltarse
+     el layout y el pintado de las tarjetas fuera de pantalla, que es casi todo
+     el trabajo. El `contain-intrinsic-size` es el alto estimado que usa mientras
+     no la ha medido: sin él la barra de scroll salta al desplazarse. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+/* Fila de la lista de proyectos.
+   Tiene el aspecto de un `MacGlassPanel` «regular» pero con el `backdrop-filter`
+   nativo, no con la lente SVG: hay una fila por proyecto y todas viven dentro de
+   un scroller, así que una lente por fila serían N filtros SVG, N `ResizeObserver`
+   y N `MutationObserver` desplazándose a la vez. El desenfoque nativo lo compone
+   la GPU y la diferencia a la vista, en una tira de 72 px de alto, es mínima. */
+.project-row {
+  border-radius: var(--macvue-glass-panel-radius);
+  background: var(--macvue-glass-panel-bg-regular);
+  border: 1px solid var(--macvue-glass-panel-rim-regular);
+  backdrop-filter: blur(12px) saturate(170%);
+  -webkit-backdrop-filter: blur(12px) saturate(170%);
+  overflow: hidden;
+}
+
+[data-detail='bajo'] .project-row {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--pane-flat-regular);
+}
+
+/* ── Detalle bajo ──────────────────────────────────────────────────────────
+   El «Reducir transparencia» de macOS, en `useDetail`. `app.vue` apaga la lente
+   quitando `data-macvue-glass="on"`; aquí se completa quitando el desenfoque.
+
+   Lo que NO puede quedar es un `backdrop-filter` en el panel. macvue solo lo
+   anula cuando la lente está lista, así que al apagarla el filtro nativo vuelve
+   al `div` del panel — y un elemento con `backdrop-filter` pasa a ser el bloque
+   contenedor de sus descendientes `position: fixed`. El menú de
+   `MacPopUpButton` es `position: fixed; bottom: 0`, así que resolvía contra la
+   cabecera de 48 px en vez de contra la ventana y se dibujaba 640 px por encima
+   del borde superior: abierto, pero fuera de pantalla.
+
+   Lo que sí queda es la transparencia. macOS aquí pone los paneles opacos, pero
+   opaco sobre este fondo es un parche negro y la app deja de reconocerse. Un
+   velo translúcido cuesta lo mismo que uno opaco —es una capa que compone la
+   GPU, no un filtro— y el fondo se sigue viendo. Se pierde el desenfoque, que
+   es justo lo caro. */
+[data-detail='bajo'] .macvue-glass-panel,
+[data-detail='bajo'] .macvue-glass-panel-lens {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-detail='bajo'] .macvue-glass-panel-lens { display: none; }
+
+[data-detail='bajo'] .macvue-glass-panel--regular {
+  background: var(--pane-flat-regular);
+  box-shadow: var(--macvue-material-glass-regular-shadow);
+}
+
+[data-detail='bajo'] .macvue-glass-panel--clear {
+  background: var(--pane-flat-clear);
+  box-shadow: var(--macvue-material-glass-clear-shadow);
+}
+
+/* Las cuatro capas de «sky» van desenfocadas 26–46 px y con `mix-blend-mode`:
+   mientras se mueven invalidan el fondo que muestrea cada panel de cristal, así
+   que el coste no es del fondo, es de todos los paneles a la vez. Congelarlas
+   deja la imagen, que es lo que el cristal necesita para refractar. */
+[data-detail='bajo'] .app-backdrop > * {
+  animation-play-state: paused;
+}
+
+/* Menús y diálogos flotan fuera de los paneles, así que su blur no anida con el
+   de nadie; su `--menu-bg` va al 94 %, que ya se lee sobre cualquier cosa. */
+[data-detail='bajo'] .glass-menu,
+[data-detail='bajo'] .card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Todo panel que contiene un scroller necesita poder encogerse: sin min-*: 0

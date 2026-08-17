@@ -75,9 +75,28 @@ export function usePanes() {
     } catch { /* localStorage puede estar bloqueado; los valores por defecto sirven */ }
   })
 
-  watch(state, (value) => {
-    if (import.meta.client) localStorage.setItem(KEY, JSON.stringify(value))
+  // Con retardo: arrastrar un divisor muta el estado en cada `pointermove`, y
+  // `JSON.stringify` + `localStorage.setItem` son síncronos y bloquean el hilo
+  // que en ese momento está redibujando los dos paneles. Lo que importa es que
+  // quede guardado al soltar, no cuarenta veces por segundo.
+  let pending: ReturnType<typeof setTimeout> | null = null
+
+  function flush() {
+    if (!pending) return
+    clearTimeout(pending)
+    pending = null
+    localStorage.setItem(KEY, JSON.stringify(state.value))
+  }
+
+  watch(state, () => {
+    if (!import.meta.client) return
+    if (pending) clearTimeout(pending)
+    pending = setTimeout(flush, 300)
   }, { deep: true })
+
+  // Cerrar la pestaña justo después de mover un divisor no puede perderlo.
+  onMounted(() => window.addEventListener('pagehide', flush))
+  onBeforeUnmount(() => { window.removeEventListener('pagehide', flush); flush() })
 
   const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max)
 

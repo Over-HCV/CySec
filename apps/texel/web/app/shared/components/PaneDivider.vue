@@ -20,6 +20,12 @@ const emit = defineEmits<{
 const dragging = ref(false)
 let origin = { x: 0, y: 0 }
 
+// El puntero manda más eventos que frames pinta la pantalla, y cada `move`
+// redimensiona dos paneles de cristal. Se guarda el último y se emite uno por
+// frame: el arrastre sigue al ratón igual y el trabajo se divide por tres.
+let frame: number | null = null
+let latest = { x: 0, y: 0 }
+
 function onPointerDown(event: PointerEvent) {
   if (props.disabled) return
   dragging.value = true
@@ -33,17 +39,28 @@ function onPointerDown(event: PointerEvent) {
 
 function onPointerMove(event: PointerEvent) {
   if (!dragging.value) return
-  emit('move', { x: event.clientX - origin.x, y: event.clientY - origin.y })
+  latest = { x: event.clientX - origin.x, y: event.clientY - origin.y }
+  if (frame !== null) return
+  frame = requestAnimationFrame(() => {
+    frame = null
+    if (dragging.value) emit('move', latest)
+  })
 }
 
 function onPointerUp(event: PointerEvent) {
   if (!dragging.value) return
   dragging.value = false
+  // El último movimiento puede estar todavía esperando su frame: se emite ya,
+  // o el panel se queda unos píxeles por detrás de donde se soltó.
+  if (frame !== null) { cancelAnimationFrame(frame); frame = null }
+  emit('move', latest)
   ;(event.target as HTMLElement).releasePointerCapture(event.pointerId)
   document.body.style.userSelect = ''
   document.body.style.cursor = ''
   emit('end')
 }
+
+onBeforeUnmount(() => { if (frame !== null) cancelAnimationFrame(frame) })
 </script>
 
 <template>

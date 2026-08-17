@@ -2,6 +2,10 @@
   "name": "texel-web",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@10.34.3",
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",

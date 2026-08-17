@@ -22,10 +22,35 @@ const admin = createClient(
   { auth: { persistSession: false } }
 )
 
+// El navegador llama a esta función desde otro origen, así que el CORS es cosa
+// nuestra: la pasarela de Supabase solo pone cabeceras en sus propios errores
+// (el 401 por falta de JWT), no en lo que devuelve la función. Mismo criterio
+// que en `compiler/src/server.ts`: allowlist por env, `*` mientras no se acote.
+const ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '*').split(',').map(s => s.trim())
+
+function cors(origin: string | null): Record<string, string> {
+  const allowed = ORIGINS.includes('*') ? '*' : (origin && ORIGINS.includes(origin) ? origin : '')
+  if (!allowed) return {}
+  return {
+    'access-control-allow-origin': allowed,
+    'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
+    'access-control-allow-methods': 'POST, OPTIONS',
+    vary: 'Origin'
+  }
+}
+
 Deno.serve(async (req) => {
+  // Se calculan antes de tocar nada: una respuesta sin ellas —incluidas las de
+  // error— la bloquea el navegador y el cliente ni llega a ver el motivo.
+  const headers = { ...cors(req.headers.get('origin')), 'content-type': 'application/json' }
+
+  // El preflight va sin cuerpo: si cae en el `req.json()` de abajo, sale un 400
+  // de «falta fileId» y el navegador da la llamada por prohibida.
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers })
+
   const { fileId } = await req.json().catch(() => ({ fileId: null }))
   if (!fileId) {
-    return new Response(JSON.stringify({ error: 'falta fileId' }), { status: 400 })
+    return new Response(JSON.stringify({ error: 'falta fileId' }), { status: 400, headers })
   }
 
   const doc = new Y.Doc()
@@ -36,7 +61,7 @@ Deno.serve(async (req) => {
     .eq('file_id', fileId)
     .maybeSingle()
 
-  if (readSnapshot) return fail('no se pudo leer el snapshot', readSnapshot)
+  if (readSnapshot) return fail('no se pudo leer el snapshot', readSnapshot, headers)
 
   if (snapshot?.state) Y.applyUpdate(doc, decodeBase64(snapshot.state))
 
@@ -47,12 +72,10 @@ Deno.serve(async (req) => {
     .gt('seq', snapshot?.through_seq ?? 0)
     .order('seq', { ascending: true })
 
-  if (readUpdates) return fail('no se pudo leer el log', readUpdates)
+  if (readUpdates) return fail('no se pudo leer el log', readUpdates, headers)
 
   if (!updates?.length) {
-    return new Response(JSON.stringify({ ok: true, compacted: 0 }), {
-      headers: { 'content-type': 'application/json' }
-    })
+    return new Response(JSON.stringify({ ok: true, compacted: 0 }), { headers })
   }
 
   for (const row of updates) Y.applyUpdate(doc, decodeBase64(row.update))
@@ -73,14 +96,14 @@ Deno.serve(async (req) => {
     updated_at: new Date().toISOString()
   })
 
-  if (wroteSnapshot) return fail('no se pudo guardar el snapshot', wroteSnapshot)
+  if (wroteSnapshot) return fail('no se pudo guardar el snapshot', wroteSnapshot, headers)
 
   const { error: wroteFile } = await admin.from('files').update({
     content: text,
     size_bytes: new TextEncoder().encode(text).length
   }).eq('id', fileId)
 
-  if (wroteFile) return fail('no se pudo escribir el archivo', wroteFile)
+  if (wroteFile) return fail('no se pudo escribir el archivo', wroteFile, headers)
 
   // Se podan **solo las filas que se han leído**, no todo lo que quede por
   // debajo de `through`. `seq` es un `bigserial`: una fila puede tener asignado
@@ -93,17 +116,16 @@ Deno.serve(async (req) => {
     .eq('file_id', fileId)
     .in('seq', seqs)
 
-  if (pruned) return fail('no se pudo podar el log', pruned)
+  if (pruned) return fail('no se pudo podar el log', pruned, headers)
 
-  return new Response(JSON.stringify({ ok: true, compacted: updates.length, through }), {
-    headers: { 'content-type': 'application/json' }
-  })
+  return new Response(JSON.stringify({ ok: true, compacted: updates.length, through }), { headers })
 })
 
-function fail(message: string, error: { message?: string }): Response {
+function fail(
+  message: string,
+  error: { message?: string },
+  headers: Record<string, string>
+): Response {
   console.error(`[flush-doc] ${message}: ${error.message ?? ''}`)
-  return new Response(JSON.stringify({ error: message }), {
-    status: 500,
-    headers: { 'content-type': 'application/json' }
-  })
+  return new Response(JSON.stringify({ error: message }), { status: 500, headers })
 }

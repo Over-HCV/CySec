@@ -107,13 +107,16 @@ onMounted(async () => {
 
 // ── Redimensionado ───────────────────────────────────────────────────────────
 // Cada arrastre parte del valor que había al empezar; el divisor envía deltas.
-let dragStart = { sidebar: 0, ratio: 0, log: 0 }
+// El ancho del cuerpo se mide una vez al empezar y no en cada movimiento:
+// `clientWidth` fuerza un cálculo de layout, y el arrastre no lo cambia.
+let dragStart = { sidebar: 0, ratio: 0, log: 0, width: 1 }
 
 function beginDrag() {
   dragStart = {
     sidebar: layout.value.sidebarWidth,
     ratio: layout.value.editorRatio,
-    log: layout.value.logHeight
+    log: layout.value.logHeight,
+    width: body.value?.clientWidth ?? 1
   }
 }
 
@@ -122,8 +125,7 @@ function dragSidebar({ x }: { x: number }) {
 }
 
 function dragMiddle({ x }: { x: number }) {
-  const total = body.value?.clientWidth ?? 1
-  const usable = total - (layout.value.sidebarOpen ? layout.value.sidebarWidth : 0)
+  const usable = dragStart.width - (layout.value.sidebarOpen ? layout.value.sidebarWidth : 0)
   setEditorRatio(dragStart.ratio + x / Math.max(usable, 1))
 }
 

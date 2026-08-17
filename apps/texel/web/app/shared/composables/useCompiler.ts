@@ -27,6 +27,12 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
   }
 
   async function post<T>(path: string, body: unknown): Promise<T> {
+    // `compilerUrl` cae a localhost si falta la variable. En desarrollo es lo
+    // que se quiere; servido por HTTPS el navegador bloquea la petición mixta
+    // sin decir por qué, así que aquí se nombra la causa real.
+    if (import.meta.client && location.protocol === 'https:' && base.startsWith('http://')) {
+      throw new Error('NUXT_PUBLIC_COMPILER_URL no apunta a HTTPS: el compilador no es alcanzable desde este origen')
+    }
     const res = await fetch(`${base}${path}`, {
       method: 'POST',
       headers: await authHeaders(),

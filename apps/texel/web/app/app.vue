@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { current: wallpaper } = useWallpaper()
+const { current: detail } = useDetail()
 
 /** La piscina va a cámara lenta (0.4×): a velocidad real el agua parece
  *  metraje de stock; lenta es lo que da la calma. Se reaplica cada vez que
@@ -13,10 +14,17 @@ watchEffect(() => {
 <template>
   <!-- `data-macvue-glass="on"` enciende la lente de macvue en toda la aplicación:
        sin este atributo en algún ancestro, `MacGlassPanel` se queda en un blur
-       plano y nunca refracta (ver `GlassLens` en @macvue/core).
+       plano y nunca refracta (ver `GlassLens` en @macvue/core). Es justo lo que
+       queremos apagar en detalle «bajo», y por eso el interruptor vive aquí y no
+       en cada panel: un atributo, y toda la app cambia de camino de pintado.
        `data-accent` cambia el acento según el fondo: sobre «sky» y «aqua»
        todo es azul y el de macOS se pierde, así que ahí va turquesa. -->
-  <div class="h-full" data-macvue-glass="on" :data-accent="wallpaper === 'sky' || wallpaper === 'aqua' ? 'aqua' : null">
+  <div
+    class="h-full"
+    :data-macvue-glass="detail === 'alto' ? 'on' : 'off'"
+    :data-detail="detail"
+    :data-accent="wallpaper === 'sky' || wallpaper === 'aqua' ? 'aqua' : null"
+  >
     <!-- Fondo de la ventana. Es lo que el cristal refracta, así que su detalle
          importa tanto como el de los paneles; el CSS está en shared/styles/theme.css. -->
     <div class="app-backdrop" :class="`app-backdrop--${wallpaper}`" aria-hidden="true">

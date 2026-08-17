@@ -63,7 +63,7 @@ watchEffect(() => {
         <p class="text-sm">
           Te enviamos un enlace a <strong>{{ email }}</strong>. Ábrelo para entrar.
         </p>
-        <p class="text-muted text-xs">
+        <p v-if="devLogin" class="text-muted text-xs">
           En desarrollo el correo no sale de tu máquina: míralo en
           <a href="http://127.0.0.1:54324" target="_blank">Mailpit</a>.
         </p>

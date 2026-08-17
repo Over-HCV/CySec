@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {
-  MacButton, MacGlassPanel, MacPopUpButton, MacPopUpButtonItem, MacProgress, MacTextField
+  MacButton, MacGlassPanel, MacPopUpButton, MacPopUpButtonItem, MacProgress,
+  MacSegment, MacSegmentedControl, MacTextField
 } from '@macvue/core'
-import { Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, CopyPlus, Edit } from 'lucide-vue-next'
+import { Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, Gauge, CopyPlus, Edit } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 import type { Project } from '~/shared/types/database'
@@ -16,6 +17,7 @@ const supabase = useSupabaseClient()
     La apariencia (claro/oscuro/sistema) es independiente del fondo. */
 const { current: wallpaper, options: wallpapers } = useWallpaper()
 const { current: appearance, options: appearances } = useAppearance()
+const { current: detail, options: details } = useDetail()
 
 const creating = ref(false)
 const name = ref('')
@@ -163,6 +165,23 @@ onMounted(refresh)
           </MacPopUpButtonItem>
         </MacPopUpButton>
 
+        <!-- Detalle: en «alto» cada panel refracta el fondo con un filtro SVG,
+             que en Chrome se pinta en el hilo principal y hace que el scroll del
+             PDF y del editor vaya a tirones. «Bajo» vuelve al desenfoque normal.
+             Se elige aquí, pero vale para toda la app; ver `useDetail`.
+
+             Segmentado y no desplegable como los de al lado: son dos estados, y
+             el menú de `MacPopUpButton` se coloca alineando la opción marcada
+             sobre el botón. Con la última opción elegida y el control a 40 px del
+             borde superior, el menú no cabe hacia arriba y la cabecera se
+             desplaza para hacerle sitio. -->
+        <Gauge :size="18" class="text-white shrink-0" />
+        <MacSegmentedControl v-model="detail" size="small" aria-label="Detalle de la interfaz">
+          <MacSegment v-for="option in details" :key="option.id" :value="option.id">
+            {{ option.label }}
+          </MacSegment>
+        </MacSegmentedControl>
+
         <User :size="18" class="text-white shrink-0" />
         <span class="text-[12px] text-[var(--text-muted)]">{{ user?.email }}</span>
         <MacButton size="small" @click="signOut">Salir</MacButton>
@@ -216,9 +235,12 @@ onMounted(refresh)
 
       <ul class="list-none p-0 m-0 grid gap-2">
         <li v-for="p in projects" :key="p.id">
-          <!-- El cristal va en el panel y el enlace lo rellena: `MacGlassPanel`
-               renderiza un `div`, así que no puede ser el enlace en sí. -->
-          <MacGlassPanel material="regular" class="hover:brightness-110 transition-all">
+          <!-- Superficie barata, no `MacGlassPanel`, por lo mismo que explica
+               `.block-card` en theme.css: un panel de cristal por fila son N
+               lentes SVG —cada una con su filtro, sus dos mapas en data-URL, su
+               `ResizeObserver` y un `MutationObserver` por ancestro— dentro de
+               un scroller. La lista tiene que deslizarse, no refractar. -->
+          <div class="project-row hover:brightness-110 transition-[filter]">
             <NuxtLink :to="`/p/${p.id}`" class="p-4 flex items-center gap-3 no-underline text-[var(--text)]">
               <FileText :size="16" class="text-muted" />
               <span class="flex-1 min-w-0">
@@ -251,7 +273,7 @@ onMounted(refresh)
                 <Trash2 :size="14" />
               </button>
             </NuxtLink>
-          </MacGlassPanel>
+          </div>
         </li>
       </ul>
     </main>
