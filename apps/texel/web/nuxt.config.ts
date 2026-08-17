@@ -6,6 +6,15 @@ export default defineNuxtConfig({
     compatibilityVersion: 4
   },
 
+  app: {
+    head: {
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/assets/logo.png' },
+        { rel: 'apple-touch-icon', href: '/assets/logo.png' }
+      ]
+    }
+  },
+
   modules: [
     '@nuxtjs/supabase',
     '@unocss/nuxt',
