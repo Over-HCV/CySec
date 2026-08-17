@@ -94,7 +94,7 @@ watchEffect(() => {
         <button class="btn w-full mt-2" type="button" :disabled="busy" @click="magicLink">
           Enviar enlace de acceso
         </button>
-
+<!-- 
         <p class="text-muted text-xs mt-3 mb-0">
           El acceso es por invitación: las cuentas las crea un administrador.
         </p>
@@ -102,7 +102,7 @@ watchEffect(() => {
         <p v-if="isDev" class="text-muted text-xs mt-1 mb-0">
           Modo desarrollo: usuarios de prueba <code>alice@test.local</code> y
           <code>bob@test.local</code>.
-        </p>
+        </p> -->
       </template>
 
       <p v-if="error" class="text-danger text-xs mt-3 mb-0">{{ error }}</p>
