@@ -68,22 +68,10 @@ watchEffect(() => {
 
       <template v-else>
         <form class="grid gap-2" @submit.prevent="withPassword">
-          <input
-            v-model="email"
-            class="input"
-            type="email"
-            required
-            placeholder="tu@urosario.edu.co"
-            autocomplete="email"
-          >
-          <input
-            v-model="password"
-            class="input"
-            type="password"
-            required
-            placeholder="contraseña"
-            autocomplete="current-password"
-          >
+          <input v-model="email" class="input" type="email" required placeholder="tu@urosario.edu.co"
+            autocomplete="email">
+          <input v-model="password" class="input" type="password" required placeholder="contraseña"
+            autocomplete="current-password">
           <button class="btn-primary" type="submit" :disabled="busy">
             {{ busy ? 'Entrando…' : 'Entrar' }}
           </button>
@@ -94,7 +82,7 @@ watchEffect(() => {
         <button class="btn w-full mt-2" type="button" :disabled="busy" @click="magicLink">
           Enviar enlace de acceso
         </button>
-<!-- 
+        <!-- 
         <p class="text-muted text-xs mt-3 mb-0">
           El acceso es por invitación: las cuentas las crea un administrador.
         </p>
