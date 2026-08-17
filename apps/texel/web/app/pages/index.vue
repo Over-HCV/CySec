@@ -140,7 +140,7 @@ onMounted(refresh)
     @dragleave.self="dragging = false" @drop.prevent="onDrop">
     <AppHeader>
       <template #leading>
-        <FileText :size="18" class="text-white shrink-0" />
+        <img src="/assets/logo.png" alt="" width="18" height="18" class="shrink-0">
         <strong>Texel</strong>
         <span class="text-[var(--text-muted)] text-xs truncate">editor LaTeX colaborativo</span>
       </template>
