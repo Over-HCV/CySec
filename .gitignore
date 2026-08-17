@@ -34,3 +34,10 @@ dist/
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
+
+# ── Vercel ───────────────────────────────────────────────────────────────────
+# `.vercel/` guarda el id del proyecto y un token OIDC; `.env.local` lo escribe
+# `vercel link`. Los `.env` ya los cubre la sección de secretos de arriba: el
+# CLI añadió aquí un `.env*` que, por ser la última regla, pisaba el
+# `!.env.example` y volvía a ignorar los ejemplos.
+.vercel
