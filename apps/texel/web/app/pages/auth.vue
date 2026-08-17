@@ -51,8 +51,10 @@ watchEffect(() => {
 <template>
   <div class="min-h-full grid place-items-center px-5">
     <div class="card w-full max-w-sm">
-      <img src="/assets/logo.png" alt="Texel" width="40" height="40" class="block mb-2">
-      <h1 class="text-lg font-semibold mt-0 mb-1">Texel</h1>
+      <div class="flex items-center gap-2 mb-1">
+        <img src="/assets/logo.png" alt="" width="28" height="28" class="shrink-0">
+        <h1 class="text-lg font-semibold m-0">Texel</h1>
+      </div>
       <p class="text-muted text-xs mt-0 mb-4">Editor LaTeX colaborativo</p>
 
       <template v-if="sent">
