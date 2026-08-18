@@ -319,18 +319,39 @@ async function toggleEditor() {
   editor.value?.remeasure()
 }
 
+/**
+ * SyncTeX en los dos sentidos.
+ *
+ * Los dos hablan con el servicio de compilación, y los dos se quedaban en
+ * silencio si no contestaba: la promesa se rechazaba y no pasaba nada. En local
+ * eso es lo normal —`NUXT_PUBLIC_COMPILER_URL` apunta a `localhost:8080` y ahí
+ * no suele haber nadie— y parecía que el clic estuviera roto en vez de que
+ * faltara el compilador.
+ */
+function synctexFailed(e: unknown) {
+  toast.error(`SyncTeX: ${(e as Error).message}`)
+}
+
 /** Editor → PDF. */
 async function jumpToPdf() {
   if (!activeFile.value) return
-  const area = await forward(activeFile.value.path, cursorLine.value)
-  if (area) viewer.value?.showHighlight(area)
+  try {
+    const area = await forward(activeFile.value.path, cursorLine.value)
+    if (area) viewer.value?.showHighlight(area)
+  } catch (e) {
+    synctexFailed(e)
+  }
 }
 
 /** PDF → editor. */
 async function onPdfClick({ page, x, y }: { page: number, x: number, y: number }) {
-  const src = await inverse(page, x, y)
-  if (!src) return
-  await focusFile(src.file, src.line)
+  try {
+    const src = await inverse(page, x, y)
+    if (!src) return
+    await focusFile(src.file, src.line)
+  } catch (e) {
+    synctexFailed(e)
+  }
 }
 
 /** Clic en un problema del log → cursor en esa línea. */

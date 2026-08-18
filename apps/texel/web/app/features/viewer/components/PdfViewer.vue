@@ -15,7 +15,7 @@
  * poder mantener las texturas y re-rasteriza en cada scroll.
  */
 import { Minus, Plus, Maximize2 } from 'lucide-vue-next'
-import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
+import type { PageViewport, PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist'
 
 const props = defineProps<{ src: string | null }>()
 const emit = defineEmits<{ pdfClick: [{ page: number, x: number, y: number }] }>()
@@ -59,10 +59,13 @@ function render(): Promise<void> {
   return inFlight
 }
 
-/** Suelta el canvas de una página. */
+/** Suelta el canvas de una página y sus zonas clicables. */
 function releasePage(n: number) {
   tasks.get(n)?.cancel()
   tasks.delete(n)
+  // La capa de enlaces se va con el canvas: si se quedara, al repintar la
+  // página habría dos superpuestas y los enlaces responderían dos veces.
+  slots.get(n)?.querySelector('[data-links]')?.remove()
   const canvas = slots.get(n)?.querySelector('canvas')
   if (!canvas) return
   // Ponerlo a cero antes de quitarlo del DOM: es lo que devuelve de verdad los
@@ -100,6 +103,10 @@ async function paintPage(n: number, token: number) {
   tasks.set(n, task)
   rendering.value = true
 
+  // Sin esperar al rasterizado: leer las anotaciones no depende de él, y así
+  // los enlaces están vivos en cuanto se ve la página.
+  void paintLinks(page, slot, viewport, token)
+
   try {
     await task.promise
   } catch {
@@ -109,6 +116,72 @@ async function paintPage(n: number, token: number) {
     tasks.delete(n)
     rendering.value = tasks.size > 0
   }
+}
+
+/**
+ * Zonas clicables de una página: los enlaces que deja `hyperref`.
+ *
+ * A mano y no con el `AnnotationLayer` de pdf.js porque de todo lo que sabe
+ * dibujar —formularios, notas, popups— aquí solo hacen falta los enlaces, y
+ * montarlo arrastra su hoja de estilos y su `linkService`. Un `<a>` por
+ * anotación encima del canvas hace exactamente lo mismo para este caso.
+ */
+async function paintLinks(page: PDFPageProxy, slot: HTMLElement, viewport: PageViewport, token: number) {
+  const n = Number(slot.dataset.page)
+  if (slot.querySelector('[data-links]')) return
+
+  const annotations = await page.getAnnotations({ intent: 'display' })
+  // Igual que en `paintPage`: la página puede haberse ido mientras se resolvía.
+  if (token !== renderToken || !onScreen.has(n)) return
+
+  const links = annotations.filter(a => a.subtype === 'Link' && (a.url || a.dest))
+  if (!links.length) return
+
+  const layer = document.createElement('div')
+  layer.dataset.links = ''
+  layer.className = 'absolute inset-0'
+
+  for (const link of links) {
+    // El rectángulo del PDF puede venir con las esquinas al revés; tras pasarlo
+    // a coordenadas de pantalla el eje Y además se invierte.
+    const [x1, y1, x2, y2] = viewport.convertToViewportRectangle(link.rect) as number[]
+    const el = document.createElement('a')
+    el.className = 'pdf-link'
+    el.style.left = `${Math.min(x1!, x2!)}px`
+    el.style.top = `${Math.min(y1!, y2!)}px`
+    el.style.width = `${Math.abs(x2! - x1!)}px`
+    el.style.height = `${Math.abs(y2! - y1!)}px`
+
+    if (link.url) {
+      el.href = link.url
+      el.target = '_blank'
+      el.rel = 'noopener noreferrer'
+      el.title = link.url
+    } else {
+      el.href = '#'
+      el.addEventListener('click', (event) => {
+        event.preventDefault()
+        void goToDest(link.dest)
+      })
+    }
+    // Sin esto el clic llega también a `onClick` y pide un SyncTeX inverso de
+    // una posición que el usuario no ha pedido.
+    el.addEventListener('click', event => event.stopPropagation())
+    layer.appendChild(el)
+  }
+
+  slot.appendChild(layer)
+}
+
+/** Enlace interno (índice, referencia cruzada): saltar a esa página. */
+async function goToDest(dest: string | unknown[]) {
+  if (!pdf) return
+  const explicit = typeof dest === 'string' ? await pdf.getDestination(dest) : dest
+  const ref = (explicit as { num: number, gen: number }[] | null)?.[0]
+  if (!ref) return
+  // El hueco existe aunque la página no esté pintada; el observer la pinta al
+  // llegar, igual que en `showHighlight`.
+  slots.get(await pdf.getPageIndex(ref) + 1)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 async function paint() {
@@ -156,7 +229,7 @@ async function paint() {
       slot.style.height = `${viewport.height}px`
       // La sombra y las esquinas van en el hueco, no en el canvas: redondear un
       // canvas de megapíxeles obliga a recortar toda la superficie.
-      slot.className = 'mx-auto mb-3 rounded-[2px] bg-white shadow-[0_1px_6px_rgba(0,0,0,.22)]'
+      slot.className = 'relative mx-auto mb-3 rounded-[2px] bg-white shadow-[0_1px_6px_rgba(0,0,0,.22)]'
       slot.dataset.page = String(n)
       canvasHost.value.appendChild(slot)
       slots.set(n, slot)

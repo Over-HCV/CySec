@@ -665,6 +665,23 @@ a { color: var(--accent); }
 .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
 .icon-btn:active { background: var(--bg-selected); }
 
+/* Zonas clicables del PDF (`PdfViewer`). Van encima del canvas, transparentes:
+   el enlace ya está dibujado —en azul, por `hyperref`— dentro de la propia
+   imagen de la página; esto solo le devuelve el clic. El tinte al pasar por
+   encima es lo único que las delata, y hace falta: sin él no se sabe dónde
+   empieza y acaba la zona activa. */
+.pdf-link {
+  position: absolute;
+  display: block;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.pdf-link:hover {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+}
+
 /* ── CodeMirror ───────────────────────────────────────────────────────────── */
 .cm-editor {
   height: 100%;
