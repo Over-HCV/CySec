@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import {
-  MacButton, MacGlassPanel, MacPopUpButton, MacPopUpButtonItem, MacProgress,
-  MacSegment, MacSegmentedControl, MacTextField
+  MacButton, MacGlassPanel, MacProgress, MacSegment, MacSegmentedControl, MacTextField
 } from '@macvue/core'
-import { Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, Gauge, CopyPlus, Edit } from 'lucide-vue-next'
+import {
+  Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, Gauge, CopyPlus, Edit, ChevronDown
+} from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 import type { Project } from '~/shared/types/database'
@@ -19,6 +20,10 @@ const { current: wallpaper, options: wallpapers } = useWallpaper()
 const { current: appearance, options: appearances } = useAppearance()
 const { current: detail, options: details } = useDetail()
 
+/** Lo que se lee en el botón cuando el menú está cerrado. */
+const appearanceLabel = computed(() => appearances.find(o => o.id === appearance.value)?.label ?? '')
+const wallpaperLabel = computed(() => wallpapers.find(o => o.id === wallpaper.value)?.label ?? '')
+
 const creating = ref(false)
 const name = ref('')
 const error = ref('')
@@ -26,6 +31,28 @@ const error = ref('')
 /** Proyecto cuyo nombre se edita en la propia fila (Enter guarda, Esc cancela). */
 const editingId = ref<string | null>(null)
 const draftName = ref('')
+
+/**
+ * Tu nombre visible, el que ven los demás en la barra de presencia y en la lista
+ * de miembros. Se edita en el sitio, igual que el de un proyecto: hasta ahora lo
+ * fijaba el alta de la cuenta y no había forma de tocarlo.
+ */
+const { displayName, rename: renameMe } = useProfile()
+const editingMe = ref(false)
+const draftMe = ref('')
+
+function startRenameMe() {
+  draftMe.value = displayName.value
+  editingMe.value = true
+}
+
+async function commitRenameMe() {
+  if (!editingMe.value) return
+  editingMe.value = false
+  const message = await renameMe(draftMe.value)
+  if (message) toast.error(message)
+  else toast.success('Nombre actualizado')
+}
 // La referencia-función del input se reevalúa en cada parcheo; sin esto se
 // re-seleccionaría el texto a cada tecleo.
 let renameInput: HTMLInputElement | null = null
@@ -146,35 +173,55 @@ onMounted(refresh)
       </template>
       <template #trailing>
         <!-- Claro, oscuro o el del sistema. Sin esto, la app solo cambiaba
-             con macOS y de noche el fondo «sky» quedaba apagado. -->
+             con macOS y de noche el fondo «sky» quedaba apagado.
+
+             `AppMenu` y no `MacPopUpButton`: el de macvue coloca su menú
+             alineando la opción marcada sobre el botón, y con el botón a 40 px
+             del borde superior de la ventana esa alineación no cabe — el menú
+             se abría fuera de la pantalla. Ver `AppMenu.vue`. -->
         <SunMoon :size="18" class="text-white shrink-0" />
-        <MacPopUpButton v-model="appearance" size="small" aria-label="Apariencia de la interfaz">
-          <MacPopUpButtonItem v-for="option in appearances" :key="option.id" :value="option.id"
-            :text-value="option.label">
+        <AppMenu align="end" aria-label="Apariencia de la interfaz">
+          <template #trigger>
+            {{ appearanceLabel }}
+            <ChevronDown :size="11" class="opacity-70" />
+          </template>
+          <AppMenuItem
+            v-for="option in appearances"
+            :key="option.id"
+            :checked="appearance === option.id"
+            :hint="option.hint"
+            @select="appearance = option.id"
+          >
             {{ option.label }}
-          </MacPopUpButtonItem>
-        </MacPopUpButton>
+          </AppMenuItem>
+        </AppMenu>
 
         <!-- El fondo no es un adorno: es lo que el cristal de los paneles
              refracta, así que cambiarlo cambia toda la interfaz. -->
         <Palette :size="18" class="text-white shrink-0" />
-        <MacPopUpButton v-model="wallpaper" size="small" aria-label="Fondo de la ventana">
-          <MacPopUpButtonItem v-for="option in wallpapers" :key="option.id" :value="option.id"
-            :text-value="option.label">
+        <AppMenu align="end" aria-label="Fondo de la ventana">
+          <template #trigger>
+            {{ wallpaperLabel }}
+            <ChevronDown :size="11" class="opacity-70" />
+          </template>
+          <AppMenuItem
+            v-for="option in wallpapers"
+            :key="option.id"
+            :checked="wallpaper === option.id"
+            :hint="option.hint"
+            @select="wallpaper = option.id"
+          >
             {{ option.label }}
-          </MacPopUpButtonItem>
-        </MacPopUpButton>
+          </AppMenuItem>
+        </AppMenu>
 
         <!-- Detalle: en «alto» cada panel refracta el fondo con un filtro SVG,
              que en Chrome se pinta en el hilo principal y hace que el scroll del
              PDF y del editor vaya a tirones. «Bajo» vuelve al desenfoque normal.
              Se elige aquí, pero vale para toda la app; ver `useDetail`.
 
-             Segmentado y no desplegable como los de al lado: son dos estados, y
-             el menú de `MacPopUpButton` se coloca alineando la opción marcada
-             sobre el botón. Con la última opción elegida y el control a 40 px del
-             borde superior, el menú no cabe hacia arriba y la cabecera se
-             desplaza para hacerle sitio. -->
+             Segmentado y no desplegable como los de al lado: son dos estados,
+             y con dos estados un menú es un clic de más. -->
         <Gauge :size="18" class="text-white shrink-0" />
         <MacSegmentedControl v-model="detail" size="small" aria-label="Detalle de la interfaz">
           <MacSegment v-for="option in details" :key="option.id" :value="option.id">
@@ -182,8 +229,28 @@ onMounted(refresh)
           </MacSegment>
         </MacSegmentedControl>
 
+        <!-- Tu nombre, no tu correo: es lo que ven los demás, así que es lo que
+             tiene sentido poder corregir aquí. Un clic lo edita, como en la fila
+             de un proyecto. El correo pasa al `title`. -->
         <User :size="18" class="text-white shrink-0" />
-        <span class="text-[12px] text-[var(--text-muted)]">{{ user?.email }}</span>
+        <input
+          v-if="editingMe"
+          v-model="draftMe"
+          :ref="focusRename"
+          :maxlength="80"
+          class="text-[12px] text-[var(--text)] bg-transparent outline-none px-0 py-0 border-0 border-b border-[var(--text-muted)] w-32"
+          @keydown.enter.prevent="commitRenameMe"
+          @keydown.escape="editingMe = false"
+          @blur="commitRenameMe"
+        >
+        <button
+          v-else
+          class="text-[12px] text-[var(--text-muted)] bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--text)] truncate max-w-40"
+          :title="`${user?.email} — clic para cambiar tu nombre`"
+          @click="startRenameMe"
+        >
+          {{ displayName }}
+        </button>
         <MacButton size="small" @click="signOut">Salir</MacButton>
       </template>
     </AppHeader>

@@ -158,6 +158,11 @@ watch(() => props.wrap, (on) => {
   view?.dispatch({ effects: wrapping.reconfigure(on === false ? [] : EditorView.lineWrapping) })
 })
 
+// El nombre y el color salen de `profiles`, que se lee de la base después de
+// montar el editor. Sin volver a publicarlos, los demás se quedan con lo que
+// hubiera al conectar: el correo, o «Anónimo» si la sesión aún no había cargado.
+watch(() => props.user, (user) => provider?.setUser(user), { deep: true })
+
 /** Coloca el cursor en una línea (salto inverso desde el PDF). */
 function goToLine(line: number) {
   if (!view) return

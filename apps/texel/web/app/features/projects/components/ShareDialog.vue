@@ -71,8 +71,12 @@ onMounted(refresh)
               class="w-5 h-5 rounded-full shrink-0"
               :style="{ background: m.profile?.color ?? 'var(--accent)' }"
             />
+            <!-- `||` y no `??`: `display_name` es `not null` pero puede ser la
+                 cadena vacía —`handle_new_user` la guarda tal cual si la cuenta
+                 se creó con un `full_name` en blanco—, y así la fila salía sin
+                 nada. El correo viene en el mismo `profiles(*)` de la consulta. -->
             <span class="flex-1 truncate">
-              {{ m.profile?.display_name }}
+              {{ m.profile?.display_name?.trim() || m.profile?.email || 'Sin nombre' }}
               <span v-if="m.user_id === user?.id" class="text-muted text-xs">(tú)</span>
             </span>
 

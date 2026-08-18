@@ -8,7 +8,7 @@
  * el navegador los pisaría y el cambio no se notaría en las máquinas que ya
  * habían abierto la app. El precio es olvidar una vez los anchos de panel.
  */
-const KEY = 'texel:panes:3'
+const KEY = 'texel:panes:4'
 
 /**
  * Lo que **no** se recuerda entre sesiones: cómo se abre un proyecto es una
@@ -23,7 +23,12 @@ interface LayoutState {
   editorRatio: number      // 0–1 del espacio restante que ocupa el editor
   logHeight: number
   sidebarOpen: boolean
-  pdfOpen: boolean
+  /**
+   * El panel central. Plegado, el PDF ocupa toda la anchura y del editor queda
+   * una tira con el botón para devolverlo. El PDF ya no se puede esconder:
+   * esconderlo para agrandar el editor no era lo que nadie pedía de ese botón.
+   */
+  editorOpen: boolean
   logOpen: boolean
   wrap: boolean            // ajuste de línea en el editor
   editorTab: 'code' | 'visual'   // pestaña activa del panel del editor
@@ -44,7 +49,7 @@ const DEFAULTS: LayoutState = {
   // El árbol de archivos se abre cuando hace falta; de salida estorba más de lo
   // que aporta, sobre todo con un proyecto de un solo archivo.
   sidebarOpen: false,
-  pdfOpen: true,
+  editorOpen: true,
   logOpen: true,
   wrap: true,
   // La vista por bloques es la que puede usar quien no escribe LaTeX, que es

@@ -45,7 +45,19 @@
 \newcommand{\wstitle}[1]{\renewcommand{\ws@title}{#1}}
 \newcommand{\wssession}[1]{\renewcommand{\ws@session}{#1}}
 \newcommand{\wsdate}[1]{\renewcommand{\ws@date}{#1}}
-\newcommand{\wsauthor}[1]{\renewcommand{\ws@author}{#1}}
+% Admite varias llamadas — un autor por línea en meta.tex: la primera
+% sustituye al autor por defecto del curso y las demás se van añadiendo
+% (se separan con «, » al renderizar). Antes cada llamada pisaba a la
+% anterior y del equipo solo quedaba el último nombre.
+\newif\ifws@authorset \ws@authorsetfalse
+\newcommand{\wsauthor}[1]{%
+  \ifws@authorset
+    \gappto{\ws@author}{, #1}%
+  \else
+    \ws@authorsettrue
+    \renewcommand{\ws@author}{#1}%
+  \fi
+}
 
 % Etiquetas dependientes del idioma
 \newcommand{\cysec@lbl}[2]{\ifdefstring{\cyseclang}{es}{#1}{#2}}
