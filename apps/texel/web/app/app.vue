@@ -1,6 +1,15 @@
 <script setup lang="ts">
+/**
+ * El fondo se lee aquí porque se pinta aquí. La apariencia y el detalle no —sus
+ * atributos los pone `plugins/appearance.client.ts` en el `<html>`— pero sí se
+ * llaman: es el `onMounted` de cada composable el que recupera lo guardado en
+ * el navegador, y `app.vue` es lo único montado en todas las páginas. Sin estas
+ * dos líneas, entrar directo a un proyecto se abría en claro y con el detalle
+ * alto por mucho que se hubieran cambiado en la lista de proyectos.
+ */
 const { current: wallpaper } = useWallpaper()
-const { current: detail } = useDetail()
+useAppearance()
+useDetail()
 
 /** La piscina va a cámara lenta (0.4×): a velocidad real el agua parece
  *  metraje de stock; lenta es lo que da la calma. Se reaplica cada vez que
@@ -12,19 +21,11 @@ watchEffect(() => {
 </script>
 
 <template>
-  <!-- `data-macvue-glass="on"` enciende la lente de macvue en toda la aplicación:
-       sin este atributo en algún ancestro, `MacGlassPanel` se queda en un blur
-       plano y nunca refracta (ver `GlassLens` en @macvue/core). Es justo lo que
-       queremos apagar en detalle «bajo», y por eso el interruptor vive aquí y no
-       en cada panel: un atributo, y toda la app cambia de camino de pintado.
-       `data-accent` cambia el acento según el fondo: sobre «sky» y «aqua»
-       todo es azul y el de macOS se pierde, así que ahí va turquesa. -->
-  <div
-    class="h-full"
-    :data-macvue-glass="detail === 'alto' ? 'on' : 'off'"
-    :data-detail="detail"
-    :data-accent="wallpaper === 'sky' || wallpaper === 'aqua' ? 'aqua' : null"
-  >
+  <!-- Los atributos que deciden el aspecto —lente, detalle, acento, tema— no
+       viven aquí sino en el `<html>`, que los pone `plugins/appearance.client.ts`:
+       desde este `div` no alcanzaban a los menús, que se teleportan a `<body>`.
+       Aquí queda solo el fondo, que sí pertenece a la página. -->
+  <div class="h-full">
     <!-- Fondo de la ventana. Es lo que el cristal refracta, así que su detalle
          importa tanto como el de los paneles; el CSS está en shared/styles/theme.css. -->
     <div class="app-backdrop" :class="`app-backdrop--${wallpaper}`" aria-hidden="true">

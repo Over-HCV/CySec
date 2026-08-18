@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import {
-  MacButton, MacGlassPanel, MacPullDownButton, MacPullDownButtonItem, MacSegment,
-  MacSegmentedControl, MacSeparator, MacSpinner
+  MacButton, MacGlassPanel, MacSegment, MacSegmentedControl, MacSeparator, MacSpinner
 } from '@macvue/core'
 import {
-  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight, Check
+  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight, ChevronDown
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { formatTex, minimalPatch } from '~/features/editor/lib/format-tex'
@@ -20,7 +19,7 @@ const supabase = useSupabaseClient()
 const user = useMe()
 
 const project = ref<Project | null>(null)
-const profile = ref<{ display_name: string, color: string } | null>(null)
+const { profile } = useProfile()
 const activeFile = ref<ProjectFile | null>(null)
 const peers = ref<ProviderUser[]>([])
 const cursorLine = ref(1)
@@ -63,13 +62,18 @@ const tab = computed<'code' | 'visual'>({
   }
 })
 
-// Otro archivo es otro documento: el proveedor anterior ya no vale.
-watch(() => activeFile.value?.id, () => { provider.value = null })
+// Otro archivo es otro documento: el proveedor anterior ya no vale, y su lista
+// de conectados tampoco — el canal es por archivo, así que quien estuviera en el
+// anterior no tiene por qué estar en este.
+watch(() => activeFile.value?.id, () => { provider.value = null; peers.value = [] })
 
+// `||` y no `??`: el respaldo tiene que saltar también con la cadena vacía, que
+// es justo lo que guarda `handle_new_user` si la cuenta se creó con un
+// `full_name` en blanco. Con `??` salía un nombre invisible en vez del correo.
 const me = computed<ProviderUser>(() => ({
   id: user.value?.id ?? 'anon',
-  name: profile.value?.display_name ?? user.value?.email ?? 'Anónimo',
-  color: profile.value?.color ?? '#1F4E79'
+  name: profile.value?.display_name?.trim() || user.value?.email || 'Anónimo',
+  color: profile.value?.color || '#1F4E79'
 }))
 
 onMounted(async () => {
@@ -82,14 +86,7 @@ onMounted(async () => {
   const { data: p } = await supabase.from('projects').select('*').eq('id', projectId).single()
   project.value = p as Project
 
-  // El perfil solo se puede pedir cuando ya hay usuario; si la sesión tarda,
-  // se reintenta en cuanto aparezca en vez de reventar con un `!`.
-  watch(user, async (value) => {
-    if (!value) return
-    const { data } = await supabase
-      .from('profiles').select('display_name, color').eq('id', value.id).single()
-    profile.value = data as never
-  }, { immediate: true })
+  // El perfil lo carga `useProfile`, que ya espera a que haya sesión.
 
   await Promise.all([refreshFiles(), refreshMembers(), loadLast()])
   activeFile.value = files.value.find(f => f.path === project.value?.root_file) ?? files.value[0] ?? null
@@ -306,10 +303,25 @@ async function onSetRoot(file: ProjectFile) {
   if (project.value) project.value.root_file = file.path
 }
 
+/**
+ * Plegar el editor para que el PDF ocupe la ventana entera.
+ *
+ * El panel se queda —y con él `TexEditor`, que es el dueño del documento Yjs y
+ * de la conexión—; lo que cambia es su `flex`. Desmontarlo para ganar sitio
+ * costaría tirar la sesión de edición y volver a sembrar el documento al
+ * regresar. Al volver hay que remedir: CodeMirror calcula mal cuando lo han
+ * maquetado a 34 px de ancho.
+ */
+async function toggleEditor() {
+  layout.value.editorOpen = !layout.value.editorOpen
+  if (!layout.value.editorOpen) return
+  await nextTick()
+  editor.value?.remeasure()
+}
+
 /** Editor → PDF. */
 async function jumpToPdf() {
   if (!activeFile.value) return
-  if (!layout.value.pdfOpen) layout.value.pdfOpen = true
   const area = await forward(activeFile.value.path, cursorLine.value)
   if (area) viewer.value?.showHighlight(area)
 }
@@ -376,25 +388,38 @@ async function focusFile(path: string, line?: number) {
             <span v-if="layout.compileMode === 'fast'" class="opacity-70"> · rápido</span>
           </MacButton>
 
-          <!-- Sin `label` ni slot `trigger` el botón se queda en su propio
-               chevron, que es justo el lado derecho de un botón partido. -->
-          <MacPullDownButton size="small" :disabled="!canWrite" title="Opciones de compilación">
-            <MacPullDownButtonItem @select="layout.autoCompile = !layout.autoCompile">
-              <Check :size="12" :class="['mr-1 inline align-[-1px]', layout.autoCompile ? '' : 'opacity-0']" />
+          <!-- `AppMenu` y no `MacPullDownButton`: el menú de macvue se abría
+               dentro del cristal de la cabecera, que es `overflow: hidden`, y
+               no había forma de verlo entero. Ver `AppMenu.vue`. Sin contenido
+               en el disparador queda solo el chevron, que es justo el lado
+               derecho de un botón partido. -->
+          <AppMenu
+            align="end"
+            trigger-class="menu-trigger menu-trigger--icon"
+            :disabled="!canWrite"
+            title="Opciones de compilación"
+            aria-label="Opciones de compilación"
+          >
+            <template #trigger>
+              <ChevronDown :size="12" />
+            </template>
+
+            <AppMenuItem
+              :checked="layout.autoCompile"
+              @select="layout.autoCompile = !layout.autoCompile"
+            >
               Compilación automática
-            </MacPullDownButtonItem>
+            </AppMenuItem>
 
             <MacSeparator />
 
-            <MacPullDownButtonItem @select="layout.compileMode = 'normal'">
-              <Check :size="12" :class="['mr-1 inline align-[-1px]', layout.compileMode === 'normal' ? '' : 'opacity-0']" />
+            <AppMenuItem :checked="layout.compileMode === 'normal'" @select="layout.compileMode = 'normal'">
               Normal
-            </MacPullDownButtonItem>
-            <MacPullDownButtonItem @select="layout.compileMode = 'fast'">
-              <Check :size="12" :class="['mr-1 inline align-[-1px]', layout.compileMode === 'fast' ? '' : 'opacity-0']" />
+            </AppMenuItem>
+            <AppMenuItem :checked="layout.compileMode === 'fast'" @select="layout.compileMode = 'fast'">
               Rápido (borrador)
-            </MacPullDownButtonItem>
-          </MacPullDownButton>
+            </AppMenuItem>
+          </AppMenu>
         </div>
       </template>
     </AppHeader>
@@ -426,15 +451,28 @@ async function focusFile(path: string, line?: number) {
         @reset="setSidebarWidth(230)"
       />
 
-      <!-- Editor -->
+      <!-- Editor. Plegado no desaparece: se queda en una tira de 34 px con el
+           botón para devolverlo, y el PDF se lleva el resto de la ventana. -->
       <MacGlassPanel
         material="clear"
         class="flex flex-col pane"
         :style="{
-          flex: layout.pdfOpen ? `${layout.editorRatio} 1 0%` : '1 1 0%'
+          flex: layout.editorOpen ? `${layout.editorRatio} 1 0%` : '0 0 34px'
         }"
       >
-        <div class="flex items-center gap-1.5 px-2 h-[var(--bar-h)] shrink-0 border-b border-[var(--macvue-material-glass-regular-rim)]">
+        <div
+          v-show="!layout.editorOpen"
+          class="flex justify-center pt-2 shrink-0"
+        >
+          <button class="icon-btn" title="Restaurar editor" @click="toggleEditor">
+            <PanelLeft :size="14" />
+          </button>
+        </div>
+
+        <div
+          v-show="layout.editorOpen"
+          class="flex items-center gap-1.5 px-2 h-[var(--bar-h)] shrink-0 border-b border-[var(--macvue-material-glass-regular-rim)]"
+        >
           <button
             class="icon-btn"
             :title="layout.sidebarOpen ? 'Ocultar archivos' : 'Mostrar archivos'"
@@ -475,16 +513,15 @@ async function focusFile(path: string, line?: number) {
             <CornerDownRight :size="14" />
           </button>
 
-          <button
-            class="icon-btn"
-            :title="layout.pdfOpen ? 'Ocultar PDF' : 'Mostrar PDF'"
-            @click="layout.pdfOpen = !layout.pdfOpen"
-          >
-            <PanelRight :size="14" :class="layout.pdfOpen ? 'text-[var(--accent)]' : ''" />
+          <!-- Expande el PDF, no esconde nada: el editor se pliega a una tira
+               con su botón para volver. Esconder el PDF para agrandar el editor
+               —lo que hacía antes— no es lo que se quiere de este botón. -->
+          <button class="icon-btn" title="Expandir PDF" @click="toggleEditor">
+            <PanelRight :size="14" />
           </button>
         </div>
 
-        <div class="flex-1 pane relative">
+        <div v-show="layout.editorOpen" class="flex-1 pane relative">
           <TexEditor
             v-if="activeFile"
             v-show="tab === 'code'"
@@ -519,7 +556,7 @@ async function focusFile(path: string, line?: number) {
       </MacGlassPanel>
 
       <PaneDivider
-        v-show="layout.pdfOpen"
+        v-show="layout.editorOpen"
         @start="beginDrag"
         @move="dragMiddle"
         @reset="setEditorRatio(0.5)"
@@ -527,10 +564,9 @@ async function focusFile(path: string, line?: number) {
 
       <!-- PDF + log -->
       <MacGlassPanel
-        v-show="layout.pdfOpen"
         material="regular"
         class="flex flex-col pane"
-        :style="{ flex: `${1 - layout.editorRatio} 1 0%` }"
+        :style="{ flex: layout.editorOpen ? `${1 - layout.editorRatio} 1 0%` : '1 1 0%' }"
       >
         <div class="flex-1 pane">
           <PdfViewer ref="viewer" :src="pdfUrl" @pdf-click="onPdfClick" />

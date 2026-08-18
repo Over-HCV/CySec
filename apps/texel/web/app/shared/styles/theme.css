@@ -461,6 +461,89 @@ a { color: var(--accent); }
   color: var(--text);
 }
 
+/* ── Menús propios (`AppMenu`) ─────────────────────────────────────────────
+   Los de macvue no valen en la barra de título: se colocan alineando la opción
+   marcada sobre el botón, y a 40 px del borde superior de la ventana esa
+   alineación no cabe. `AppMenu` se teleporta a `<body>` y se coloca debajo del
+   botón; esto es solo su caja y su disparador. */
+.app-menu {
+  /* La cabecera es `z-30` y crea su propio contexto de apilado; el menú vive en
+     `<body>`, fuera de él, pero el número tiene que seguir estando por encima. */
+  z-index: 60;
+  min-width: 168px;
+  padding: 4px;
+  border-radius: var(--radius);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-menu-item {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 9px 5px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.35;
+  cursor: default;
+}
+
+.app-menu-item:disabled { opacity: 0.4; }
+
+.app-menu-item:hover:not(:disabled),
+.app-menu-item:focus-visible {
+  background: var(--accent);
+  color: #fff;
+  outline: none;
+}
+
+/* La segunda línea lleva su propio color; sobre el azul de la fila marcada
+   habría que leerla a oscuras. */
+.app-menu-item:hover:not(:disabled) :where(span),
+.app-menu-item:focus-visible :where(span) { color: inherit; }
+
+/* Disparador con el aspecto de un `MacButton` pequeño, hecho con los tokens de
+   macvue para que no se despegue del resto de la barra. */
+.menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--macvue-pop-up-button-height-small);
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--macvue-pop-up-button-radius-small);
+  background: var(--macvue-pop-up-button-bg);
+  color: var(--macvue-pop-up-button-label);
+  font-family: var(--font-ui);
+  font-size: var(--macvue-pop-up-button-font-size-small);
+  font-weight: var(--macvue-control-text-weight);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.menu-trigger:disabled {
+  background: var(--macvue-pop-up-button-bg-disabled);
+  color: var(--macvue-pop-up-button-label-disabled);
+}
+
+.menu-trigger[aria-expanded='true'],
+.menu-trigger:active:not(:disabled) { background: var(--macvue-pop-up-button-bg-pressed); }
+
+.menu-trigger:focus-visible {
+  outline: var(--macvue-focus-ring-width) solid var(--macvue-focus-ring);
+}
+
+/* Solo el chevron: el lado derecho de un botón partido. */
+.menu-trigger--icon {
+  width: var(--macvue-pop-up-button-pull-down-icon-width);
+  padding: 0;
+  justify-content: center;
+}
+
 /* Tarjeta de bloque del editor visual.
    Deliberadamente SIN `backdrop-filter`: va dentro de un panel de cristal, y
    un `backdrop-filter` anidado solo puede muestrear el relleno de su panel
@@ -609,13 +692,20 @@ a { color: var(--accent); }
 .cm-editor ::selection { background: var(--accent-soft) !important; }
 .cm-editor .cm-cursor { border-left-color: var(--text); }
 
-/* Cursores remotos de y-codemirror.next */
+/* Cursores remotos de y-codemirror.next.
+   La etiqueta con el nombre viene en `opacity: 0` de la librería y solo aparece
+   al pasar el ratón por encima del cursor — o sea, nunca, porque el cursor ajeno
+   se mueve. Saber quién escribe dónde es la mitad de la gracia de editar entre
+   varios, así que se deja visible; la transición evita que parpadee mientras la
+   otra persona teclea. */
 .cm-ySelectionInfo {
   font-family: var(--font-ui);
   font-size: 10px;
   font-weight: 500;
   padding: 1px 4px;
   border-radius: 4px 4px 4px 0;
+  opacity: 1;
+  transition: opacity 200ms ease;
 }
 
 /* ── Formularios sueltos (páginas de login e invitación) ──────────────────── */

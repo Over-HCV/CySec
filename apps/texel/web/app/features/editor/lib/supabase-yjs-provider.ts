@@ -104,8 +104,22 @@ export class SupabaseYjsProvider {
         if (diff.length > 0) {
           channel.send({ type: 'broadcast', event: 'update', payload: { u: toBase64(diff) } })
         }
+        // Y también nuestro cursor. El awareness solo se emite al cambiar, así
+        // que sin esto quien llega no ve a los que ya estaban hasta que alguno
+        // teclea —o hasta que y-protocols renueva su reloj, unos 15 segundos.
+        this.handleAwarenessUpdate({ added: [this.doc.clientID], updated: [], removed: [] })
       })
-      .on('presence', { sync: true } as never, () => this.emitPeers())
+      // `{ event: 'sync' }`, no `{ sync: true }`: el despacho de Realtime compara
+      // `filter.event` con el evento entrante, así que un filtro sin `.event`
+      // nunca casa y el callback no se ejecuta jamás. Estuvo así, con un
+      // `as never` tapando el error de tipos, y el efecto era que la lista de
+      // colaboradores se quedaba vacía para todo el mundo. `sync` cubre también
+      // las entradas y salidas, de ahí que no haga falta escuchar `join`/`leave`.
+      .on('presence', { event: 'sync' }, () => this.emitPeers())
+
+    // Antes del `await`: `handleAwarenessUpdate` se planta si `this.channel`
+    // todavía es nulo, y el anuncio del cursor de más abajo pasa por ahí.
+    this.channel = channel
 
     await channel.subscribe(async (status) => {
       if (status !== 'SUBSCRIBED') return
@@ -119,8 +133,6 @@ export class SupabaseYjsProvider {
       // Y anunciamos nuestro cursor.
       this.handleAwarenessUpdate({ added: [this.doc.clientID], updated: [], removed: [] })
     })
-
-    this.channel = channel
 
     if (this.canWrite) {
       this.persistTimer = setInterval(() => void this.persist(), PERSIST_MS)
@@ -137,7 +149,10 @@ export class SupabaseYjsProvider {
     this.destroyed = true
 
     this.doc.off('update', this.handleLocalUpdate)
-    this.awareness.off('update', this.handleAwarenessUpdate)
+    // El listener de awareness NO se quita aquí: `removeAwarenessStates` de más
+    // abajo tiene que pasar por él para que la retirada del cursor se emita. Si
+    // se desengancha antes, los demás se quedan con un cursor fantasma hasta que
+    // les caduca solo, medio minuto después.
     if (this.flushTimer) clearTimeout(this.flushTimer)
     if (this.persistTimer) clearInterval(this.persistTimer)
     this.flushTimer = null
@@ -152,6 +167,8 @@ export class SupabaseYjsProvider {
     }
 
     removeAwarenessStates(this.awareness, [this.doc.clientID], 'local')
+    this.awareness.off('update', this.handleAwarenessUpdate)
+
     // Un reintento: ya no queda temporizador que recoja lo que falle, y lo que
     // no llegue al log no lo ve nadie nunca más.
     if (!await this.persist()) await this.persist()
@@ -159,6 +176,23 @@ export class SupabaseYjsProvider {
     if (this.channel) void this.supabase.removeChannel(this.channel)
     this.channel = null
     this.awareness.destroy()
+  }
+
+  /**
+   * Actualiza la identidad que ven los demás.
+   *
+   * Hace falta porque el nombre no está listo al montar el editor: sale de
+   * `profiles`, que se lee de la base después. Sin esto, lo que se publica al
+   * conectar —el correo, o «Anónimo» si aún no había ni sesión— es lo que ven
+   * los demás durante toda la sesión.
+   *
+   * `track` sobre una clave que ya está presente reemplaza su meta, no añade
+   * otra entrada.
+   */
+  setUser(user: ProviderUser): void {
+    this.user = user
+    this.awareness.setLocalStateField('user', user)
+    void this.channel?.track({ user })
   }
 
   /** Texto plano actual, para volcarlo a `files.content` antes de compilar. */
