@@ -49,6 +49,8 @@
 % sustituye al autor por defecto del curso y las demás se van añadiendo
 % (se separan con «, » al renderizar). Antes cada llamada pisaba a la
 % anterior y del equipo solo quedaba el último nombre.
+% Se imprimen en \makewsheader, y solo ahí: el pie los llevaba y con tres
+% nombres se solapaba con el número de página.
 \newif\ifws@authorset \ws@authorsetfalse
 \newcommand{\wsauthor}[1]{%
   \ifws@authorset
@@ -64,6 +66,15 @@
 \newcommand{\wslabel}{\cysec@lbl{Taller}{Workshop}}
 \newcommand{\sessionlabel}{\cysec@lbl{Sesión}{Session}}
 
+% ===== Caja de página =====
+% Va ANTES de fancyhdr y no con el resto del layout, al final: fancyhdr fija su
+% \headwidth con el \textwidth que encuentra al cargarse, y no vuelve a mirarlo.
+% Cargado después, la cabecera y el pie se maquetaban con el \textwidth de
+% `article` a4 (~390pt) mientras el cuerpo usaba los 16cm de geometry (455pt):
+% la regla del pie se quedaba 65pt corta y los tres campos del pie se pisaban
+% entre ellos por falta de sitio.
+\RequirePackage[a4paper,margin=2.5cm,bottom=2.8cm]{geometry}
+
 % ===== Cabecera y pies =====
 \RequirePackage{fancyhdr}
 \RequirePackage{lastpage}
@@ -72,8 +83,10 @@
   \fancyhf{}%
   \renewcommand{\headrulewidth}{0pt}%
   \renewcommand{\footrulewidth}{0.4pt}%
+  % Sin autores: son tres nombres, y centrados entre el taller y el número de
+  % página no caben en 455pt por mucho que se afinen los márgenes. Quedan en la
+  % cabecera de la primera página, que sí los envuelve.
   \fancyfoot[L]{\footnotesize\color{gray!80!black}\wslabel~\ws@number}%
-  \fancyfoot[C]{\footnotesize\color{gray!80!black}\ws@author}%
   \fancyfoot[R]{\footnotesize\color{gray!80!black}%
     \cysec@lbl{pág.}{p.}~\thepage\ \cysec@lbl{de}{of}~\pageref{LastPage}}%
 }
@@ -96,8 +109,7 @@
   \vspace{12pt}
 }
 
-% ===== Layout =====
-\RequirePackage[a4paper,margin=2.5cm,bottom=2.8cm]{geometry}
+% ===== Layout (el resto; la caja de página se fija más arriba) =====
 \setlength{\parskip}{0.5em}
 \setlength{\parindent}{0pt}
 
