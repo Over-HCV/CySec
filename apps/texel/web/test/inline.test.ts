@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  isProse, parseInline, plainText, serializeInline, type InlineNode
+  isProse, latexOffsetOfPlain, parseInline, plainOffsetOfLatex, plainText, serializeInline,
+  type InlineNode
 } from '../app/features/visual/lib/inline'
 import { parseTex } from '../app/features/visual/lib/parse-tex'
 import { flatten, repoFile, SECTIONS, WS01 } from './fixtures'
@@ -106,5 +107,50 @@ describe('isProse', () => {
   it('no para el vacío', () => {
     expect(isProse('')).toBe(false)
     expect(isProse('\n  \n')).toBe(false)
+  })
+})
+
+describe('offsets: lo que se ve ⇄ lo que se guarda', () => {
+  it('en texto llano las dos cuentas coinciden', () => {
+    expect(plainOffsetOfLatex('Hola mundo', 4)).toBe(4)
+    expect(latexOffsetOfPlain('Hola mundo', 4)).toBe(4)
+  })
+
+  it('una marca ocupa más en el archivo que en la pantalla', () => {
+    const latex = 'Hola \\textbf{mundo} y más'
+    // «Hola mundo| y más»: 10 en pantalla, detrás de la llave en el archivo.
+    expect(latexOffsetOfPlain(latex, 10)).toBe('Hola \\textbf{mundo}'.length)
+    // En medio de la palabra sí se entra dentro de la llave.
+    expect(latexOffsetOfPlain(latex, 7)).toBe('Hola \\textbf{mu'.length)
+    expect(plainOffsetOfLatex(latex, 'Hola \\textbf{mu'.length)).toBe(7)
+  })
+
+  it('un carácter escapado vale uno en pantalla y varios en el archivo', () => {
+    const latex = '50\\% de \\textbackslash uso'
+    expect(plainOffsetOfLatex(latex, latex.length)).toBe('50% de \\uso'.length)
+    // «50%|» en pantalla es detrás del `\\%` entero en el archivo.
+    expect(latexOffsetOfPlain(latex, 3)).toBe('50\\%'.length)
+  })
+
+  it('una ficha no se parte: el cursor cae en su borde', () => {
+    const latex = 'ver \\cite{togaf92} arriba'
+    const dentro = latexOffsetOfPlain(latex, 'ver '.length + 3)
+    expect(dentro).toBe('ver '.length)
+  })
+
+  it('el final del campo es el final del campo, en las dos cuentas', () => {
+    for (const latex of ['Hola', 'Hola \\textbf{mundo}', '50\\%', '\\cite{x} y ya']) {
+      const plain = plainOffsetOfLatex(latex, latex.length)
+      expect(latexOffsetOfPlain(latex, plain)).toBe(latex.length)
+    }
+  })
+
+  it('ida y vuelta en cada posición de pantalla de un texto con de todo', () => {
+    const latex = 'Un \\textbf{título} con \\% y \\emph{cursiva} al final'
+    const total = plainOffsetOfLatex(latex, latex.length)
+    for (let at = 0; at <= total; at++) {
+      const back = latexOffsetOfPlain(latex, at)
+      expect(plainOffsetOfLatex(latex, back)).toBe(at)
+    }
   })
 })

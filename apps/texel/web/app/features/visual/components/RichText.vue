@@ -7,16 +7,24 @@
  * LaTeX: al soltar el campo se convierte el HTML a marcas (`\textbf{…}`) y se
  * escribe **solo el rango de ese campo**, como cualquier otro bloque.
  *
- * Dos reglas que no se negocian:
+ * Tres reglas que no se negocian:
  *
  * 1. **Nada se pierde.** Lo que el editor no sabe representar (`\cite{…}`, un
  *    comentario) se pinta como una ficha gris que no se puede editar por dentro
  *    y se devuelve tal cual estaba.
- * 2. **Mientras tiene el foco, manda el campo.** No se repinta con lo que llegue
- *    del documento, o el cursor saltaría al principio a media palabra. Es la
- *    misma disciplina de `BlockField.vue`.
+ * 2. **Mientras tiene el foco, manda el campo** — mientras el documento diga lo
+ *    que el campo escribió. No se repinta con cada reparseo, o el cursor
+ *    saltaría al principio a media palabra; pero si lo que llega **no** es lo
+ *    que guardamos, el documento manda y el campo se recoloca encima con el
+ *    cursor donde estaba. Sin esa segunda mitad, un guardado que parta el
+ *    bloque en dos deja al campo escribiendo sobre un rango que ya no es el
+ *    suyo, y el siguiente guardado duplica todo lo que quedó detrás.
+ * 3. **El cursor es una posición del documento**, no de un componente. Los
+ *    bloques se recrean enteros en cada cambio; el texto no. Ver `caret`.
  */
-import { parseInline, serializeInline, type InlineNode } from '../lib/inline'
+import {
+  latexOffsetOfPlain, parseInline, plainOffsetOfLatex, serializeInline, type InlineNode
+} from '../lib/inline'
 import { useFormatting, type FormatCommand, type FormatTarget } from '../composables/useFormatting'
 
 const props = defineProps<{
@@ -31,9 +39,20 @@ const props = defineProps<{
    * campo escribían el mismo texto dos veces.
    */
   clearOnCommit?: boolean
+  /**
+   * El cursor va aquí: offset en el LaTeX de este campo, o `null` si no toca.
+   * Lo pone quien escribió en el documento, y el campo lo reclama al pintarse.
+   */
+  caret?: number | null
 }>()
 
-const emit = defineEmits<{ commit: [string] }>()
+const emit = defineEmits<{
+  commit: [string]
+  /** Enter: el texto de antes del cursor y el de después, ya en LaTeX. */
+  split: [string, string]
+  /** Ya se ha colocado el cursor; quien lo pidió puede olvidarse. */
+  caretTaken: []
+}>()
 
 /** Espera antes de escribir en el documento mientras se teclea. */
 const COMMIT_MS = 300
@@ -42,6 +61,16 @@ const host = ref<HTMLElement>()
 const focused = ref(false)
 const formatting = useFormatting()
 let timer: ReturnType<typeof setTimeout> | null = null
+/**
+ * Lo último que este campo mandó al documento. Es lo que distingue «el
+ * documento dice lo que escribí» de «el documento dice otra cosa», que es la
+ * única señal fiable de que hay que recolocarse (regla 2).
+ */
+let written: string | null = null
+
+/** Aviso propio: lo que no se pudo guardar por no saber releerlo. */
+const refused = ref<string | null>(null)
+const notice = computed(() => props.problem ?? refused.value ?? undefined)
 
 /** Caracteres que en LaTeX no se pueden escribir tal cual. */
 const ESCAPE_OUT: Record<string, string> = {
@@ -128,12 +157,150 @@ function currentValue(): string {
   return [...host.value.childNodes].map(fromDom).join('')
 }
 
+// ── El cursor ─────────────────────────────────────────────────────────────────
+
+/**
+ * El cursor se mide en **caracteres de pantalla**, no de LaTeX: es lo único que
+ * el DOM sabe contar. La conversión a offsets del archivo vive en `inline.ts`,
+ * donde se puede probar sin navegador.
+ *
+ * Lo que cuenta cada nodo tiene que ser lo mismo que `toDom` pinta: una ficha
+ * vale lo que se lee de ella, no lo que lleva dentro.
+ */
+function plainLength(node: Node): number {
+  if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? '').length
+  if (!(node instanceof HTMLElement)) return 0
+  if (node.tagName === 'BR') return 1
+  if (node.dataset.src !== undefined) return (node.textContent ?? '').length
+  const own = node.tagName === 'DIV' || node.tagName === 'P' ? 1 : 0
+  return own + [...node.childNodes].reduce((n, child) => n + plainLength(child), 0)
+}
+
+/** Un nodo se cuenta entero o no se cuenta: una ficha no se parte por dentro. */
+function atomic(node: Node): boolean {
+  return node.nodeType !== Node.TEXT_NODE
+    && node instanceof HTMLElement
+    && (node.tagName === 'BR' || node.dataset.src !== undefined)
+}
+
+/** Posición del cursor dentro del campo, en caracteres de pantalla. */
+function plainCaret(): number | null {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0 || !host.value) return null
+  const range = selection.getRangeAt(0)
+  if (!host.value.contains(range.endContainer)) return null
+
+  let total = 0
+  let done = false
+
+  const walk = (node: Node) => {
+    if (done) return
+    const isTarget = node === range.endContainer
+    if (isTarget && node.nodeType === Node.TEXT_NODE) {
+      total += range.endOffset
+      done = true
+      return
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      total += (node.textContent ?? '').length
+      return
+    }
+    if (atomic(node)) { total += plainLength(node); return }
+
+    const el = node as HTMLElement
+    if (el !== host.value && (el.tagName === 'DIV' || el.tagName === 'P')) total += 1
+
+    const children = [...el.childNodes]
+    const limit = isTarget ? Math.min(range.endOffset, children.length) : children.length
+    for (let i = 0; i < limit; i++) {
+      walk(children[i]!)
+      if (done) return
+    }
+    if (isTarget) done = true
+  }
+
+  walk(host.value)
+  return total
+}
+
+/** Deja el cursor en esa posición de pantalla. Cuenta igual que `plainCaret`. */
+function placePlainCaret(offset: number) {
+  if (!host.value) return
+  let left = Math.max(0, offset)
+  let point: { node: Node, offset: number } | null = null
+
+  const walk = (node: Node): boolean => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const length = (node.textContent ?? '').length
+      if (left <= length) { point = { node, offset: left }; return true }
+      left -= length
+      return false
+    }
+    if (atomic(node)) {
+      const length = plainLength(node)
+      if (left < length) {
+        const parent = node.parentNode!
+        point = { node: parent, offset: [...parent.childNodes].indexOf(node as ChildNode) }
+        return true
+      }
+      left -= length
+      return false
+    }
+    if (!(node instanceof HTMLElement)) return false
+    if (node !== host.value && (node.tagName === 'DIV' || node.tagName === 'P')) {
+      if (left < 1) { point = { node, offset: 0 }; return true }
+      left -= 1
+    }
+    return [...node.childNodes].some(walk)
+  }
+
+  walk(host.value)
+  const target = point ?? { node: host.value, offset: host.value.childNodes.length }
+
+  const range = document.createRange()
+  range.setStart(target.node, target.offset)
+  range.collapse(true)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
+
+/** El último cursor reclamado, para no repintar dos veces por el mismo. */
+let taken: number | null = null
+
+/** Reclama el cursor que alguien dejó pedido en este campo. */
+function takeCaret(at: number) {
+  if (!host.value || taken === at) return
+  taken = at
+  render(props.value)
+  host.value.focus()
+  placePlainCaret(plainOffsetOfLatex(props.value, at))
+  emit('caretTaken')
+}
+
+watch(() => props.caret, (at) => {
+  if (at === null || at === undefined) return
+  // Dos campos vecinos comparten el borde, así que los dos pueden creerse
+  // dueños del mismo offset. Se mira otra vez al pintar: el primero que lo
+  // reclama lo borra, y para el segundo ya no hay nada que reclamar.
+  void nextTick(() => {
+    if (props.caret === null || props.caret === undefined) return
+    takeCaret(props.caret)
+  })
+}, { immediate: true })
+
 // ── Guardar ───────────────────────────────────────────────────────────────────
 
 function onInput() {
+  refused.value = null
   if (timer) clearTimeout(timer)
   timer = setTimeout(commit, COMMIT_MS)
   formatting.refresh()
+}
+
+/** ¿Se puede releer lo que se va a guardar y sale exactamente igual? */
+function readable(latex: string): boolean {
+  return serializeInline(parseInline(latex)) === latex
 }
 
 function commit() {
@@ -142,17 +309,44 @@ function commit() {
   if (next === props.value) return
 
   // Cinturón: lo que se va a guardar tiene que volver a pintarse igual. Si no,
-  // es que hay algo que no sabemos representar y es mejor no tocar el archivo.
-  if (serializeInline(parseInline(next)) !== next) return
+  // es que hay algo que no sabemos representar y es mejor no tocar el archivo
+  // — pero hay que decirlo, o las teclas desaparecen sin explicación.
+  if (!readable(next)) {
+    refused.value = 'Esto no se ha podido guardar. Escríbelo en la pestaña Código.'
+    return
+  }
+
+  refused.value = null
+  written = next
   emit('commit', next)
   if (props.clearOnCommit && host.value) host.value.replaceChildren()
 }
 
+/**
+ * El documento dice algo que este campo no escribió: manda el documento.
+ *
+ * Pasa cuando el guardado cambia los límites del propio bloque —una línea en
+ * blanco lo parte en dos— y cuando escribe otra persona. En los dos casos el
+ * campo tiene que dejar de creerse dueño de un rango que ya no es suyo; el
+ * cursor se conserva por posición, que es lo que hacía falta proteger.
+ */
+function rebase(next: string) {
+  const at = plainCaret()
+  written = null
+  render(next)
+  if (at === null || !host.value) return
+  placePlainCaret(Math.min(at, plainLength(host.value)))
+}
+
 watch(() => props.value, (next) => {
-  if (!focused.value) render(next)
+  if (!focused.value) { written = null; render(next); return }
+  if (next !== written) rebase(next)
 })
 
-onMounted(() => render(props.value))
+onMounted(() => {
+  render(props.value)
+  if (props.caret !== null && props.caret !== undefined) takeCaret(props.caret)
+})
 onBeforeUnmount(() => {
   if (timer) clearTimeout(timer)
   formatting.release(target)
@@ -216,6 +410,7 @@ function toggleCode() {
 
 function onFocus() {
   focused.value = true
+  taken = null
   formatting.claim(target)
 }
 
@@ -224,11 +419,43 @@ function onBlur() {
   commit()
   formatting.release(target)
   // Al soltar, el campo vuelve a seguir al documento.
+  written = null
   render(props.value)
+}
+
+/**
+ * Enter parte el párrafo en dos y el cursor se va al de abajo; Mayús+Enter hace
+ * un salto de línea dentro del mismo párrafo.
+ *
+ * Es la distinción de LaTeX —una línea en blanco abre párrafo, un salto suelto
+ * no— dicha con las teclas de siempre. Antes Enter caía en el navegador, que
+ * mete un `div`; el bloque acababa partido por debajo sin que el campo se
+ * enterara, y a partir de ahí cada guardado duplicaba el texto.
+ */
+function onEnter(event: KeyboardEvent) {
+  event.preventDefault()
+
+  // La línea que cierra un contenedor no tiene nada que partir: lo suyo es
+  // guardar ya, sin esperar a la pausa.
+  if (props.clearOnCommit) { commit(); return }
+
+  const at = plainCaret()
+  const value = currentValue()
+  if (at === null || !readable(value)) return
+
+  if (timer) { clearTimeout(timer); timer = null }
+  const cut = latexOffsetOfPlain(value, at)
+  written = null
+  emit('split', value.slice(0, cut), value.slice(cut))
 }
 
 /** Atajos: los de siempre, más ⌘E para código. */
 function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !event.isComposing) {
+    // Mayús+Enter lo hace el navegador: un `<br>`, que ya es un `\n` al leerlo.
+    if (!event.shiftKey && !props.disabled) onEnter(event)
+    return
+  }
   if (!(event.metaKey || event.ctrlKey)) return
   const key = event.key.toLowerCase()
   if (key !== 'b' && key !== 'i' && key !== 'e') return
@@ -249,7 +476,7 @@ function onPaste(event: ClipboardEvent) {
     <div
       ref="host"
       class="rich"
-      :class="{ 'rich-bad': problem }"
+      :class="{ 'rich-bad': notice }"
       :contenteditable="!disabled"
       :data-placeholder="placeholder"
       role="textbox"
@@ -262,7 +489,7 @@ function onPaste(event: ClipboardEvent) {
       @keyup="formatting.refresh()"
       @mouseup="formatting.refresh()"
     />
-    <span v-if="problem" class="block text-[11px] text-[var(--danger)]">{{ problem }}</span>
+    <span v-if="notice" class="block text-[11px] text-[var(--danger)]">{{ notice }}</span>
   </div>
 </template>
 

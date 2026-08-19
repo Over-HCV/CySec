@@ -23,6 +23,46 @@ function fieldOf(blocks: Block[], kind: Block['kind'], name: string, index = 0) 
   return block.fields.find(f => f.name === name)!
 }
 
+describe('applyFieldEdit con guard', () => {
+  /**
+   * Insertar es el único caso en el que comprobar el propio rango no comprueba
+   * nada: `text.slice(at, at) === ''` es cierto en cualquier documento. Por eso
+   * la línea que cierra un contenedor pasa además el rango del contenedor.
+   */
+  const DOC = '\\begin{respuesta}\n\\end{respuesta}\n'
+
+  it('escribe cuando el rango vigilado sigue intacto', () => {
+    const { ytext } = docWith(DOC)
+    const respuesta = parseDoc(DOC, 'tex').find(b => b.kind === 'respuesta')!
+    const at = insideOf(respuesta)!
+
+    expect(applyFieldEdit(
+      ytext,
+      { name: 'nuevo', span: { from: at, to: at }, value: '' },
+      'Hola\n',
+      { span: respuesta.span, expected: DOC.slice(respuesta.span.from, respuesta.span.to) }
+    )).toBeNull()
+    expect(ytext.toString()).toBe('\\begin{respuesta}\nHola\n\\end{respuesta}\n')
+  })
+
+  it('se niega cuando el rango vigilado se movió, aunque el suyo «cuadre»', () => {
+    const { ytext } = docWith(DOC)
+    const respuesta = parseDoc(DOC, 'tex').find(b => b.kind === 'respuesta')!
+    const at = insideOf(respuesta)!
+    ytext.insert(0, '% alguien escribe antes\n')
+
+    const insercion = { name: 'nuevo', span: { from: at, to: at }, value: '' }
+    // Sin `guard` pasaría: el rango vacío «cuadra» en cualquier documento.
+    expect(applyFieldEdit(ytext, insercion, 'Hola\n')).toBeNull()
+
+    const { ytext: otro } = docWith(DOC)
+    otro.insert(0, '% alguien escribe antes\n')
+    expect(applyFieldEdit(otro, insercion, 'Hola\n', {
+      span: respuesta.span, expected: DOC.slice(respuesta.span.from, respuesta.span.to)
+    })).toBe(STALE)
+  })
+})
+
 describe('applyFieldEdit', () => {
   it('cambia solo el rango del campo, byte a byte', () => {
     const { ytext } = docWith(bib)

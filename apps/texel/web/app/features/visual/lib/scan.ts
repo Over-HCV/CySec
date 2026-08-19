@@ -164,3 +164,20 @@ export function fillGaps(text: string, found: Block[], from: number, to: number)
 export function field(text: string, name: string, span: Span): { name: string, span: Span, value: string } {
   return { name, span, value: text.slice(span.from, span.to) }
 }
+
+/**
+ * El mismo rango sin los espacios de los bordes.
+ *
+ * Un párrafo dentro de un entorno se lleva el salto de línea que lo separa del
+ * `\begin` y el que lo separa del `\end`: son la separación del archivo, no
+ * texto que nadie haya escrito. El bloque sigue abarcándolos —la partición no
+ * se toca—, pero lo **editable** es solo lo de dentro. Sin esto, el campo se
+ * pinta con una línea en blanco delante y el navegador se come esos saltos en
+ * cuanto tocas los bordes, pegando el texto al `\end{…}`.
+ */
+export function trimSpan(text: string, span: Span): Span {
+  let { from, to } = span
+  while (from < to && /\s/.test(text[from]!)) from++
+  while (to > from && /\s/.test(text[to - 1]!)) to--
+  return { from, to }
+}

@@ -65,12 +65,25 @@ export function checkValue(value: string): string | null {
 /**
  * Reemplaza el valor de un campo. Solo se borra e inserta el rango del campo:
  * el resto del documento no se toca, ni siquiera el resto del bloque.
+ *
+ * `guard` es un rango que además tiene que seguir intacto para que el del campo
+ * signifique lo que significaba. Hace falta cuando el campo es una inserción
+ * —span vacío, valor vacío—, porque ahí comprobar el propio rango no comprueba
+ * nada: `text.slice(at, at) === ''` es cierto en cualquier documento, incluido
+ * uno en el que `at` ya no es el sitio.
  */
-export function applyFieldEdit(ytext: Y.Text, field: Field, value: string): EditProblem {
+export function applyFieldEdit(
+  ytext: Y.Text,
+  field: Field,
+  value: string,
+  guard?: { span: Span, expected: string }
+): EditProblem {
   if (value === field.value) return null
   const problem = checkValue(value)
   if (problem) return problem
-  if (!fresh(ytext.toString(), field.span, field.value)) return STALE
+  const text = ytext.toString()
+  if (guard && !fresh(text, guard.span, guard.expected)) return STALE
+  if (!fresh(text, field.span, field.value)) return STALE
 
   const length = field.span.to - field.span.from
   ytext.doc!.transact(() => {
