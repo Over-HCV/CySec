@@ -197,3 +197,90 @@ function commandName(text: string, i: number): { value: string, end: number } | 
   const starred = text[j] === '*'
   return { value: text.slice(start, j), end: starred ? j + 1 : j }
 }
+
+// ── Offsets ───────────────────────────────────────────────────────────────────
+
+/**
+ * Cuánto ocupa un nodo en cada uno de los dos mundos: el LaTeX que se guarda y
+ * el texto que se ve en pantalla.
+ *
+ * Son dos longitudes distintas y esa es justo la razón de existir de estas
+ * funciones: `\textbf{hola}` ocupa 14 caracteres en el archivo y 4 en la
+ * pantalla, así que un cursor que esté en la posición 2 de lo que se ve no está
+ * en la posición 2 de lo que se escribe. Sin esta conversión no hay forma de
+ * devolver el cursor a su sitio después de un reparseo.
+ *
+ * Lo de pantalla tiene que coincidir con lo que pinta `toDom` en `RichText.vue`:
+ * una ficha opaca se ve como su etiqueta y un comentario como un punto.
+ */
+interface Sizes { latex: number, plain: number }
+
+/** Lo que se ve de un nodo opaco: es la ficha, no el LaTeX que lleva dentro. */
+export function chipText(node: { source: string, label: string }): string {
+  return node.label === 'comentario' ? '·' : node.label
+}
+
+function sizeOf(node: InlineNode): Sizes {
+  switch (node.kind) {
+    case 'text': return { latex: node.value.length, plain: node.value.length }
+    case 'escape': return { latex: node.source.length, plain: node.value.length }
+    case 'opaque': return { latex: node.source.length, plain: chipText(node).length }
+    case 'mark': {
+      const inner = sizeAll(node.children)
+      // `\` + cmd + `{` … `}`
+      return { latex: node.cmd.length + 3 + inner.latex, plain: inner.plain }
+    }
+  }
+}
+
+function sizeAll(nodes: InlineNode[]): Sizes {
+  return nodes.reduce<Sizes>((acc, node) => {
+    const size = sizeOf(node)
+    return { latex: acc.latex + size.latex, plain: acc.plain + size.plain }
+  }, { latex: 0, plain: 0 })
+}
+
+/** Dónde cae, en el texto que se ve, una posición del LaTeX. */
+export function plainOffsetOfLatex(latex: string, at: number): number {
+  return forward(parseInline(latex), at, 0, 0)
+}
+
+function forward(nodes: InlineNode[], at: number, latexBase: number, plainBase: number): number {
+  let l = latexBase
+  let p = plainBase
+  for (const node of nodes) {
+    const size = sizeOf(node)
+    if (at >= l + size.latex) { l += size.latex; p += size.plain; continue }
+    if (at <= l) return p
+    if (node.kind === 'text') return p + (at - l)
+    if (node.kind === 'mark') {
+      const open = node.cmd.length + 2
+      return at <= l + open ? p : forward(node.children, at, l + open, p)
+    }
+    // Un escape o una ficha no se parten: el cursor cae en su borde.
+    return p
+  }
+  return p
+}
+
+/** Dónde cae, en el LaTeX, una posición del texto que se ve. */
+export function latexOffsetOfPlain(latex: string, at: number): number {
+  return back(parseInline(latex), at, 0, 0)
+}
+
+function back(nodes: InlineNode[], at: number, latexBase: number, plainBase: number): number {
+  let l = latexBase
+  let p = plainBase
+  for (const node of nodes) {
+    const size = sizeOf(node)
+    // Justo en el borde derecho: el cursor va **detrás** del nodo entero, que
+    // en una marca significa fuera de la llave y no dentro. Si no, escribir al
+    // final de un tramo en negrita seguiría escribiendo en negrita.
+    if (at >= p + size.plain) { l += size.latex; p += size.plain; continue }
+    if (at <= p) return l
+    if (node.kind === 'text') return l + (at - p)
+    if (node.kind === 'mark') return back(node.children, at, l + node.cmd.length + 2, p)
+    return l
+  }
+  return l
+}

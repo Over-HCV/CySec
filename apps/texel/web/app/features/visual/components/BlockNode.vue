@@ -15,7 +15,7 @@ import * as lucide from 'lucide-vue-next'
 import { AlertTriangle, Braces, ChevronRight, Code2, Copy, Plus, Trash2 } from 'lucide-vue-next'
 import { ATOMS, fieldSpecOf, specOf } from '../lib/catalog'
 import { VISUAL_API } from '../lib/api'
-import type { Block, Field } from '../lib/types'
+import type { Block, Field, Span } from '../lib/types'
 
 const props = defineProps<{
   block: Block
@@ -34,8 +34,18 @@ const isParagraph = computed(() =>
 const isComment = computed(() =>
   props.block.kind === 'paragraph' && props.block.flags?.comment === true)
 
+/**
+ * El campo de un párrafo o una nota: el texto y solo el texto.
+ *
+ * El bloque abarca también los saltos que lo separan de sus vecinos —tiene que
+ * hacerlo, o la partición del archivo se rompe—, pero eso no es de nadie: si se
+ * pinta, el campo sale con una línea en blanco delante y el navegador se la
+ * come en cuanto tocas el borde. Ver `trimSpan` en `lib/scan.ts`.
+ */
+const textField = computed<Field>(() => props.block.fields[0] ?? rawField.value)
+
 /** El texto de la nota sin los `%`, que son ruido para quien no sabe LaTeX. */
-const commentText = computed(() => api.source(props.block)
+const commentText = computed(() => textField.value.value
   .split('\n')
   .map(line => line.replace(/^\s*%\s?/, ''))
   .join('\n')
@@ -43,10 +53,23 @@ const commentText = computed(() => api.source(props.block)
 
 /** Al guardar se devuelven los `%`, línea por línea. */
 function onCommentEdit(value: string) {
-  const source = api.source(props.block)
-  const trailing = /\n*$/.exec(source)?.[0] ?? '\n'
-  const next = value.split('\n').map(line => `% ${line}`.trimEnd()).join('\n') + trailing
-  api.edit(props.block, rawField.value, next)
+  const next = value.split('\n').map(line => `% ${line}`.trimEnd()).join('\n')
+  api.edit(props.block, textField.value, next)
+}
+
+/** Enter dentro de la prosa: el texto se parte en dos párrafos. */
+function onSplit(before: string, after: string) {
+  api.split(props.block, textField.value, before, after)
+}
+
+/**
+ * ¿El cursor que se ha pedido cae en este campo? Devuelve dónde, contado desde
+ * el principio del campo; `null` si no es aquí.
+ */
+function caretIn(span: Span): number | null {
+  const at = api.caret.value
+  if (at === null || at < span.from || at > span.to) return null
+  return at - span.from
 }
 /** Ficha de una macro con nombre (`\makewsheader`, `\wstitle{…}`). */
 const atom = computed(() => ATOMS[props.block.meta?.cmd ?? ''] ?? null)
@@ -272,11 +295,14 @@ const rawField = computed<Field>(() => ({
     <!-- Prosa: se escribe como en cualquier editor, sin ver una sola barra. -->
     <div v-else-if="isParagraph" class="row row-raw">
       <RichText
-        :value="rawField.value"
+        :value="textField.value"
         placeholder="Escribe aquí…"
         :disabled="!canWrite"
-        :problem="api.problems.value[`${block.id}:raw`]"
-        @commit="api.edit(block, rawField, $event)"
+        :caret="caretIn(textField.span)"
+        :problem="api.problems.value[`${block.id}:${textField.name}`]"
+        @commit="api.edit(block, textField, $event)"
+        @split="onSplit"
+        @caret-taken="api.placeCaret(null)"
       />
       <div class="actions self-start">
         <template v-if="canWrite">
@@ -302,6 +328,7 @@ const rawField = computed<Field>(() => ({
         :value="commentText"
         label="Nota"
         :disabled="!canWrite"
+        :problem="api.problems.value[`${block.id}:${textField.name}`]"
         @commit="onCommentEdit"
       />
       <div class="actions self-start">
@@ -386,8 +413,10 @@ const rawField = computed<Field>(() => ({
         :value="field.value"
         :placeholder="labelOf(field.name)"
         :disabled="!canWrite"
+        :caret="caretIn(field.span)"
         :problem="api.problems.value[`${block.id}:${field.name}`]"
         @commit="api.edit(block, field, $event)"
+        @caret-taken="api.placeCaret(null)"
       />
     </div>
 
@@ -409,6 +438,7 @@ const rawField = computed<Field>(() => ({
         v-if="canWrite"
         :value="''"
         clear-on-commit
+        :caret="null"
         :placeholder="emptyHint"
         @commit="onWriteInside"
       />

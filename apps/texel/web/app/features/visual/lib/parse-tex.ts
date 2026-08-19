@@ -10,7 +10,7 @@
  * comando estrellado (`\opcion*`) y un único argumento opcional (`\todoans[]`).
  */
 import type { Block, BlockMeta, Field, Span } from './types'
-import { fillGaps, readGroup, skipSpace } from './scan'
+import { fillGaps, readGroup, skipSpace, trimSpan } from './scan'
 import { ATOMS, KNOWN_COMMANDS, WS_META } from './catalog'
 import { isProse } from './inline'
 
@@ -54,7 +54,10 @@ function classify(text: string, blocks: Block[]): Block[] {
     const source = text.slice(block.span.from, block.span.to)
     if (isProse(source)) {
       block.kind = 'paragraph'
-      block.fields = [{ name: 'texto', span: block.span, value: source }]
+      // El campo es el texto, no el hueco: los saltos de los bordes separan
+      // bloques del archivo y no son de nadie. Ver `trimSpan`.
+      const inner = trimSpan(text, block.span)
+      block.fields = [{ name: 'texto', span: inner, value: text.slice(inner.from, inner.to) }]
       // Un tramo que solo son comentarios es una nota del autor —los separadores
       // «% — Caso de estudio ———» del taller—, no un párrafo del documento. Se
       // pinta como nota y no como texto vacío.

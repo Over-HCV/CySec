@@ -23,6 +23,20 @@ describe('parseTex sobre los archivos reales de ws-01', () => {
       }
     })
 
+    it(`${path}: el texto de un párrafo no arrastra los saltos que lo separan`, () => {
+      // El bloque sí los abarca —la partición del archivo no se toca—, pero lo
+      // editable es el texto. Si se cuelan, el campo se pinta con una línea en
+      // blanco delante y el navegador se la come al tocar el borde.
+      for (const block of flatten(blocks).filter(b => b.kind === 'paragraph')) {
+        const campo = block.fields[0]!
+        expect(campo.value).toBe(campo.value.trim())
+        expect(campo.value).not.toBe('')
+        expect(text.slice(campo.span.from, campo.span.to)).toBe(campo.value)
+        expect(campo.span.from).toBeGreaterThanOrEqual(block.span.from)
+        expect(campo.span.to).toBeLessThanOrEqual(block.span.to)
+      }
+    })
+
     it(`${path}: cada span de campo apunta exactamente a su valor`, () => {
       walk(blocks, (b) => {
         for (const f of b.fields) {

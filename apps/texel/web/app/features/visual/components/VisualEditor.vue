@@ -29,8 +29,8 @@ const kind = computed(() => docKindOf(props.path) ?? 'tex')
 const ytext = props.provider.doc.getText('content')
 
 const {
-  text, blocks, sourceOf, problems, notice, collapsed, toggleCollapse,
-  edit, editBody, rename, addInside, writeInside, insert, remove, duplicate, move, toggle
+  text, blocks, sourceOf, problems, notice, collapsed, caret, placeCaret, toggleCollapse,
+  edit, split, editBody, rename, addInside, writeInside, insert, remove, duplicate, move, toggle
 } = useBlocks(ytext, kind.value)
 
 /** Los huecos de solo espacios forman parte del documento, pero no se pintan. */
@@ -43,9 +43,12 @@ provide(VISUAL_API, {
   text,
   problems,
   collapsed,
+  caret,
+  placeCaret,
   toggleCollapse,
   source: sourceOf,
   edit,
+  split,
   editBody,
   rename,
   addInside,
