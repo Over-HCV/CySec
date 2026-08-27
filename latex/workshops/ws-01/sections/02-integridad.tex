@@ -1,45 +1,86 @@
 \section{Integridad}
 
 \begin{caso}{Intrusión y modificación no autorizada de productos de AVAST (CCleaner)}
-Leer el caso de intrusión y modificación no autorizada de productos de AVAST.
+   El caso de la cadena de suministro de CCleaner (2017), en el cual un grupo de
+  atacantes se infiltró en la red de Piriform explotando credenciales de TeamViewer
+  de un desarrollador y, tras meses de movimiento lateral, insertó código malicioso
+  directamente en el entorno de compilación del software; el instalador troyanizado,
+  firmado con el certificado legítimo de la compañía, fue distribuido oficialmente e
+  infectó a más de 2,27 millones de usuarios, de los cuales cerca de 40 equipos de
+  grandes empresas tecnológicas recibieron una segunda carga útil con fines de
+  ciberespionaje, exponiendo fallas graves en el control de accesos remotos y en la
+  integridad del proceso de firma y publicación de software.El caso CCleaner de 2017 fue un ataque en el que ciberdelincuentes lograron infiltrarse en los sistemas de desarrollo de Piriform, empresa responsable del  software CCleaner. Los atacantes modificaron una versión legítima del programa para incluir código malicioso y posteriormente la distribuyeron a los usuarios como una actualización oficial. El incidente es un ejemplo de cómo una vulneración en la cadena de suministro de software puede comprometer la integridad de un producto y afectar a sus usuarios.
 \end{caso}
-
-\begin{fuentes}
-  \fuente{https://www.forbes.com/sites/thomasbrewster/2019/10/21/avast-hacked-again-as-spies-steal-its-passwords/}
-  \fuente{https://thehackernews.com/2018/04/ccleaner-malware-attack.html}
-  \item \footnotesize Otros disponibles en la web.
-\end{fuentes}
-\nocite{avast-forbes,ccleaner-thn}
 
 \pregunta{¿Cuál era el objetivo final del atacante?}
 \begin{respuesta}
+ El objetivo final no era Avast/Piriform como víctima en sí misma, sino usar
+  CCleaner como vector de distribución masiva para alcanzar, de forma selectiva,
+  un pequeño grupo de organizaciones de alto valor (grandes empresas tecnológicas
+  como Google, Microsoft, Cisco e Intel figuraron entre los objetivos secundarios
+  identificados). El instalador troyanizado infectó a más de 2,27 millones de
+  usuarios, pero de ese universo los atacantes filtraron y atacaron con una segunda
+  carga útil (backdoor más sofisticado) a cerca de 40 equipos específicos. En
+  definitiva, el fin era ciberespionaje industrial dirigido, usando un software
+  confiable y ampliamente distribuido como puerta de entrada encubierta.
 \end{respuesta}
 
 \pregunta{¿Cómo se logró la modificación de los datos o servicios?}
 \begin{respuesta}
+Los atacantes comprometieron el proceso de compilación (build) del software, no
+  el producto ya instalado en los equipos de los usuarios. Obtuvieron acceso inicial
+  a la red de Piriform explotando credenciales de TeamViewer de un desarrollador,
+  previamente filtradas en otra brecha. A partir de ahí se movieron lateralmente
+  usando VBScript y RDP durante varios meses, hasta lograr insertar su código
+  malicioso directamente en el entorno de build de CCleaner. El binario resultante
+  fue compilado, firmado con el certificado digital legítimo de la compañía y
+  publicado en el sitio oficial, por lo que ni los usuarios ni la mayoría de los
+  antivirus lo detectaron: la cadena de confianza (firma digital) estaba intacta en
+  apariencia, aunque el contenido ya había sido alterado.
 \end{respuesta}
 
 \pregunta{¿Qué mecanismo(s) pudo haberse implementado para evitar la intrusión y la
 modificación no autorizada?}
 \begin{respuesta}
+  Entre los controles que habrían evitado o contenido el ataque: autenticación
+  multifactor (MFA) obligatoria en todo acceso remoto (TeamViewer, VPN, RDP), para
+  que una credencial filtrada no bastara por sí sola; segmentación de red separando
+  la infraestructura corporativa del entorno de compilación y firma de software;
+  firma de código con aprobación de varias personas (\emph{four-eyes principle}) o
+  mediante HSM, de modo que ningún binario se firme sin revisión independiente;
+  verificación de integridad de los builds (hashing, comparación contra una versión
+  de referencia) antes de publicar cualquier actualización; y monitoreo/EDR en los
+  servidores de build para detectar movimiento lateral o accesos anómalos.
 \end{respuesta}
 
 \subsection*{Validación de entendimiento del caso}
 
 \begin{mcq}{En el caso de CCleaner estudiado previamente, ¿cuál fue el objetivo más
-probable del atacante? (1 o más respuestas válidas):}
-  \opcion{Implantar código malicioso dentro del código fuente del aplicativo CCleaner
-    con el objetivo de que cada persona que descargue CCleaner también descargue el
-    código malicioso y se infecte.}
-  \opcion{Eliminar el código fuente de CCleaner para causar un impacto operativo a Avast.}
-  \opcion{Ingresar de manera no autorizada a la red de Avast para copiar secretos
-    comerciales.}
-  \opcion{Comprobar que una empresa de seguridad no está exenta de tener
-    vulnerabilidades.}
-\end{mcq}
+  probable del atacante? (1 o más respuestas válidas):}
+\opcion{Implantar código malicioso dentro del código fuente del aplicativo CCleaner
+  con el objetivo de que cada persona que descargue CCleaner también descargue el
+  código malicioso y se infecte.}
+\opcion{Eliminar el código fuente de CCleaner para causar un impacto operativo a Avast.}
+\opcion{Ingresar de manera no autorizada a la red de Avast para copiar secretos
+  comerciales.}
+\opcion{Comprobar que una empresa de seguridad no está exenta de tener
+  vulnerabilidades.}
+\begin{respuesta}
+El objetivo mas probable es el (a){%
+
+El atacante insertó el malware en el propio
+instalador oficial de CCleaner para infectar automáticamente a todo el que lo
+descargara. Las opciones (b), (c) y (d) no encajan con el caso: no hubo sabotaje del
+código fuente ni impacto operativo buscado (b); el objetivo no era robar secretos
+comerciales de Avast sino usar su producto como vector hacia terceros (c); y (d) no
+es un objetivo del atacante sino una conclusión posterior sobre la empresa, no una
+motivación del ataque.%
+}
+\end{respuesta}
+
 
 \porque{verificar contra las diapositivas}{%
-  Igual que en la sección anterior, las opciones \emph{b}, \emph{c} y \emph{d} llegaron
-  fusionadas por el OCR (\texttt{ws-01.md:44-46}); el corte se reconstruyó por sentido.
-  Coteja contra la diapositiva original antes de entregar.%
+Igual que en la sección anterior, las opciones \emph{b}, \emph{c} y \emph{d} llegaron
+fusionadas por el OCR (\texttt{ws-01.md:44-46}); el corte se reconstruyó por sentido.
+Coteja contra la diapositiva original antes de entregar.%
 }

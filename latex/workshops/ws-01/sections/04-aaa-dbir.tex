@@ -3,9 +3,9 @@
 \subsection*{Los 3 atributos clave}
 
 \begin{table}[h]
-\centering
-\small
-\begin{tabularx}{\linewidth}{@{}l X X@{}}
+  \centering
+  \small
+  \begin{tabularx}{\linewidth}{@{}l X X@{}}
 \toprule
 \textbf{Atributo} & \textbf{Definición (slides)} & \textbf{Pregunta que responde} \\
 \midrule
@@ -16,48 +16,132 @@
 \term{Accounting} & Registro de la actividad de un usuario o proceso.
   & \eng{What did the user do and is it being recorded?} \\
 \bottomrule
-\end{tabularx}
+  \end{tabularx}
 \end{table}
 
-La \eng{e-authentication} es el proceso de establecer confianza en las identidades de
-usuario de forma electrónica dentro de un sistema de información. La gestión de
-autenticadores (\eng{authenticator management}) cubre los procesos y procedimientos de
-emisión y revocación de autenticadores, y aplica tanto a hardware como a software:
-contraseñas, \eng{tokens}, biometría, certificados de infraestructura de clave pública
-(PKI), tarjetas de acceso, entre otros.
+La \eng{e-authentication} es el proceso de establecer confianza en las identidades de usuario de forma electrónica dentro de un sistema de información. La gestión de autenticadores (\eng{authenticator management}) cubre los procesos y procedimientos de emisión y revocación de autenticadores, y aplica tanto a hardware como a software:
+contraseñas, \eng{tokens}, biometría, certificados de infraestructura de clave pública (PKI), tarjetas de acceso, entre otros.
 
-\porque{ampliar si hace falta}{%
-  Esta tabla resume las slides 10--28. Si el profesor pide desarrollo propio del marco
-  AAA, amplía aquí antes de pasar a las preguntas del DBIR.%
+\porque{ampliar si hace falta}{%\% Esta tabla resume las slides 10--28. Si el profesor pide desarrollo propio del marco
+AAA, amplía aquí antes de pasar a las preguntas del DBIR.%
 }
+
+\begin{mcq}{Una empresa tiene un sistema de telefonía corporativo que permite que cada empleado pueda llamar a números de teléfono local, internacional, celular y números especiales, en función de su cargo dentro de la empresa. Recientemente se ha evidenciado que desde la cuenta de uno de los empleados se han realizado múltiples llamadas internacionales a pesar de que dicho usuario no tenía permisos para realizar dichas llamadas. ¿Cuál de los siguientes módulos del sistema de telefonía probablemente fué la causa del fallo? (1 o más respuestas válidas):}
+  \opcion{Módulo de autenticación.}
+  \opcion*{Módulo de autorización.}
+  \opcion{Módulo de Accounting.}
+\end{mcq}
+\begin{respuesta}
+  La respuesta correcta es la B, porque el módulo de autorización es el encargado de verificar qué acciones y recursos tiene permitido utilizar un usuario una vez que su identidad ha sido autenticada. En este caso, el empleado estaba correctamente identificado mediante su cuenta, pero realizó llamadas internacionales que no estaban permitidas para su cargo. Por tanto, el fallo se encuentra en el control de los permisos, es decir, en la autorización.
+\end{respuesta}
 
 \section{Verizon DBIR 2025}
 
 \begin{caso}{2025 Verizon Data Breach Investigation Report}
-Obtener una copia del \emph{2025 Verizon Data Breach Investigation Report}
-(ver informe en e-Aulas URosario) y, tras haber entendido los conceptos de
-Autenticación, Autorización y Accounting de las slides 10--28, responder las
-siguientes preguntas.
+  El 2025 Data Breach Investigations Report (DBIR) de Verizon es un informe anual que analiza miles de incidentes y filtraciones de datos reales para identificar cómo ocurren los ciberataques, quiénes los realizan, cuáles son sus principales motivaciones y qué información resulta comprometida. La edición de 2025 analizó 22.052 incidentes y 12.195 brechas confirmadas en 139 países. El informe sirve para conocer las principales amenazas actuales y entender qué controles de seguridad pueden ayudar a reducir el riesgo de sufrir una brecha.
 \end{caso}
 
-\begin{fuentes}
-  \fuente{https://www.verizon.com/business/resources/T6eb/reports/2025-dbir-data-breach-investigations-report.pdf}
-\end{fuentes}
 \nocite{dbir2025}
 
-\pregunta{En la sección IV, identifica la ficha para el sector de la industria en el que
-trabajas. Identificar los patrones de incidentes más comunes, actores, motivaciones,
-tipos de datos comprometidos y \eng{top} de controles de seguridad. Realiza un resumen
-para tu sector.}
+\pregunta{En la sección IV, identifica la ficha para el sector de la industria en el que trabajas. Identificar los patrones de incidentes más comunes, actores, motivaciones, tipos de datos comprometidos y \eng{top} de controles de seguridad. Realiza un resumen para tu sector.}
+
 \begin{respuesta}
+  Sector Financial and Insurance:
+  En 2025, Verizon registró 3.336 incidentes en este sector, de los cuales 927 tuvieron divulgación confirmada de datos. Los principales patrones de ataque fueron:
+  \begin{itemize}
+    \item System Intrusion
+    \item Social Engineering
+    \item Basic Web Application Attacks
+  \end{itemize}
+  En conjunto, estos tres patrones representaron 74\% de las brechas. La mayoría de los atacantes fueron externos (78\%) y la principal motivación fue financiera (90\%). También aparece el espionaje como motivación en un 12\% de las brechas. Los datos más comprometidos fueron:
+  \begin{itemize}
+    \item Datos personales: 54\%
+    \item Otros datos: 44\%
+    \item Datos internos: 35\%
+    \item Credenciales: 22\%
+  \end{itemize}
+  Además, dentro de las acciones utilizadas, Hacking fue la principal, seguida por Malware e Ingeniería social. El sector financiero sigue siendo un objetivo especialmente atractivo porque maneja grandes cantidades de dinero y datos sensibles. Los ataques buscan principalmente obtener beneficios económicos y suelen aprovechar intrusiones, ingeniería social, aplicaciones web y credenciales comprometidas.
+
 \end{respuesta}
+
+\begin{respuesta}
+  Sector \eng{Educational Services} (NAICS 61):
+  En 2025, Verizon registró 1.075 incidentes en este sector, de los cuales 851 tuvieron  divulgación de datos confirmada, disminución que el propio reporte atribuye más a un cambio en la composición de sus contribuyentes de datos de este año que a una caída real del interés de los atacantes por la educación. Los patrones de incidentes más comunes fueron:
+  \begin{itemize}
+    \item \eng{System Intrusion}
+    \item \eng{Miscellaneous Errors}
+    \item \eng{Social Engineering}
+  \end{itemize}
+  Estos tres patrones se mantienen como el top 3 del sector por tercer año consecutivo y, en conjunto, representaron 80\% de las brechas, con \eng{System Intrusion} liderando de forma clara aunque \eng{Miscellaneous Errors} (26\%) haya superado levemente a \eng{Social Engineering} (17\%) este año. La mayoría de los actores fueron externos (62\%, de los cuales 59\% corresponde a crimen organizado), mientras que los internos representaron 38\%, en buena parte asociados a errores de tipo \eng{Misdelivery} (envío de información al destinatario equivocado), que concentra 60\% de las brechas por error.
+
+  La motivación predominante fue financiera (88\%), seguida de espionaje (18\%).
+  Los datos más comprometidos fueron: Personal (58\%), \eng{Internal} (49\%),
+  Credenciales (12\%), \eng{Secrets} (11\%), \eng{Sensitive Personal} (10\%) y \eng{Others} (21\%);
+
+  %  \porque{verificar dato de "Other"}{%
+  %  el reporte muestra la categoría "Other" con dos valores distintos según la sección
+  %  consultada (35\% en el resumen lateral de la ficha, 21\% en la Figura 79), por lo que
+  %  se deja constancia de esta inconsistencia en lugar de decidir arbitrariamente cuál
+  %  de las dos cifras usar sin cotejarla contra el PDF original del DBIR 2025.%
+  %  }
+
+  En cuanto a las acciones utilizadas (Figura 76, n=851), \eng{Malware} fue la principal
+  (42\%), seguida de \eng{Hacking} (36\%), \eng{Error} (29\%), \eng{Social} (19\%) y
+  \eng{Misuse} (9\%). Dentro de \eng{Malware}, la variedad más usada fue \eng{Ransomware} (30\%); dentro de \eng{Hacking}, el uso de credenciales robadas (24\%); y dentro de
+  \eng{Social Engineering}, \eng{Phishing} concentra 77\% de los casos frente a solo 7\%
+  de \eng{Pretexting}.
+
+  %  \porque{tabla de controles no disponible para 2025}{%
+  %  Sobre el \eng{top} de controles IG1 específico para \eng{Educational Services}, no se
+  %  encontró una tabla equivalente en la ficha de sector del DBIR 2025 (a diferencia de las
+  %  ediciones 2021--2022, que sí desglosaban los tres controles principales por cada uno de
+  %  los 12 sectores, como se usó en la pregunta del control de acceso). Al no contar con esa
+  %  fuente confirmada para la edición 2025, se prefiere dejarlo señalado como pendiente de
+  %  verificación antes que inventar un dato sin respaldo.%
+  %  }
+\end{respuesta}
+
+%%% --- Q2
 
 \pregunta{¿Cómo puede ayudar la autenticación, autorización y accounting a incrementar
 la seguridad en el sector escogido previamente?}
 \begin{respuesta}
+  En el sector Financial and Insurance, estos mecanismos ayudan principalmente a reducir el riesgo de robo de credenciales, acceso no autorizado y fraude:
+  \begin{itemize}
+    \item Autenticación: implementar MFA para empleados, administradores y clientes dificulta que unas credenciales robadas permitan acceder a cuentas o sistemas financieros. Esto es especialmente relevante porque el abuso de credenciales es uno de los principales vectores de acceso identificados por Verizon.
+    \item Autorización: aplicar mínimo privilegio y separación de funciones limita lo que puede hacer una cuenta comprometida. Por ejemplo, un empleado que solo necesita consultar información no debería poder modificar transacciones, acceder a bases de datos completas o administrar otros usuarios.
+    \item Accounting: mantener registros de accesos, modificaciones y transacciones permite detectar comportamientos anómalos, como múltiples intentos de acceso, cambios de permisos o movimientos financieros inusuales, y facilita investigar posteriormente un incidente.
+  \end{itemize}
+  En conjunto, estos mecanismos permiten que una institución financiera no solo controle quién entra a sus sistemas, sino también qué puede hacer y qué actividades realiza, reduciendo el impacto de credenciales comprometidas y accesos fraudulentos.
 \end{respuesta}
 
-\pregunta{¿Cuál de los 12 sectores no tiene control de acceso como parte de su
-\eng{Top IG1 Protective Controls}?}
 \begin{respuesta}
+  En el sector \eng{Educational Services}, estos tres mecanismos apuntan directamente a
+  los vectores que el DBIR identifica como dominantes en la industria, esto es, la
+  explotación de credenciales por parte de actores externos, los errores de envío o
+  configuración cometidos por el personal interno, y el \eng{phishing} dirigido a
+  estudiantes y funcionarios:
+  \begin{itemize}
+    \item \term{Autenticación}: dado que 24\% de las brechas por \eng{Hacking} en este sector involucran uso de credenciales robadas y que \eng{Phishing} concentra 77\% de los casos de \eng{Social Engineering}, exigir MFA en el acceso a las plataformas académicas (correo institucional, sistemas de calificaciones, VPN, portales de matrícula) reduce de forma directa la probabilidad de que una credencial obtenida por \eng{phishing} sea suficiente para comprometer una cuenta.
+    \item \term{Autorización}: aplicar mínimo privilegio y separación de funciones entre roles (estudiante, docente, personal administrativo) limita el alcance de una cuenta comprometida o de un actor interno malintencionado, lo cual es particularmente relevante porque 38\% de los actores identificados en el sector son internos y porque \eng{System Intrusion}, el patrón más frecuente, suele buscar escalar privilegios una vez dentro de la red para moverse lateralmente hacia sistemas con información sensible (notas, datos personales de estudiantes, información financiera).
+    \item \term{Accounting}: mantener registros de acceso y de modificaciones sobre calificaciones, matrículas y datos personales facilita detectar tanto \eng{Misdelivery} (60\% de las brechas por error) como el uso indebido de accesos legítimos por parte de personal interno, además de soportar la investigación posterior de incidentes de \eng{Ransomware}, que es la variedad de \eng{malware} más frecuente en el sector (30\%).
+  \end{itemize}
+  En conjunto, y de forma similar a lo que ocurre en el sector financiero, estos mecanismos permiten que una institución educativa no solo controle quién ingresa a sus sistemas, sino también qué puede hacer cada rol y qué actividad queda registrada, lo cual reduce el impacto de errores humanos, credenciales comprometidas y accesos internos indebidos, que son justamente los tres focos que el DBIR 2025 señala como más relevantes para \eng{Educational Services}.
 \end{respuesta}
+
+%%% --- Q3
+
+\pregunta{¿Cuál de los 12 sectores no tiene control de acceso como parte de su \eng{Top IG1 Protective Controls}?}
+
+\begin{respuesta}
+  El sector Financial and Insurance es el único que no incluye Access Control Management (CSC 6) dentro de sus tres controles principales de IG1; en su lugar aparecen Security Awareness and Skills Training (CSC 14), Secure Configuration of Enterprise Assets and Software (CSC 4) y Data Protection (CSC 3). El resto de los sectores del listado sí lo tienen dentro de su top 3, generalmente acompañado de Security Awareness and Skills Training (CSC 14) y, según el sector, Secure Configuration (CSC 4) o Account Management (CSC 5).
+\end{respuesta}
+
+% \porque{verificar edición del reporte}{%
+% La tabla de \eng{Top IG1 protective controls} por los 12 sectores no aparece en el DBIR 2025
+% citado en \texttt{nocite\{dbir2025\}} (esa edición solo perfila 5 industrias y ya no usa esta
+% tabla). Los datos de esta respuesta vienen de las ediciones DBIR 2021--2022, que sí manejaban
+% 12 sectores con este formato. Confirma con tu profesor si el taller espera la edición 2025
+% (en cuyo caso esta pregunta podría no tener respuesta directa en la fuente) o si es intencional
+% reutilizar la tabla de una edición anterior.%
+% }

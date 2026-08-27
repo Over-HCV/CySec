@@ -16,7 +16,7 @@
  * es casi opaca a propósito: un menú tiene que leerse sobre cualquier cosa.
  */
 import { ChevronDown } from 'lucide-vue-next'
-import { placeMenu } from '~/shared/lib/anchor-menu'
+import { placeMenu, type Side } from '~/shared/lib/anchor-menu'
 
 // Dos raíces —el botón y el teleport—, así que nada de atributos heredados:
 // irían a parar a ninguna parte con un aviso de Vue.
@@ -26,6 +26,11 @@ const props = withDefaults(defineProps<{
   /** Borde del botón con el que se alinea el menú. */
   align?: 'start' | 'end'
   disabled?: boolean
+  /**
+   * Hacia dónde intenta abrirse. Sigue siendo una preferencia: si por ese lado
+   * no cabe y por el otro hay más sitio, se va al otro. Ver `anchor-menu.ts`.
+   */
+  prefer?: Side
   /** Clases del botón. Por defecto, el aspecto de un `MacButton` pequeño. */
   triggerClass?: string
   title?: string
@@ -33,6 +38,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   align: 'start',
   disabled: false,
+  prefer: 'below',
   triggerClass: 'menu-trigger',
   title: undefined,
   ariaLabel: undefined
@@ -58,7 +64,13 @@ function place() {
 
   // El alto se limita a lo que quede libre: así el menú scrollea en vez de
   // salirse por el borde. Las cuentas están en `anchor-menu.ts`.
-  const at = placeMenu(anchor, box, { width: window.innerWidth, height: window.innerHeight }, props.align)
+  const at = placeMenu(
+    anchor,
+    box,
+    { width: window.innerWidth, height: window.innerHeight },
+    props.align,
+    props.prefer
+  )
 
   style.value = {
     position: 'fixed',

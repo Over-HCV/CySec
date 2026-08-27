@@ -33,7 +33,11 @@ function onSelect() {
     :disabled="disabled"
     @click="onSelect"
   >
-    <Check :size="12" class="shrink-0 mt-[3px]" :class="checked ? '' : 'opacity-0'" />
+    <!-- El hueco del check lo puede ocupar otra cosa: el menú de bloques pone
+         ahí el icono de cada tipo, que no tiene nada que marcar. -->
+    <slot name="icon">
+      <Check :size="12" class="shrink-0 mt-[3px]" :class="checked ? '' : 'opacity-0'" />
+    </slot>
     <span class="flex-1 min-w-0 text-left">
       <span class="block">
         <slot />

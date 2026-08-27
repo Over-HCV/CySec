@@ -11,9 +11,9 @@
  * suben por `emit` sino que se inyectan una vez desde `VisualEditor`.
  */
 import { MacBadge, MacCheckbox } from '@macvue/core'
-import * as lucide from 'lucide-vue-next'
-import { AlertTriangle, Braces, ChevronRight, Code2, Copy, Plus, Trash2 } from 'lucide-vue-next'
+import { AlertTriangle, ChevronRight, Code2, Copy, Plus, Trash2 } from 'lucide-vue-next'
 import { ATOMS, fieldSpecOf, specOf } from '../lib/catalog'
+import { iconOf } from '../lib/icons'
 import { VISUAL_API } from '../lib/api'
 import type { Block, Field, Span } from '../lib/types'
 
@@ -83,12 +83,7 @@ const items = computed(() => (props.block.items ?? []).filter(b => !b.flags?.bla
 const title = computed(() =>
   atom.value?.label ?? props.block.meta?.env ?? spec.value.label)
 
-/**
- * El icono del catálogo, que va por nombre. Se busca en `lucide` en vez de
- * importar veinte iconos a mano; si el nombre no existe, se ve el genérico.
- */
-const icon = computed(() =>
-  (lucide as unknown as Record<string, unknown>)[atom.value?.icon ?? spec.value.icon] ?? Braces)
+const icon = computed(() => iconOf(atom.value?.icon ?? spec.value.icon))
 
 /**
  * Los campos de una línea van en la cabecera y los largos, debajo. Un `\input`

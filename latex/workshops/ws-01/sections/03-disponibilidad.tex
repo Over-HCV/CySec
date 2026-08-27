@@ -1,31 +1,54 @@
 \section{Disponibilidad}
 
 \begin{caso}{Intrusión y eliminación no autorizada de datos bancarios (Corea del Sur, Shinhan Bank)}
-Leer el caso de intrusión y eliminación no autorizada de datos bancarios.
+El 20 de marzo de 2013, Corea del Sur sufrió un ciberataque coordinado contra tres bancos Shinhan, NongHyup y Jeju y tres grandes medios de comunicación KBS, MBC y YTN. El ataque, conocido como DarkSeoul o 3.20 Cyber Attack, dejó miles de computadores y servidores inutilizados. 
 \end{caso}
 
-\begin{fuentes}
-  \fuente{https://www.seeker.com/massive-data-deleting-attack-hits-south-korea-1767326593.html}
-  \fuente{https://www.nbcnews.com/id/wbna51256632}
-  \fuente{https://www.darkreading.com/cyberattacks-data-breaches/south-korean-banks-lose-data-in-malware-attack}
-  \item \footnotesize Otros disponibles en la web.
-\end{fuentes}
+
 \nocite{sk-seeker,sk-nbc,sk-darkreading}
 
 \pregunta{¿Cuál era el objetivo final del atacante?}
 \begin{respuesta}
+El ataque buscaba interrumpir la disponibilidad y destruir sistemas informáticos. El malware utilizado era un wiper: en lugar de cifrar los archivos para pedir un rescate, los eliminaba o sobrescribía y dañaba el MBR (Master Boot Record), impidiendo que los equipos iniciaran normalmente. 
 \end{respuesta}
 
 \pregunta{¿Cómo se logró la eliminación de los datos o servicios?}
 \begin{respuesta}
+Los atacantes aprovecharon sistemas internos de gestión de actualizaciones (Patch Management Systems) para distribuir malware a gran cantidad de equipos. Una vez instalado, el malware permaneció inactivo hasta el momento programado del ataque. 
+
+
+Cuando se activó, el malware ejecutó acciones destructivas, principalmente:
+
+\begin{itemize}
+  \item Sobrescribió el MBR (Master Boot Record) de los discos, impidiendo que los computadores pudieran iniciar correctamente.  
+  \item Eliminó o sobrescribió información del sistema, dejando equipos y servidores inutilizables.  
+  \item En algunos servidores Linux/Unix, utilizó credenciales almacenadas en herramientas de administración para ejecutar comandos destructivos.  
+  \item Al afectar simultáneamente estaciones de trabajo, servidores y sistemas utilizados para servicios bancarios, provocó la interrupción de cajeros automáticos, banca en línea y otros servicios. 
+\end{itemize}
+
 \end{respuesta}
 
 \pregunta{¿Qué mecanismo(s) pudo haberse implementado para evitar la eliminación no
 autorizada de datos?}
 \begin{respuesta}
+Se podría haber utilizado una estrategia de defensa en profundidad, combinando diferentes controles de seguridad:
+\begin{itemize}
+  \item Control de acceso y mínimo privilegio: limitar las cuentas administrativas y evitar que una sola credencial tuviera capacidad para modificar o eliminar sistemas masivamente.  
+
+\item Cuentas administrativas separadas: dificultar el uso de credenciales robadas para acceder a sistemas críticos.  
+
+\item Despliegues de actualizaciones por etapas: probar primero las actualizaciones en un grupo reducido de equipos antes de distribuirlas a toda la organización.  
+
+\item Segmentación de la red: separar los servidores críticos y sistemas de administración para limitar la propagación del malware.  
+
+\item Respaldos aislados e inmutables: mantener copias de seguridad que no puedan ser modificadas o eliminadas por el malware, permitiendo recuperar los datos incluso después de un ataque destructivo.  
+
+\item Monitoreo y detección: utilizar sistemas de seguridad capaces de detectar comportamientos anómalos, como la modificación masiva del MBR o la eliminación simultánea de archivos.  
+\end{itemize}
+La medida más importante habría sido evitar que un único sistema de administración comprometido pudiera distribuir código malicioso a toda la infraestructura. Combinar controles de acceso, segmentación, validación de actualizaciones y respaldos aislados habría reducido considerablemente el impacto del ataque. 
 \end{respuesta}
 
-\subsection*{Validación de entendimiento del caso}
+
 
 \begin{mcq}{En el caso de Shinhan Bank estudiado previamente, ¿cuál fue el vector de
 entrada más probable utilizado por el atacante? (1 o más respuestas válidas):}
@@ -36,3 +59,6 @@ entrada más probable utilizado por el atacante? (1 o más respuestas válidas):
   \opcion{Inserción de una USB infectada por parte de uno de los empleados, a través de
     la cual se realizó la implantación de un malware de corrupción del sistema operativo.}
 \end{mcq}
+\begin{respuesta}
+La respuesta correcta es la A, porque la investigación del ataque de marzo de 2013 indicó que los atacantes habían conseguido previamente acceso a los sistemas mediante compromiso de infraestructura web y malware, y posteriormente utilizaron sistemas internos de distribución de software para desplegar el componente destructivo. 
+\end{respuesta}

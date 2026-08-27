@@ -41,6 +41,33 @@ describe('placeMenu', () => {
     expect(at.top).toBeGreaterThanOrEqual(EDGE)
   })
 
+  // El botón «Añadir bloque» vive al final del documento: hacia abajo casi nunca
+  // hay sitio, y cuando lo hay tampoco se quiere ir hacia allá.
+  it('con prefer=above se vuelca hacia arriba aunque abajo quepa', () => {
+    const middle = { top: 400, bottom: 424, left: 100, right: 260, width: 160 }
+    const at = placeMenu(middle, { width: 260, height: 200 }, VIEW, 'start', 'above')
+    expect(at.flipped).toBe(true)
+    expect(at.top).toBe(middle.top - GAP - 200)
+  })
+
+  // Documento vacío: el mismo botón está pegado al borde superior. `prefer` es
+  // una preferencia, no una imposición.
+  it('con prefer=above cae hacia abajo si arriba no cabe', () => {
+    const at = placeMenu(header, { width: 260, height: 200 }, VIEW, 'start', 'above')
+    expect(at.flipped).toBe(false)
+    expect(at.top).toBe(header.bottom + GAP)
+  })
+
+  // Ni arriba ni abajo cabe entero: se queda arriba, que es lo pedido, y
+  // scrollea con el hueco que haya.
+  it('con prefer=above se queda arriba si arriba hay más sitio aunque no quepa', () => {
+    const low = { top: 700, bottom: 724, left: 100, right: 260, width: 160 }
+    const at = placeMenu(low, { width: 260, height: 900 }, VIEW, 'start', 'above')
+    expect(at.flipped).toBe(true)
+    expect(at.maxHeight).toBe(low.top - GAP - EDGE)
+    expect(at.top).toBe(EDGE)
+  })
+
   it('alinea por el borde derecho con align=end', () => {
     const at = placeMenu(header, { width: 180, height: 120 }, VIEW, 'end')
     expect(at.left).toBe(header.right - 180)

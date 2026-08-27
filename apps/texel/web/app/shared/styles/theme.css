@@ -506,6 +506,22 @@ a { color: var(--accent); }
 .app-menu-item:hover:not(:disabled) :where(span),
 .app-menu-item:focus-visible :where(span) { color: inherit; }
 
+/* Menú de bloques del editor visual: se llena por columnas, cinco por columna,
+   para no ser una tira de diez. `grid-auto-flow: column` hace que el orden del
+   DOM baje por la primera columna y siga por la segunda, que es el mismo camino
+   que recorren las flechas del teclado. Con menos de cinco opciones —un `.bib`
+   solo ofrece «Referencia»— las filas sobrantes miden 0 y queda una columna. */
+.block-menu-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(5, auto);
+  column-gap: 4px;
+}
+
+/* La línea de ayuda es larga; sin tope, dos columnas no caben en una ventana
+   estrecha. */
+.block-menu-grid .app-menu-item { max-width: 230px; }
+
 /* Disparador con el aspecto de un `MacButton` pequeño, hecho con los tokens de
    macvue para que no se despegue del resto de la barra. */
 .menu-trigger {

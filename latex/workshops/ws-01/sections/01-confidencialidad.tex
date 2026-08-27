@@ -1,47 +1,52 @@
 \section{Confidencialidad}
 
 \begin{caso}{Fuga de datos del portal Ashley Madison (2015)}
-Investigar sobre el caso de fuga de datos del portal Ashley Madison del 2015.
+  El caso de fuga de datos del portal Ashley Madison del 2015, en el cual un grupo de atacantes (The Impact Team) comprometió credenciales de un empleado para acceder a la red corporativa de ALM y, tras semanas de exfiltración silenciosa, filtró los datos de cerca de 36 millones de usuarios y de esta forma, exponiendo fallas graves en el manejo de credenciales y accesos.
 \end{caso}
 
-\begin{fuentes}
-  \fuente{https://en.wikipedia.org/wiki/Ashley_Madison_data_breach}
-  \fuente{https://digitalguardian.com/blog/timeline-ashley-madison-hack}
-  \fuente{https://www.wired.com/2015/08/happened-hackers-posted-stolen-ashley-madison-data/}
-  \item \footnotesize Otros disponibles en la web.
-\end{fuentes}
-\nocite{am-wikipedia,am-timeline,am-wired}
-
 \pregunta{¿Qué tipos de datos fueron expuestos?}
-\begin{respuesta}
-\end{respuesta}
+\begin{respuesta}Se filtraron principalmente datos personales de 36 millones de personas como lo podían ser datos de perfiles, datos de autenticación en la plataforma, facturación asociada a pagos dentro de la plataforma e inclusive datos los propios usuarios solicitaron ser removidos de la misma previo al incidente.\end{respuesta}
 
 \pregunta{¿Cómo se logró la exfiltración de datos?}
 \begin{respuesta}
+  Primeramente se hizo uso de ingeniería social para la infiltración inicial de forma que, comprometiendo las credenciales válidas de un empleado, al tener acceso a este primer nivel del ataque ya logró tener acceso a la red corporativa (ALM) manejada internamente, cuando se accede a la capa de red se puede empezar a aplicar técnicas de reconocimiento de posibles cuentas definidas dentro esta con seguridad despreciable y dispositivos conectados que tengan gran relevancia dentro de la infraestructura.
+
+  Se procede con la fase de escalamiento de privilegio, con el objetivo de empezar a obtener la información de los usuarios introducida en la plataforma de Ashley Madison. Progresivamente y en silencio se iban recopilando los datos, esto apoyados de un proxy que permitía aparentar una dirección IP que ubicaron en Toronto (Canadá) para tener un acceso prolongado.
+
+  Lo más relevante a considerar es que el sistema de manejo de credenciales tenía fallos monumentales; Primeramente las contraseñas de usuarios se compartían mediante servicios de mail haciendo que su formato fueran archivos de texto plano, hacían almacenamiento de claves de acceso remoto mediante Google Drive (sin cifrado asociado) e, incluso si eran claves cifradas estas contaban con texto fácilmente identificable. Finalmente hubo mención de un servidor el cual se realizaba conexión mediante SSH, con el pequeño detalle que no contaba con protección de contraseña.
+
+  Al leer lo que menciona la FTC estos accesos no autorizados se realizaron a la VPN entre noviembre del 2014 y abril de 2015, luego se hizo acceso a un procesador de pagos usando las credenciales de la empresa para mayo y junio de 2015.
 \end{respuesta}
 
 \pregunta{¿Qué mecanismo(s) pudo haberse implementado para evitar la fuga de datos?}
 \begin{respuesta}
+
+  Hay varios detalles que mencionar sobe este caso, caben mencionar los siguientes:
+
+  \begin{itemize}
+    \item Algoritmos de detección de anomalías: Se pueden diseñar algoritmos que modelen de forma anónima el patrón de comportamiento según cada rol de la compañia, de forma que, ante inicios de sesión en horarios distintos a los comunes se puede levantar la alerta al SOC.
+    \item Principios Zero Trust: Al momento que se compromete una cuenta, esta no debería acceder progresivamente a enormes cantidades de información, el privilegio debe ser mínimo y sólo autorizado cuando sea necesario.
+    \item Capacitaciones de seguridad: Dado el factor humano es un gran punto de quiebre en cualquier sistema hay que brindar capacitaciones constante para dar a conocer de los peligros a los que se exponen los distintos roles organizacionales y que acudan a la realización de protocolos y lineamientos para que no omitan ningún comportamiento y uso inadecuado de sus datos.
+    \item Factor de autenticación: Exigir autenticación multifactor (MFA) para el acceso a la VPN, al panel administrativo y a cualquier sistema que maneje datos de usuarios, de forma que el solo hecho de comprometer una contraseña (como ocurrió en este caso) no sea suficiente para que un atacante escale dentro de la red corporativa.
+    \item Segmentización de red: Dividir la red corporativa en segmentos aislados según criticidad y función (por ejemplo separando los sistemas de facturación, las bases de datos de usuarios y los servidores de administración), de forma que el compromiso de un segmento, como el que sufrió ALM, no otorgue visibilidad ni acceso directo hacia el resto de la infraestructura.
+  \end{itemize}
+
 \end{respuesta}
 
 \subsection*{Validación de entendimiento del caso}
 
 \begin{mcq}{En el caso de Ashley Madison estudiado previamente puede verse la
-confidencialidad como (1 o más respuestas válidas):}
-  \opcion{Un atributo de los datos el cual fue afectado severamente debido a la no
-    existencia de controles de seguridad adecuados.}
-  \opcion{Un atributo de los datos que hay que proteger sobre todo cuando se trata de
-    información personal.}
-  \opcion{Un atributo de los datos que puede ser un diferencial en el momento de
-    selección de una empresa proveedora de servicios por parte de un cliente.}
-  \opcion{Un atributo de los datos que se refiere a que estos no sean vistos por
-    alguien no autorizado.}
+  confidencialidad como (1 o más respuestas válidas):}
+  \opcion*{Un atributo de los datos el cual fue afectado severamente debido a la no existencia de controles de seguridad adecuados.}
+  \opcion*{Un atributo de los datos que hay que proteger sobre todo cuando se trata de información personal.}
+  \opcion{Un atributo de los datos que puede ser un diferencial en el momento de selección de una empresa proveedora de servicios por parte de un cliente.}
+  \opcion*{Un atributo de los datos que se refiere a que estos no sean vistos por alguien no autorizado.}
 \end{mcq}
 
-\porque{verificar contra las diapositivas}{%
-  El enunciado de \texttt{notes/ws-01.md} viene de un PDF con OCR: las opciones
-  \emph{b} y \emph{c} llegaron fusionadas en una sola línea (\texttt{ws-01.md:18-20}).
-  El corte de arriba se reconstruyó por sentido; coteja el orden a--d contra la
-  diapositiva original antes de entregar. Marca tu(s) elección(es) con
-  \texttt{\textbackslash opcion*}.%
-}
+% \porque{verificar contra las diapositivas}{%
+% El enunciado de \texttt{notes/ws-01.md} viene de un PDF con OCR: las opciones
+% \emph{b} y \emph{c} llegaron fusionadas en una sola línea (\texttt{ws-01.md:18-20}).
+% El corte de arriba se reconstruyó por sentido; coteja el orden a--d contra la
+% diapositiva original antes de entregar. Marca tu(s) elección(es) con
+% \texttt{\textbackslash opcion*}.%
+% }

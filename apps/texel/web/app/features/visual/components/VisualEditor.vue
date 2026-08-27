@@ -11,11 +11,11 @@
  * anidado solo puede muestrear el relleno de ese panel, nunca el fondo de la
  * ventana — sale gris y plano. Los anidados van transparentes encima.
  */
-import { MacButton } from '@macvue/core'
 import { Plus } from 'lucide-vue-next'
 import type { SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
 import { useBlocks } from '../composables/useBlocks'
 import { insertable } from '../lib/catalog'
+import { iconOf } from '../lib/icons'
 import { VISUAL_API } from '../lib/api'
 import { docKindOf, type BlockKind } from '../lib/types'
 
@@ -60,11 +60,9 @@ provide(VISUAL_API, {
 })
 
 /** Añadir al final del documento desde la barra inferior. */
-const menuOpen = ref(false)
 const opciones = computed(() => insertable(kind.value))
 
 function addAtEnd(blockKind: BlockKind) {
-  menuOpen.value = false
   insert(text.value.length, blockKind)
 }
 </script>
@@ -94,25 +92,31 @@ function addAtEnd(blockKind: BlockKind) {
         <BlockNode :block="block" :depth="0" />
       </div>
 
-      <div v-if="canWrite" class="relative self-start mt-1">
-        <MacButton size="small" @click="menuOpen = !menuOpen">
-          <Plus :size="12" class="inline align-[-2px] mr-1" /> Añadir bloque
-        </MacButton>
+      <!-- `AppMenu` y no un `div` absoluto: el botón está al final del
+           documento, dentro del scroller de arriba, así que un menú en el flujo
+           nace fuera de la pantalla. Este se teleporta a `body`, se coloca
+           `fixed` y prefiere abrirse hacia arriba. El envoltorio lleva la
+           posición porque `AppMenu` tiene dos raíces y no hereda atributos. -->
+      <div v-if="canWrite" class="self-start mt-1">
+        <AppMenu prefer="above">
+          <template #trigger>
+            <Plus :size="12" /> Añadir bloque
+          </template>
 
-        <div
-          v-if="menuOpen"
-          class="glass-menu absolute z-20 mt-1 min-w-[230px] rounded-[var(--radius)] p-1"
-        >
-          <button
-            v-for="spec in opciones"
-            :key="spec.kind"
-            class="w-full text-left px-2 py-1.5 rounded-[6px] hover:bg-[var(--bg-hover)]"
-            @click="addAtEnd(spec.kind)"
-          >
-            <span class="text-[12.5px]">{{ spec.label }}</span>
-            <span class="block text-[11px] text-[var(--text-faint)]">{{ spec.hint }}</span>
-          </button>
-        </div>
+          <div class="block-menu-grid">
+            <AppMenuItem
+              v-for="spec in opciones"
+              :key="spec.kind"
+              :hint="spec.hint"
+              @select="addAtEnd(spec.kind)"
+            >
+              <template #icon>
+                <component :is="iconOf(spec.icon)" :size="12" class="shrink-0 mt-[3px]" />
+              </template>
+              {{ spec.label }}
+            </AppMenuItem>
+          </div>
+        </AppMenu>
       </div>
     </div>
   </div>

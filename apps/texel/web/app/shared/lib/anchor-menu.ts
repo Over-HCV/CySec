@@ -20,6 +20,9 @@ export const GAP = 4
  */
 export const MIN_ROOM = 120
 
+/** Hacia dónde se abre un menú. */
+export type Side = 'below' | 'above'
+
 export interface Box { width: number, height: number }
 
 export interface Anchor {
@@ -41,13 +44,27 @@ export interface Placement {
 
 const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), Math.max(min, max))
 
-export function placeMenu(anchor: Anchor, menu: Box, view: Box, align: 'start' | 'end' = 'start'): Placement {
+export function placeMenu(
+  anchor: Anchor,
+  menu: Box,
+  view: Box,
+  align: 'start' | 'end' = 'start',
+  prefer: Side = 'below'
+): Placement {
   const below = view.height - anchor.bottom - GAP - EDGE
   const above = anchor.top - GAP - EDGE
 
-  // Debajo salvo que no quepa y arriba haya más sitio. Nunca se elige arriba
-  // «por poco»: un menú que cae hacia abajo es lo que espera todo el mundo.
-  const flipped = menu.height > below && above > below
+  // Con `below`: debajo salvo que no quepa y arriba haya más sitio. Nunca se
+  // elige arriba «por poco»: un menú que cae hacia abajo es lo que espera todo
+  // el mundo.
+  //
+  // Con `above`: arriba mientras quepa; si no cabe, donde haya más hueco. Es
+  // para un botón que vive al final de una lista larga — el menú de bloques del
+  // editor visual. Sigue siendo una preferencia: con el documento vacío ese
+  // mismo botón está pegado al borde superior, arriba no hay nada y cae abajo.
+  const flipped = prefer === 'above'
+    ? menu.height <= above || above >= below
+    : menu.height > below && above > below
   const maxHeight = Math.max(flipped ? above : below, MIN_ROOM)
 
   const left = align === 'end' ? anchor.right - menu.width : anchor.left
