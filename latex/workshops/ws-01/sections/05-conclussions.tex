@@ -1,9 +1,16 @@
-% sections/05-conclusiones.tex
+% sections/05-conclussions.tex
 \section*{Conclusiones}
+
+A lo largo del taller se observa que los tres casos analizados no fallan por falta de
+tecnología sino por controles ausentes o mal calibrados sobre los atributos de la información,
+lo cual se confirma con las cifras del DBIR 2025 revisadas en la última sección:
+
 \begin{itemize}
-  \item La ciberseguridad es un riesgo transversal: cualquier organización, independientemente de su tamaño o sector, puede ser víctima de una brecha.
-  \item Las credenciales y las vulnerabilidades siguen siendo puntos críticos, por lo que es fundamental mantener controles de acceso adecuados y sistemas actualizados.
-  \item Los terceros también representan un riesgo importante: proveedores y servicios externos pueden convertirse en una vía de entrada para los atacantes.
-  \item La seguridad no depende de un único mecanismo: es necesario combinar autenticación, autorización, monitoreo, actualización de sistemas, capacitación y respaldo de información.
-  \item La prevención debe acompañarse de capacidad de respuesta y recuperación, ya que ningún sistema puede garantizar una protección absoluta.
+  \item \term{La ciberseguridad es un riesgo transversal}: Cualquier organización puede ser víctima de una brecha independientemente de su tamaño o sector, tal como lo evidencian los 22.052 incidentes y 12.195 brechas confirmadas que el DBIR 2025 registra en 139 países, incluyendo a una empresa de seguridad como Avast en el caso CCleaner.
+  \item \term{Los tres atributos se comprometen de formas distintas}: Ashley Madison muestra la pérdida de confidencialidad por exfiltración de datos personales almacenados sin controles adecuados, CCleaner la pérdida de integridad por manipulación de un binario legítimo en la cadena de suministro, y Shinhan Bank la pérdida de disponibilidad por destrucción del sistema operativo en equipos corporativos, de forma que un mismo programa de seguridad debe responder por los tres frentes y no solo por el más visible.
+  \item \term{Las credenciales siguen siendo el punto crítico}: El uso de credenciales robadas concentra 24\% de las brechas por \eng{Hacking} en \eng{Educational Services} y el\eng{phishing} 77\% de los casos de ingeniería social, por lo que exigir MFA y aplicar mínimo privilegio reduce directamente el valor que tiene para un atacante una contraseña obtenida por engaño.
+  \item \term{Los terceros amplían la superficie de ataque}: Proveedores, actualizaciones y servicios externos pueden convertirse en la vía de entrada (como ocurrió con el instalador firmado de CCleaner), de modo que la verificación de integridad de lo que se distribuye y la custodia de las llaves de firma resultan tan relevantes como proteger el perímetro propio.
+  \item \term{El error humano pesa tanto como el ataque externo}: 38\% de los actores en el sector educativo son internos y 60\% de las brechas por error corresponden a\eng{Misdelivery}, lo cual implica que la capacitación y los controles sobre el manejo cotidiano de la información no son un complemento opcional del programa de seguridad.
+  \item \term{Ningún mecanismo aislado es suficiente}: La autenticación responde quién es el usuario, la autorización qué puede hacer y el \eng{accounting} qué hizo, de forma que solo su combinación con actualización de sistemas, respaldo y monitoreo permite contener el impacto de una cuenta comprometida en vez de descubrirlo cuando ya se materializó.
+  \item \term{La prevención debe acompañarse de respuesta y recuperación}: Dado que ningún sistema garantiza protección absoluta y que el \eng{ransomware} es la variedad de\eng{malware} más frecuente en el sector educativo (30\%), la capacidad de detectar, contener y restaurar operación define finalmente el costo real del incidente.
 \end{itemize}

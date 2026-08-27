@@ -19,12 +19,41 @@
   \end{tabularx}
 \end{table}
 
-La \eng{e-authentication} es el proceso de establecer confianza en las identidades de usuario de forma electrónica dentro de un sistema de información. La gestión de autenticadores (\eng{authenticator management}) cubre los procesos y procedimientos de emisión y revocación de autenticadores, y aplica tanto a hardware como a software:
-contraseñas, \eng{tokens}, biometría, certificados de infraestructura de clave pública (PKI), tarjetas de acceso, entre otros.
+La \eng{e-authentication} es el proceso de establecer confianza en las identidades de usuario de forma electrónica dentro de un sistema de información, y se apoya en la gestión de autenticadores (\eng{authenticator management}), esto es, los procesos de emisión y revocación que aplican tanto a hardware como a software: contraseñas, \eng{tokens}, biometría, certificados de infraestructura de clave pública (PKI) y tarjetas de acceso, entre otros.
 
-\porque{ampliar si hace falta}{%\% Esta tabla resume las slides 10--28. Si el profesor pide desarrollo propio del marco
-AAA, amplía aquí antes de pasar a las preguntas del DBIR.%
-}
+\subsection*{Autenticación: factores y entropía}
+
+El \eng{CISO} debe seleccionar el número de factores según la sensibilidad de los datos y la confianza requerida, de forma que se busque un balance entre seguridad y costo antes que maximizar controles sin criterio:
+\begin{itemize}
+  \item \term{Autenticación de un solo factor} (\eng{single-factor}): asocia un autenticador, generalmente una contraseña, a una cuenta, de modo que su fortaleza depende de la longitud y el conjunto de caracteres usados, siguiendo la fórmula $E = \log_2(R^L)$ ($R$ el conjunto de caracteres posibles y $L$ la longitud), con 25--30 bits de entropía como referencia para cuentas no críticas y 60--80 bits (hasta 100 en las cruciales) para las sensibles.
+  \item \term{Autenticación multifactor} (\eng{MFA}): combina algo que el usuario sabe(contraseña o PIN), algo que tiene (\eng{token} de hardware o software) y algo que es(biometría), lo cual incrementa la confianza en la identidad confirmada a cambio de un mayor costo de implementación y de uso.
+\end{itemize}
+
+Incluso forzando buena entropía persisten los factores humanos, ya que los usuarios suelen reutilizar contraseñas corporativas en sitios con controles más débiles (lo cual puede verificarse, por ejemplo, en \url{https://haveibeenpwned.com}) y tienden a elegir contraseñas fáciles de recordar y, por tanto, fáciles de romper con técnicas estándar de \eng{cracking} apoyadas en diccionarios por idioma.
+
+\subsection*{Autorización: CRUD, mínimo privilegio y necesidad de conocer}
+
+Los permisos deben ser otorgados por el propietario de los datos o del sistema de acuerdo con una política de acceso, típicamente expresada como una matriz \term{\eng{CRUD}} (\eng{Create, Read, Update, Delete}) que relaciona sujetos (usuarios o roles), acciones y objetos (archivos, tablas, objetos de clase, entre otros), y sobre esa base operan dos principios complementarios:
+
+\begin{itemize}
+  \item \term{Principio de mínimo privilegio} (\eng{least privilege}): individuos y sistemas
+  solo deben tener el acceso mínimo necesario para su función, lo cual implica auditar el
+  entorno para retirar privilegios a quienes ya no los requieren y, para quienes sí,
+  reemplazarlos por políticas de elevación bajo demanda en vez de dejar cuentas
+  sobre-privilegiadas de forma permanente.
+  \item \term{Principio de necesidad de conocer} (\eng{need-to-know}): el acceso solo debe
+  otorgarse a quienes tengan una necesidad legítima de conocer la información, de modo que el
+  nivel de habilitación (por ejemplo, una autorización de \eng{Top Secret}) no basta por sí
+  solo si no existe esa necesidad específica sobre el dato.
+\end{itemize}
+
+\subsection*{Accounting: registro, retención y auditoría}
+
+La actividad se registra generalmente en \term{logs}, aunque no toda actividad debe registrarse sino la relevante según la criticidad de los datos, ya que un periodo de retención mal definido vuelve el almacenamiento innecesariamente costoso; estos registros, además del seguimiento operativo, sostienen el \term{no repudio} por parte del usuario (\enquote{no son solo \eng{logs}, son evidencia}). Como un CISO no debe asumir que los usuarios autenticados y autorizados se comportarán siempre de forma adecuada, se recomienda auditar como mínimo los accesos fallidos a información restringida y el uso de privilegios sobre operaciones \eng{CRUD}, complementándolo progresivamente con una política de auditoría que revise sesiones concurrentes desde distintas ubicaciones, accesos durante vacaciones o ausencias, intentos incoherentes con el cargo, inactividad de más de 30 días y horarios sospechosos de acceso.
+
+El propio usuario puede actuar como elemento adicional de monitoreo si el sistema le provee las herramientas para reportar anomalías, notificándole su último inicio de sesión y las ubicaciones desde las que se accedió, limitando los intentos fallidos (en dispositivos móviles, incluso borrando la información tras cierto número), alertando sobre sesiones concurrentes con las mismas credenciales (posible indicio de cuenta comprometida) y mostrando qué aplicaciones de terceros tienen acceso concedido.
+
+Finalmente, la gestión del comportamiento complementa a la autenticación, autorización y \eng{accounting} con dos controles adicionales: la \term{separación de funciones} (\eng{separation of duties}), que divide las responsabilidades de un proceso para reducir el mal comportamiento o la colusión (por ejemplo, quien implementa un control no debería ser quien audita su efectividad); y los \term{avisos legales} (\eng{banners}), que notifican al usuario que accede a un sistema confidencial sujeto a monitoreo, informan las consecuencias civiles o penales de un acceso indebido y solicitan su aceptación antes de otorgar el acceso.
 
 \begin{mcq}{Una empresa tiene un sistema de telefonía corporativo que permite que cada empleado pueda llamar a números de teléfono local, internacional, celular y números especiales, en función de su cargo dentro de la empresa. Recientemente se ha evidenciado que desde la cuenta de uno de los empleados se han realizado múltiples llamadas internacionales a pesar de que dicho usuario no tenía permisos para realizar dichas llamadas. ¿Cuál de los siguientes módulos del sistema de telefonía probablemente fué la causa del fallo? (1 o más respuestas válidas):}
   \opcion{Módulo de autenticación.}
@@ -74,9 +103,7 @@ AAA, amplía aquí antes de pasar a las preguntas del DBIR.%
   \end{itemize}
   Estos tres patrones se mantienen como el top 3 del sector por tercer año consecutivo y, en conjunto, representaron 80\% de las brechas, con \eng{System Intrusion} liderando de forma clara aunque \eng{Miscellaneous Errors} (26\%) haya superado levemente a \eng{Social Engineering} (17\%) este año. La mayoría de los actores fueron externos (62\%, de los cuales 59\% corresponde a crimen organizado), mientras que los internos representaron 38\%, en buena parte asociados a errores de tipo \eng{Misdelivery} (envío de información al destinatario equivocado), que concentra 60\% de las brechas por error.
 
-  La motivación predominante fue financiera (88\%), seguida de espionaje (18\%).
-  Los datos más comprometidos fueron: Personal (58\%), \eng{Internal} (49\%),
-  Credenciales (12\%), \eng{Secrets} (11\%), \eng{Sensitive Personal} (10\%) y \eng{Others} (21\%);
+  La motivación predominante fue financiera (88\%), seguida de espionaje (18\%). Los datos más comprometidos fueron: Personal (58\%), \eng{Internal} (49\%), Credenciales (12\%), \eng{Secrets} (11\%), \eng{Sensitive Personal} (10\%) y \eng{Others} (21\%);
 
   %  \porque{verificar dato de "Other"}{%
   %  el reporte muestra la categoría "Other" con dos valores distintos según la sección
@@ -85,11 +112,7 @@ AAA, amplía aquí antes de pasar a las preguntas del DBIR.%
   %  de las dos cifras usar sin cotejarla contra el PDF original del DBIR 2025.%
   %  }
 
-  En cuanto a las acciones utilizadas (Figura 76, n=851), \eng{Malware} fue la principal
-  (42\%), seguida de \eng{Hacking} (36\%), \eng{Error} (29\%), \eng{Social} (19\%) y
-  \eng{Misuse} (9\%). Dentro de \eng{Malware}, la variedad más usada fue \eng{Ransomware} (30\%); dentro de \eng{Hacking}, el uso de credenciales robadas (24\%); y dentro de
-  \eng{Social Engineering}, \eng{Phishing} concentra 77\% de los casos frente a solo 7\%
-  de \eng{Pretexting}.
+  En cuanto a las acciones utilizadas (Figura 76, n=851), \eng{Malware} fue la principal (42\%), seguida de \eng{Hacking} (36\%), \eng{Error} (29\%), \eng{Social} (19\%) y \eng{Misuse} (9\%). Dentro de \eng{Malware}, la variedad más usada fue \eng{Ransomware} (30\%); dentro de \eng{Hacking}, el uso de credenciales robadas (24\%); y dentro de \eng{Social Engineering}, \eng{Phishing} concentra 77\% de los casos frente a solo 7\% de \eng{Pretexting}.
 
   %  \porque{tabla de controles no disponible para 2025}{%
   %  Sobre el \eng{top} de controles IG1 específico para \eng{Educational Services}, no se
@@ -116,11 +139,7 @@ la seguridad en el sector escogido previamente?}
 \end{respuesta}
 
 \begin{respuesta}
-  En el sector \eng{Educational Services}, estos tres mecanismos apuntan directamente a
-  los vectores que el DBIR identifica como dominantes en la industria, esto es, la
-  explotación de credenciales por parte de actores externos, los errores de envío o
-  configuración cometidos por el personal interno, y el \eng{phishing} dirigido a
-  estudiantes y funcionarios:
+  En el sector \eng{Educational Services}, estos tres mecanismos apuntan directamente a los vectores que el DBIR identifica como dominantes en la industria, esto es, la explotación de credenciales por parte de actores externos, los errores de envío o configuración cometidos por el personal interno, y el \eng{phishing} dirigido a estudiantes y funcionarios:
   \begin{itemize}
     \item \term{Autenticación}: dado que 24\% de las brechas por \eng{Hacking} en este sector involucran uso de credenciales robadas y que \eng{Phishing} concentra 77\% de los casos de \eng{Social Engineering}, exigir MFA en el acceso a las plataformas académicas (correo institucional, sistemas de calificaciones, VPN, portales de matrícula) reduce de forma directa la probabilidad de que una credencial obtenida por \eng{phishing} sea suficiente para comprometer una cuenta.
     \item \term{Autorización}: aplicar mínimo privilegio y separación de funciones entre roles (estudiante, docente, personal administrativo) limita el alcance de una cuenta comprometida o de un actor interno malintencionado, lo cual es particularmente relevante porque 38\% de los actores identificados en el sector son internos y porque \eng{System Intrusion}, el patrón más frecuente, suele buscar escalar privilegios una vez dentro de la red para moverse lateralmente hacia sistemas con información sensible (notas, datos personales de estudiantes, información financiera).
