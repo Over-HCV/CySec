@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { collect } from '../scripts/build-template'
+import { collect, diskSource } from '../scripts/build-template'
 import { TEMPLATE_FILES, TEMPLATE_ROOT } from '../app/features/projects/lib/template.generated'
 
+// La fuente es el `latex/` del repo del curso, que desde la separación de
+// repositorios puede no estar en esta máquina. Se compara solo contra el disco:
+// leerlo de GitHub metería la red —y su latencia y sus caídas— en una suite que
+// se presume offline. Sin clon al lado, esa comparación se salta; las demás
+// comprobaciones miran la copia generada y siguen valiendo.
+const source = await diskSource()
+
 describe('plantilla de proyecto nuevo', () => {
-  it('coincide con lo que hay en latex/ ahora mismo', async () => {
+  it.skipIf(!source)('coincide con lo que hay en latex/ ahora mismo', async () => {
     // Si esto falla, alguien cambió la clase o la plantilla del repo y la copia
     // que usa «Nuevo proyecto» se quedó vieja. Se arregla regenerándola:
     //   node --experimental-strip-types scripts/build-template.ts
-    expect(TEMPLATE_FILES).toEqual(await collect())
+    expect(TEMPLATE_FILES).toEqual(await collect(source!))
   })
 
   it('trae la capa compartida y el taller, que es lo que hace falta para compilar', () => {

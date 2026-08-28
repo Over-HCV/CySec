@@ -13,8 +13,13 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// `latex/` vive en el repositorio del curso, no en este: hay que decir dónde
+// está, o tener un clon de CySec al lado de este repo. Se comprueba al leer el
+// primer archivo, que es cuando se puede nombrar la variable que falta.
 const here = path.dirname(fileURLToPath(import.meta.url))
-const latexRoot = path.resolve(here, '../../../../latex')
+const latexRoot = process.env.LATEX_DIR
+  ? path.resolve(process.env.LATEX_DIR)
+  : path.resolve(here, '../../../CySec/latex')
 
 // Origen en el repo → ruta dentro del proyecto de Texel. El archivo raíz queda
 // arriba del todo para que \input{common/…} y \documentclass{cysec} resuelvan
@@ -22,10 +27,12 @@ const latexRoot = path.resolve(here, '../../../../latex')
 const MAP = [
   ['workshops/ws-01/main.tex', 'main.tex'],
   ['workshops/ws-01/meta.tex', 'meta.tex'],
+  ['workshops/ws-01/sections/00-introduction.tex', 'sections/00-introduction.tex'],
   ['workshops/ws-01/sections/01-confidencialidad.tex', 'sections/01-confidencialidad.tex'],
   ['workshops/ws-01/sections/02-integridad.tex', 'sections/02-integridad.tex'],
   ['workshops/ws-01/sections/03-disponibilidad.tex', 'sections/03-disponibilidad.tex'],
   ['workshops/ws-01/sections/04-aaa-dbir.tex', 'sections/04-aaa-dbir.tex'],
+  ['workshops/ws-01/sections/05-conclussions.tex', 'sections/05-conclussions.tex'],
   ['tex/cysec.cls', 'cysec.cls'],
   ['tex/common/preamble.tex', 'common/preamble.tex'],
   ['tex/common/course.tex', 'common/course.tex'],
@@ -33,6 +40,16 @@ const MAP = [
   ['tex/common/boxes.tex', 'common/boxes.tex'],
   ['tex/bib/refs.bib', 'bib/refs.bib']
 ]
+
+// Se comprueba antes de tocar la base: si falla a mitad queda un proyecto vacío
+// a nombre del usuario y hay que borrarlo a mano.
+try {
+  await readFile(path.join(latexRoot, 'tex/cysec.cls'), 'utf8')
+} catch {
+  throw new Error(
+    `no encuentro el repo del curso en ${latexRoot}: clona Over-HCV/CySec al lado de este repo o pasa LATEX_DIR=/ruta/a/CySec/latex`
+  )
+}
 
 const url = process.env.SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
