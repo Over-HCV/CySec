@@ -1,0 +1,129 @@
+import type { Compilation, Diagnostic } from '~/shared/types/database'
+import type { CompileMode } from '~/shared/composables/usePanes'
+
+interface SyncTexArea { page: number, x: number, y: number, w: number, h: number }
+interface SyncTexSource { file: string, line: number }
+
+/**
+ * Cliente del servicio de compilación (Cloud Run).
+ *
+ * El servicio valida el JWT de Supabase y comprueba la pertenencia al proyecto
+ * antes de tocar nada, así que aquí basta con adjuntar el token de la sesión.
+ */
+export function useCompiler(projectId: MaybeRefOrGetter<string>) {
+  const supabase = useSupabaseClient()
+  const config = useRuntimeConfig()
+  const base = config.public.compilerUrl
+
+  const compiling = ref(false)
+  const last = ref<Compilation | null>(null)
+  const pdfUrl = ref<string | null>(null)
+
+  async function authHeaders() {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) throw new Error('sesión no iniciada')
+    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+  }
+
+  async function post<T>(path: string, body: unknown): Promise<T> {
+    // `compilerUrl` cae a localhost si falta la variable. En desarrollo es lo
+    // que se quiere; servido por HTTPS el navegador bloquea la petición mixta
+    // sin decir por qué, así que aquí se nombra la causa real.
+    if (import.meta.client && location.protocol === 'https:' && base.startsWith('http://')) {
+      throw new Error('NUXT_PUBLIC_COMPILER_URL no apunta a HTTPS: el compilador no es alcanzable desde este origen')
+    }
+    const res = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify(body)
+    })
+    if (!res.ok) throw new Error(`${path}: ${res.status} ${await res.text()}`)
+    return res.json() as Promise<T>
+  }
+
+  /**
+   * `mode` viaja al servicio: `fast` es una pasada y sin bibliografía, para
+   * mirar mientras se escribe. Un servicio viejo que no lo conozca compila
+   * normal, que es lo que hacía antes.
+   */
+  async function compile(mode: CompileMode = 'normal') {
+    compiling.value = true
+    try {
+      const result = await post<Compilation>('/compile', { projectId: toValue(projectId), mode })
+      last.value = result
+      if (result.pdf_path) await loadPdf(result.pdf_path)
+      return result
+    } finally {
+      compiling.value = false
+    }
+  }
+
+  /** URL firmada del PDF: el bucket `compiled` es privado. */
+  async function loadPdf(path: string) {
+    const { data, error } = await supabase.storage.from('compiled').createSignedUrl(path, 3600)
+    if (error) throw error
+    pdfUrl.value = data.signedUrl
+  }
+
+  /**
+   * Descarga del PDF compilado. La URL firmada lleva `download`, que hace que
+   * Storage responda con `Content-Disposition: attachment`: el atributo
+   * `download` del enlace no sirve aquí porque el bucket vive en otro origen.
+   *
+   * Caduca en un minuto y no en una hora como la del visor: esta se gasta al
+   * instante, no se guarda.
+   */
+  async function downloadPdf(filename: string) {
+    const path = last.value?.pdf_path
+    if (!path) throw new Error('no hay PDF compilado todavía')
+    const { data, error } = await supabase.storage
+      .from('compiled')
+      .createSignedUrl(path, 60, { download: filename })
+    if (error) throw error
+    const a = document.createElement('a')
+    a.href = data.signedUrl
+    a.rel = 'noopener'
+    a.click()
+  }
+
+  /** Editor → PDF. */
+  function forward(file: string, line: number) {
+    return post<SyncTexArea | null>('/synctex/forward', {
+      projectId: toValue(projectId),
+      compilationId: last.value?.id,
+      file,
+      line
+    })
+  }
+
+  /** PDF → editor. */
+  function inverse(page: number, x: number, y: number) {
+    return post<SyncTexSource | null>('/synctex/inverse', {
+      projectId: toValue(projectId),
+      compilationId: last.value?.id,
+      page,
+      x,
+      y
+    })
+  }
+
+  /** Última compilación conocida, para que al abrir el proyecto ya haya PDF. */
+  async function loadLast() {
+    const { data } = await supabase
+      .from('compilations')
+      .select('*')
+      .eq('project_id', toValue(projectId))
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data) {
+      last.value = data as Compilation
+      if (data.pdf_path) await loadPdf(data.pdf_path)
+    }
+  }
+
+  return { compiling, last, pdfUrl, compile, downloadPdf, forward, inverse, loadLast }
+}
+
+export type { Diagnostic, SyncTexArea, SyncTexSource }

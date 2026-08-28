@@ -1,0 +1,19 @@
+{
+  "name": "texel-compiler",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/server.ts",
+    "start": "node --experimental-strip-types src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "seed:ws01": "node scripts/seed-ws01.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "typescript": "^5.7.3"
+  }
+}
