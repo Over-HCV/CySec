@@ -66,6 +66,27 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
     pdfUrl.value = data.signedUrl
   }
 
+  /**
+   * Descarga del PDF compilado. La URL firmada lleva `download`, que hace que
+   * Storage responda con `Content-Disposition: attachment`: el atributo
+   * `download` del enlace no sirve aquí porque el bucket vive en otro origen.
+   *
+   * Caduca en un minuto y no en una hora como la del visor: esta se gasta al
+   * instante, no se guarda.
+   */
+  async function downloadPdf(filename: string) {
+    const path = last.value?.pdf_path
+    if (!path) throw new Error('no hay PDF compilado todavía')
+    const { data, error } = await supabase.storage
+      .from('compiled')
+      .createSignedUrl(path, 60, { download: filename })
+    if (error) throw error
+    const a = document.createElement('a')
+    a.href = data.signedUrl
+    a.rel = 'noopener'
+    a.click()
+  }
+
   /** Editor → PDF. */
   function forward(file: string, line: number) {
     return post<SyncTexArea | null>('/synctex/forward', {
@@ -102,7 +123,7 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
     }
   }
 
-  return { compiling, last, pdfUrl, compile, forward, inverse, loadLast }
+  return { compiling, last, pdfUrl, compile, downloadPdf, forward, inverse, loadLast }
 }
 
 export type { Diagnostic, SyncTexArea, SyncTexSource }

@@ -28,7 +28,7 @@ const showShare = ref(false)
 const { files, refresh: refreshFiles, create, remove } = useProjectFiles(projectId)
 const { addCourseLayer } = useProjectImport()
 const { canWrite, isOwner, refresh: refreshMembers } = useProjectMembers(projectId)
-const { compiling, last, pdfUrl, compile, forward, inverse, loadLast } = useCompiler(projectId)
+const { compiling, last, pdfUrl, compile, downloadPdf, forward, inverse, loadLast } = useCompiler(projectId)
 const { state: layout, setSidebarWidth, setEditorRatio, setLogHeight } = usePanes()
 
 const editor = ref<{
@@ -354,6 +354,20 @@ async function onPdfClick({ page, x, y }: { page: number, x: number, y: number }
   }
 }
 
+/**
+ * Guardar el PDF en disco. El nombre sale del proyecto; se limpian los
+ * caracteres que Windows no admite en un nombre de archivo, que si no llegan
+ * tal cual a la cabecera `Content-Disposition`.
+ */
+async function onDownloadPdf() {
+  const base = (project.value?.name ?? 'documento').replace(/[\\/:*?"<>|]+/g, '-').trim()
+  try {
+    await downloadPdf(`${base}.pdf`)
+  } catch (e) {
+    toast.error(`No se pudo descargar el PDF: ${(e as Error).message}`)
+  }
+}
+
 /** Clic en un problema del log → cursor en esa línea. */
 async function onJumpDiagnostic(d: Diagnostic) {
   await focusFile(d.file, d.line ?? undefined)
@@ -590,7 +604,7 @@ async function focusFile(path: string, line?: number) {
         :style="{ flex: layout.editorOpen ? `${1 - layout.editorRatio} 1 0%` : '1 1 0%' }"
       >
         <div class="flex-1 pane">
-          <PdfViewer ref="viewer" :src="pdfUrl" @pdf-click="onPdfClick" />
+          <PdfViewer ref="viewer" :src="pdfUrl" @pdf-click="onPdfClick" @download="onDownloadPdf" />
         </div>
 
         <PaneDivider

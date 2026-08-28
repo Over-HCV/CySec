@@ -1,15 +1,9 @@
 \section{Integridad}
 
 \begin{caso}{Intrusión y modificación no autorizada de productos de AVAST (CCleaner)}
-   El caso de la cadena de suministro de CCleaner (2017), en el cual un grupo de
-  atacantes se infiltró en la red de Piriform explotando credenciales de TeamViewer
-  de un desarrollador y, tras meses de movimiento lateral, insertó código malicioso
-  directamente en el entorno de compilación del software; el instalador troyanizado,
-  firmado con el certificado legítimo de la compañía, fue distribuido oficialmente e
-  infectó a más de 2,27 millones de usuarios, de los cuales cerca de 40 equipos de
-  grandes empresas tecnológicas recibieron una segunda carga útil con fines de
-  ciberespionaje, exponiendo fallas graves en el control de accesos remotos y en la
-  integridad del proceso de firma y publicación de software.El caso CCleaner de 2017 fue un ataque en el que ciberdelincuentes lograron infiltrarse en los sistemas de desarrollo de Piriform, empresa responsable del  software CCleaner. Los atacantes modificaron una versión legítima del programa para incluir código malicioso y posteriormente la distribuyeron a los usuarios como una actualización oficial. El incidente es un ejemplo de cómo una vulneración en la cadena de suministro de software puede comprometer la integridad de un producto y afectar a sus usuarios.
+  El caso de la cadena de suministro de CCleaner (2017), en el cual un grupo de atacantes se infiltró en la red de Piriform explotando credenciales de TeamViewer de un desarrollador y, tras meses de movimiento lateral, insertó código malicioso directamente en el entorno de compilación del software; el instalador troyanizado, firmado con el certificado legítimo de la compañía, fue distribuido oficialmente e infectó a más de 2,27 millones de usuarios, de los cuales cerca de 40 equipos de grandes empresas tecnológicas recibieron una segunda carga útil con fines de ciberespionaje, exponiendo fallas graves en el control de accesos remotos y en la integridad del proceso de firma y publicación de software.
+
+  El caso CCleaner de 2017 fue un ataque en el que ciberdelincuentes lograron infiltrarse en los sistemas de desarrollo de Piriform, empresa responsable del  software CCleaner. Los atacantes modificaron una versión legítima del programa para incluir código malicioso y posteriormente la distribuyeron a los usuarios como una actualización oficial. El incidente es un ejemplo de cómo una vulneración en la cadena de suministro de software puede comprometer la integridad de un producto y afectar a sus usuarios.
 \end{caso}
 
 \pregunta{¿Cuál era el objetivo final del atacante?}
@@ -67,21 +61,14 @@ modificación no autorizada?}
     vulnerabilidades.}
 \end{mcq}
 \begin{respuesta}
-El objetivo mas probable es el (a){%
-
-El atacante insertó el malware en el propio
-instalador oficial de CCleaner para infectar automáticamente a todo el que lo
-descargara. Las opciones (b), (c) y (d) no encajan con el caso: no hubo sabotaje del
-código fuente ni impacto operativo buscado (b); el objetivo no era robar secretos
-comerciales de Avast sino usar su producto como vector hacia terceros (c); y (d) no
-es un objetivo del atacante sino una conclusión posterior sobre la empresa, no una
-motivación del ataque.%
+El objetivo mas probable es el (a){
+  El atacante insertó el malware en el propio instalador oficial de CCleaner para infectar automáticamente a todo el que lo descargara. Las opciones (b), (c) y (d) no encajan con el caso: no hubo sabotaje del código fuente ni impacto operativo buscado (b); el objetivo no era robar secretos comerciales de Avast sino usar su producto como vector hacia terceros (c); y (d) no es un objetivo del atacante sino una conclusión posterior sobre la empresa, no una motivación del ataque.%
 }
 \end{respuesta}
 
 
-\porque{verificar contra las diapositivas}{%
-Igual que en la sección anterior, las opciones \emph{b}, \emph{c} y \emph{d} llegaron
-fusionadas por el OCR (\texttt{ws-01.md:44-46}); el corte se reconstruyó por sentido.
-Coteja contra la diapositiva original antes de entregar.%
-}
+% \porque{verificar contra las diapositivas}{%
+% Igual que en la sección anterior, las opciones \emph{b}, \emph{c} y \emph{d} llegaron
+% fusionadas por el OCR (\texttt{ws-01.md:44-46}); el corte se reconstruyó por sentido.
+% Coteja contra la diapositiva original antes de entregar.%
+% }

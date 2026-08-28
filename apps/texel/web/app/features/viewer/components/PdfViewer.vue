@@ -14,11 +14,14 @@
  * vez son 244 MB en un documento de veinte páginas, y ahí el navegador deja de
  * poder mantener las texturas y re-rasteriza en cada scroll.
  */
-import { Minus, Plus, Maximize2 } from 'lucide-vue-next'
+import { Minus, Plus, Maximize2, Download } from 'lucide-vue-next'
 import type { PageViewport, PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist'
 
 const props = defineProps<{ src: string | null }>()
-const emit = defineEmits<{ pdfClick: [{ page: number, x: number, y: number }] }>()
+const emit = defineEmits<{
+  pdfClick: [{ page: number, x: number, y: number }]
+  download: []
+}>()
 
 const scroller = ref<HTMLElement>()
 const canvasHost = ref<HTMLElement>()
@@ -341,6 +344,10 @@ defineExpose({ showHighlight })
       </span>
       <span v-if="rendering" class="text-[11px] text-[var(--text-faint)]">renderizando…</span>
       <span class="flex-1" />
+
+      <button class="icon-btn" title="Descargar PDF" :disabled="!src" @click="emit('download')">
+        <Download :size="13" />
+      </button>
 
       <button class="icon-btn" title="Ajustar al ancho" :class="fitWidth ? 'text-[var(--accent)]' : ''" @click="fitWidth = true">
         <Maximize2 :size="13" />
