@@ -41,11 +41,16 @@ Son variables de entorno del servidor, no de cada usuario.
 ```sh
 GITHUB_APP_ID=123456
 GITHUB_APP_SLUG=texel
-GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxx
+GITHUB_CLIENT_ID=Iv23xxxxxxxxxxxxxxxx
 GITHUB_CLIENT_SECRET=xxxxxxxxxxxxxxxx
 # La clave entera en una línea, con los saltos escapados como \n
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIE…\n-----END RSA PRIVATE KEY-----\n"
 ```
+
+El Client ID se copia **tal cual** de la página de la App —los nuevos empiezan
+por `Iv23`, sin punto—: anteponerle el `Iv1.` de los viejos da un 404 en
+`github.com/login/oauth/authorize` que echa la culpa a la App cuando el fallo
+está en la variable.
 
 Convertir el `.pem` a esa línea:
 
@@ -100,4 +105,5 @@ la App no: son una por despliegue y su sitio es el entorno.
 | Sale *Instalar* pero no *Conectar con GitHub* | faltan `GITHUB_CLIENT_ID` o `GITHUB_CLIENT_SECRET` |
 | Instalas la App y Texel no se entera | el **Setup URL** está vacío o apunta a otro sitio |
 | «la vuelta de GitHub no cuadra con la ida» | tardaste más de diez minutos, o volviste en otro navegador |
+| 404 en `github.com/login/oauth/authorize` | al `GITHUB_CLIENT_ID` se le pegó un `Iv1.` delante: va tal cual, completo |
 | La lista de repositorios sale vacía | la App está instalada, pero sin acceso a ese repositorio (*Configure → Repository access*) |
