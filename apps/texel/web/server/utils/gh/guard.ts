@@ -17,11 +17,20 @@ export interface Caller {
   admin: SupabaseClient
 }
 
-/** Sesión iniciada, con un cliente de servicio para el resto de la petición. */
+/**
+ * Sesión iniciada, con un cliente de servicio para el resto de la petición.
+ *
+ * `serverSupabaseUser` devuelve los **claims** del JWT, no una fila de
+ * `auth.users`: el identificador viene en `sub`, y `id` no existe. Leerlo mal no
+ * rompía nada visible —salía `undefined`— hasta que llegaba a la base como
+ * `user_id=eq.undefined` y Postgres respondía «invalid input syntax for type
+ * uuid». De ahí que se compruebe aquí y no en cada consulta.
+ */
 export async function requireUser(event: H3Event): Promise<Caller> {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'sesión no iniciada' })
-  return { userId: user.id, admin: adminClient(event) }
+  const claims = await serverSupabaseUser(event)
+  const userId = claims?.sub
+  if (!userId) throw createError({ statusCode: 401, statusMessage: 'sesión no iniciada' })
+  return { userId, admin: adminClient(event) }
 }
 
 /**

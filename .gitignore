@@ -41,3 +41,5 @@ dist/
 # CLI añadió aquí un `.env*` que, por ser la última regla, pisaba el
 # `!.env.example` y volvía a ignorar los ejemplos.
 **/*.pem
+.vercel
+.env*

@@ -13,9 +13,13 @@ export default defineEventHandler(async (event) => {
   const projectId = String(getQuery(event).projectId ?? '')
   const caller = await requireUser(event)
 
-  const { data } = await caller.admin
+  // El error no se descarta: comérselo fue lo que hizo que esta ruta contestara
+  // 200 con `identity: null` mientras la base rechazaba la consulta, y el fallo
+  // apareciera dos pantallas más allá.
+  const { data, error } = await caller.admin
     .from('github_identities').select('login, avatar_url')
     .eq('user_id', caller.userId).maybeSingle()
+  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
   return {
     configured: true,
