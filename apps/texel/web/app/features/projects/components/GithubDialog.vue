@@ -118,11 +118,10 @@ onMounted(refresh)
            enseña a quién hay que decírselo y dónde está escrito el cómo. -->
       <template v-if="!configured">
         <p class="text-xs text-muted mt-0 mb-2">
-          Quien administra este Texel todavía no ha conectado GitHub, así que de momento
-          no se puede sincronizar ningún proyecto.
+          GitHub desconectado, sincronización entre proyectos próximamente.
         </p>
         <a :href="SETUP_DOCS" target="_blank" rel="noopener" class="btn w-full text-center">
-          Cómo se conecta <ExternalLink :size="12" class="inline align-[-2px] ml-1" />
+          Cómo conectarse <ExternalLink :size="12" class="inline align-[-2px] ml-1" />
         </a>
       </template>
 
