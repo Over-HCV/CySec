@@ -31,6 +31,8 @@ const fitWidth = ref(true)
 const zoom = ref(1)                       // solo se usa si fitWidth = false
 const appliedScale = ref(1)               // escala real con la que se pintó
 const highlight = ref<{ page: number, x: number, y: number, w: number, h: number } | null>(null)
+/** Fallo cargando el documento (URL firmada caducada, 403 del bucket, …). */
+const loadError = ref<string | null>(null)
 
 let pdf: PDFDocumentProxy | null = null
 let renderToken = 0
@@ -191,10 +193,18 @@ async function paint() {
   if (!props.src || !canvasHost.value || !scroller.value) return
   const token = ++renderToken
   rendering.value = true
+  loadError.value = null
 
   try {
     const pdfjs = await loadPdfjs()
-    if (!pdf || pdf.fingerprints?.[0] === undefined) pdf = await pdfjs.getDocument(props.src).promise
+    // Sin capturar esto, una URL firmada rechazada (403/400) dejaba el panel
+    // en «Sin PDF» sin rastro: la promesa se perdía en la cadena de `render`.
+    try {
+      if (!pdf || pdf.fingerprints?.[0] === undefined) pdf = await pdfjs.getDocument(props.src).promise
+    } catch (e) {
+      loadError.value = `${(e as Error).message}`
+      return
+    }
     if (token !== renderToken) return
     pageCount.value = pdf.numPages
 
@@ -341,6 +351,13 @@ defineExpose({ showHighlight })
     <header class="flex items-center gap-2 px-2 h-[var(--bar-h)] shrink-0 border-b border-[var(--macvue-material-glass-regular-rim)]">
       <span class="text-[11px] text-[var(--text-muted)] pl-1">
         {{ pageCount ? `${pageCount} páginas` : 'Sin PDF' }}
+      </span>
+      <span
+        v-if="loadError"
+        :title="loadError"
+        class="text-[11px] text-red-500 truncate max-w-[40%]"
+      >
+        {{ loadError }}
       </span>
       <span v-if="rendering" class="text-[11px] text-[var(--text-faint)]">renderizando…</span>
       <span class="flex-1" />

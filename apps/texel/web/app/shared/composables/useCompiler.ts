@@ -1,5 +1,6 @@
 import type { Compilation, Diagnostic } from '~/shared/types/database'
 import type { CompileMode } from '~/shared/composables/usePanes'
+import { toast } from 'vue-sonner'
 
 interface SyncTexArea { page: number, x: number, y: number, w: number, h: number }
 interface SyncTexSource { file: string, line: number }
@@ -52,7 +53,7 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
     try {
       const result = await post<Compilation>('/compile', { projectId: toValue(projectId), mode })
       last.value = result
-      if (result.pdf_path) await loadPdf(result.pdf_path)
+      if (result.pdf_path) await showPdf(result.pdf_path)
       return result
     } finally {
       compiling.value = false
@@ -64,6 +65,20 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
     const { data, error } = await supabase.storage.from('compiled').createSignedUrl(path, 3600)
     if (error) throw error
     pdfUrl.value = data.signedUrl
+  }
+
+  /**
+   * `loadPdf` con el error a la vista. Sin esto, un fallo de la URL firmada
+   * (RLS del bucket, objeto desaparecido, clave rotada) deja el visor en
+   * «Sin PDF» mientras el log dice «Compilación correcta», y no hay forma de
+   * saber qué eslabón rompió: la promesa quedaba sin manejar.
+   */
+  async function showPdf(path: string) {
+    try {
+      await loadPdf(path)
+    } catch (e) {
+      toast.error(`No se pudo abrir el PDF: ${(e as Error).message}`)
+    }
   }
 
   /**
@@ -119,7 +134,7 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
       .maybeSingle()
     if (data) {
       last.value = data as Compilation
-      if (data.pdf_path) await loadPdf(data.pdf_path)
+      if (data.pdf_path) await showPdf(data.pdf_path)
     }
   }
 

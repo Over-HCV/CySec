@@ -11,9 +11,9 @@ describe.skipIf(!hasRepo)('parseBib sobre refs.bib', () => {
     expect(joined(bib, blocks)).toBe(bib)
   })
 
-  it('encuentra las 12 entradas con su tipo y clave', () => {
+  it('encuentra las 16 entradas con su tipo y clave', () => {
     const entries = blocks.filter(b => b.kind === 'bibEntry')
-    expect(entries).toHaveLength(12)
+    expect(entries).toHaveLength(16)
 
     const byKey = new Map(entries.map(e => [
       e.fields.find(f => f.name === 'clave')!.value,
@@ -23,7 +23,9 @@ describe.skipIf(!hasRepo)('parseBib sobre refs.bib', () => {
     expect(byKey.get('iso27001')).toBe('standard')
     expect(byKey.get('sabsa2009')).toBe('techreport')
     expect(byKey.get('dbir2025')).toBe('report')
-    expect([...byKey.values()].filter(t => t === 'online')).toHaveLength(8)
+    expect(byKey.get('owasp-sqli')).toBe('online')
+    expect(byKey.get('sqlmap-docs')).toBe('online')
+    expect([...byKey.values()].filter(t => t === 'online')).toHaveLength(12)
   })
 
   it('cada span de campo apunta exactamente a su valor', () => {
