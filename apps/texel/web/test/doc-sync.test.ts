@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import {
   applyBodyEdit, applyFieldEdit, checkValue, duplicateBlock, insertBlock, insideOf, moveBlock,
-  parseDoc, removeBlock, renameEnv, STALE, toggleOption
+  moveBlockTo, parseDoc, removeBlock, renameEnv, STALE, toggleOption
 } from '../app/features/visual/lib/doc-sync'
 import type { Block } from '../app/features/visual/lib/types'
 import { flatten, hasRepo, joined, REFS_BIB, repoFile, SAMPLE_MAIN, SAMPLE_TEX, SECTIONS } from './fixtures'
@@ -228,6 +228,72 @@ describe.skipIf(!hasRepo)('operaciones de bloque', () => {
     expect(otra.flags!.correcta).toBe(true)
     toggleOption(ytext, otra, marcada)
     expect(ytext.toString()).toBe(muestra)
+  })
+
+  it('moveBlockTo lleva un bloque a cualquier posición, no solo al vecino', () => {
+    const { ytext } = docWith(muestra)
+    const blocks = parseDoc(muestra, 'tex')
+    const caso = blocks.findIndex(b => b.kind === 'caso')
+    const ultima = blocks.map(b => b.kind).lastIndexOf('respuesta')
+    expect(moveBlockTo(ytext, blocks, caso, ultima, 'after', muestra)).toBeNull()
+
+    const after = ytext.toString()
+    // Reordenar no crea ni destruye texto: es una permutación del archivo.
+    expect(after.length).toBe(muestra.length)
+    expect([...after].sort().join('')).toBe([...muestra].sort().join(''))
+
+    const kinds = parseDoc(after, 'tex').filter(b => !b.flags?.blank).map(b => b.kind)
+    expect(kinds.indexOf('caso')).toBe(kinds.lastIndexOf('respuesta') + 1)
+    expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
+  })
+
+  it('moveBlockTo con «before» deja el bloque justo delante del destino', () => {
+    const { ytext } = docWith(muestra)
+    const blocks = parseDoc(muestra, 'tex')
+    const mcq = blocks.findIndex(b => b.kind === 'mcq')
+    const caso = blocks.findIndex(b => b.kind === 'caso')
+    expect(moveBlockTo(ytext, blocks, mcq, caso, 'before', muestra)).toBeNull()
+
+    const after = ytext.toString()
+    const kinds = parseDoc(after, 'tex').filter(b => !b.flags?.blank).map(b => b.kind)
+    expect(kinds.indexOf('mcq')).toBe(kinds.indexOf('caso') - 1)
+    expect(after.length).toBe(muestra.length)
+    expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
+  })
+
+  it('moveBlockTo no toca los huecos: la separación es del archivo, no del bloque', () => {
+    // La primera separación es una línea en blanco y la segunda un salto
+    // simple. Al llevar la primera pregunta al final, cada hueco se queda en su
+    // sitio en vez de viajar con el bloque: si viajaran, mover cosas iría
+    // apilando líneas en blanco en un extremo del archivo.
+    const texto = '\\pregunta{A}\n\n\\pregunta{B}\n\\pregunta{C}\n'
+    const { ytext } = docWith(texto)
+    const blocks = parseDoc(texto, 'tex')
+    const visibles = blocks.map((b, i) => (b.flags?.blank ? -1 : i)).filter(i => i !== -1)
+    expect(visibles).toHaveLength(3)
+    expect(moveBlockTo(ytext, blocks, visibles[0]!, visibles[2]!, 'after', texto)).toBeNull()
+    expect(ytext.toString()).toBe('\\pregunta{B}\n\n\\pregunta{C}\n\\pregunta{A}\n')
+  })
+
+  it('moveBlockTo no hace nada si se suelta donde ya estaba', () => {
+    const { ytext } = docWith(muestra)
+    const blocks = parseDoc(muestra, 'tex')
+    const caso = blocks.findIndex(b => b.kind === 'caso')
+    const fuentes = blocks.findIndex(b => b.kind === 'fuentes')
+    expect(moveBlockTo(ytext, blocks, caso, caso, 'after', muestra)).toBeNull()
+    // `fuentes` va justo detrás del caso: soltar «delante de fuentes» es
+    // dejarlo donde está.
+    expect(moveBlockTo(ytext, blocks, caso, fuentes, 'before', muestra)).toBeNull()
+    expect(ytext.toString()).toBe(muestra)
+  })
+
+  it('moveBlockTo se niega si el documento cambió por debajo', () => {
+    const { ytext } = docWith(muestra)
+    const blocks = parseDoc(muestra, 'tex')
+    const caso = blocks.findIndex(b => b.kind === 'caso')
+    const mcq = blocks.findIndex(b => b.kind === 'mcq')
+    ytext.insert(blocks[caso]!.span.from + 1, 'x')
+    expect(moveBlockTo(ytext, blocks, caso, mcq, 'after', muestra)).toBe(STALE)
   })
 
   it('moveBlock no hace nada si no hay vecino visible', () => {

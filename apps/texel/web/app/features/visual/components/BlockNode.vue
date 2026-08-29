@@ -11,7 +11,9 @@
  * suben por `emit` sino que se inyectan una vez desde `VisualEditor`.
  */
 import { MacBadge, MacCheckbox } from '@macvue/core'
-import { AlertTriangle, ChevronRight, Code2, Copy, Plus, Trash2 } from 'lucide-vue-next'
+import {
+  AlertTriangle, ChevronRight, Code2, Copy, GripVertical, Plus, Trash2
+} from 'lucide-vue-next'
 import { ATOMS, fieldSpecOf, specOf } from '../lib/catalog'
 import { iconOf } from '../lib/icons'
 import { VISUAL_API } from '../lib/api'
@@ -27,6 +29,8 @@ const api = inject(VISUAL_API)!
 const spec = computed(() => specOf(props.block.kind))
 const isContainer = computed(() => props.block.items !== undefined)
 const isRaw = computed(() => props.block.kind === 'raw')
+/** Una imagen se dibuja sola: la ruta y el ancho los pinta `BlockImage`. */
+const isFigure = computed(() => props.block.kind === 'figura')
 /** Prosa: se edita con formato, no como código. */
 const isParagraph = computed(() =>
   props.block.kind === 'paragraph' && !props.block.flags?.comment)
@@ -86,6 +90,14 @@ const title = computed(() =>
 const icon = computed(() => iconOf(atom.value?.icon ?? spec.value.icon))
 
 /**
+ * Los campos que pinta el marco. De una imagen solo el pie: la ruta y el ancho
+ * no son texto que escribir, son la imagen misma, y los enseña `BlockImage`.
+ */
+const ownFields = computed(() => (isFigure.value
+  ? props.block.fields.filter(f => f.name === 'pie')
+  : props.block.fields))
+
+/**
  * Los campos de una línea van en la cabecera y los largos, debajo. Un `\input`
  * o un `\fuente` caben enteros en su fila; el enunciado de una pregunta no.
  *
@@ -93,14 +105,14 @@ const icon = computed(() => iconOf(atom.value?.icon ?? spec.value.icon))
  * tiene título, autor, año y url —, así que bajan a una lista de «etiqueta:
  * valor», que sigue costando una línea por campo pero se entiende.
  */
-const shortFields = computed(() => props.block.fields.filter(f => !isLong(f)))
+const shortFields = computed(() => ownFields.value.filter(f => !isLong(f)))
 /** Etiqueta del campo: la de la macro si la tiene, si no la del catálogo. */
 function labelOf(name: string): string {
   return atom.value?.field ?? fieldSpecOf(props.block.kind, name).label
 }
 const headerFields = computed(() => (shortFields.value.length <= 2 ? shortFields.value : []))
 const listFields = computed(() => (shortFields.value.length > 2 ? shortFields.value : []))
-const blockFields = computed(() => props.block.fields.filter(f => isLong(f)))
+const blockFields = computed(() => ownFields.value.filter(f => isLong(f)))
 
 /**
  * Un campo baja de la cabecera cuando no cabe en ella. Que el catálogo lo
@@ -187,6 +199,85 @@ const badge = computed(() => {
   return body.trim() === '' ? 'pendiente' : null
 })
 
+/**
+ * Arrastrar para reordenar.
+ *
+ * `draggable` no se deja puesto: con él, arrastrar el texto seleccionado de un
+ * campo empezaría a mover el bloque. Se enciende al apretar el asa y se apaga
+ * al soltar, que es lo que separa «coger el bloque» de «coger su texto».
+ *
+ * El alcance es el mismo que el de las flechas: **entre hermanos**. Un destino
+ * de otro padre no llega a pintar la línea, así que el «aquí no» se ve antes de
+ * soltar y no después.
+ */
+const arrastrable = ref(false)
+const arrastrado = computed(() => api.dragging.value === props.block.id)
+
+function parentOf(id: string): string {
+  return id.includes('.') ? id.slice(0, id.lastIndexOf('.')) : ''
+}
+
+const admite = computed(() => {
+  const origen = api.dragging.value
+  return origen !== null && origen !== props.block.id
+    && parentOf(origen) === parentOf(props.block.id)
+})
+
+/** Dónde caería: por encima o por debajo de la mitad de la fila. */
+const marca = computed(() => {
+  const target = api.dropTarget.value
+  return target?.id === props.block.id ? target.edge : null
+})
+
+function onDragStart(event: DragEvent) {
+  if (!arrastrable.value) { event.preventDefault(); return }
+  event.dataTransfer!.effectAllowed = 'move'
+  event.dataTransfer!.setData('text/plain', props.block.id)
+  api.dragging.value = props.block.id
+}
+
+function onDragOver(event: DragEvent) {
+  if (!admite.value) return
+  event.preventDefault()
+  const caja = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const edge = event.clientY < caja.top + caja.height / 2 ? 'before' : 'after'
+  api.dropTarget.value = { id: props.block.id, edge }
+}
+
+function onDragLeave(event: DragEvent) {
+  const hacia = event.relatedTarget as Node | null
+  if (hacia && (event.currentTarget as HTMLElement).contains(hacia)) return
+  if (api.dropTarget.value?.id === props.block.id) api.dropTarget.value = null
+}
+
+function onDrop(event: DragEvent) {
+  const origen = api.dragging.value
+  const edge = marca.value
+  reset()
+  if (!origen || !edge) return
+  event.preventDefault()
+  api.moveTo(origen, props.block.id, edge)
+}
+
+function reset() {
+  arrastrable.value = false
+  api.dragging.value = null
+  api.dropTarget.value = null
+}
+
+/**
+ * Una imagen pegada se sube y se coloca sola: detrás del párrafo en el que se
+ * estaba escribiendo, o dentro del contenedor si el foco estaba en su última
+ * línea.
+ *
+ * Nunca en medio de la prosa: en LaTeX una figura es un bloque, no una palabra,
+ * y colarla dentro partiría el párrafo en dos.
+ */
+async function onPasteImage(file: File, where: 'after' | 'inside' = 'after') {
+  if (!api.canWrite || !api.canUpload) return
+  await api.insertImage(props.block, file, where)
+}
+
 /** El contenido de un `raw` es su propio texto: el bloque entero es el campo. */
 const rawField = computed<Field>(() => ({
   name: 'raw',
@@ -196,7 +287,17 @@ const rawField = computed<Field>(() => ({
 </script>
 
 <template>
-  <div class="group/node">
+  <div
+    class="group/node nodo"
+    :class="{ 'arrastrado': arrastrado, 'drop-before': marca === 'before', 'drop-after': marca === 'after' }"
+    :draggable="arrastrable"
+    @dragstart.stop="onDragStart"
+    @dragend="reset"
+    @pointerup="arrastrable = false"
+    @dragover.stop="onDragOver"
+    @dragleave="onDragLeave"
+    @drop.stop="onDrop"
+  >
     <!-- Cabecera: una sola línea, pase lo que pase. La prosa y las notas no la
          llevan: son texto, y una etiqueta encima de cada párrafo sobra. -->
     <div v-if="!isRaw && !isParagraph && !isComment" class="row">
@@ -263,6 +364,9 @@ const rawField = computed<Field>(() => ({
           <Code2 :size="12" :class="showSource ? 'text-[var(--accent)]' : ''" />
         </button>
         <template v-if="canWrite">
+          <button class="icon-btn asa" title="Arrastrar para mover" @pointerdown="arrastrable = true">
+            <GripVertical :size="12" />
+          </button>
           <button v-if="isContainer" class="icon-btn" title="Añadir dentro" @click="onAddInside">
             <Plus :size="12" />
           </button>
@@ -298,9 +402,13 @@ const rawField = computed<Field>(() => ({
         @commit="api.edit(block, textField, $event)"
         @split="onSplit"
         @caret-taken="api.placeCaret(null)"
+        @paste-image="onPasteImage"
       />
       <div class="actions self-start">
         <template v-if="canWrite">
+          <button class="icon-btn asa" title="Arrastrar para mover" @pointerdown="arrastrable = true">
+            <GripVertical :size="12" />
+          </button>
           <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
             <ChevronRight :size="12" class="-rotate-90" />
           </button>
@@ -328,6 +436,9 @@ const rawField = computed<Field>(() => ({
       />
       <div class="actions self-start">
         <template v-if="canWrite">
+          <button class="icon-btn asa" title="Arrastrar para mover" @pointerdown="arrastrable = true">
+            <GripVertical :size="12" />
+          </button>
           <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
             <ChevronRight :size="12" class="-rotate-90" />
           </button>
@@ -354,6 +465,9 @@ const rawField = computed<Field>(() => ({
 
       <div class="actions">
         <template v-if="canWrite">
+          <button class="icon-btn asa" title="Arrastrar para mover" @pointerdown="arrastrable = true">
+            <GripVertical :size="12" />
+          </button>
           <button class="icon-btn" title="Subir" @click="api.move(block, -1)">
             <ChevronRight :size="12" class="-rotate-90" />
           </button>
@@ -383,6 +497,8 @@ const rawField = computed<Field>(() => ({
         @commit="api.edit(block, rawField, $event)"
       />
     </div>
+
+    <BlockImage v-if="isFigure" :block="block" />
 
     <!-- Muchos campos cortos: uno por línea, con su etiqueta delante. -->
     <div v-if="listFields.length && !isParagraph && !isComment" class="pl-[15px]">
@@ -436,6 +552,7 @@ const rawField = computed<Field>(() => ({
         :caret="null"
         :placeholder="emptyHint"
         @commit="onWriteInside"
+        @paste-image="onPasteImage($event, 'inside')"
       />
       <div v-else-if="!items.length" class="empty">vacío</div>
     </div>
@@ -443,6 +560,30 @@ const rawField = computed<Field>(() => ({
 </template>
 
 <style scoped>
+/* El nodo es el ancla de la línea de destino del arrastre, que se pinta a lo
+   ancho de todo el bloque —hijos incluidos—: soltar «encima de un caso» es
+   soltar delante del caso entero, no delante de su primera línea. */
+.nodo { position: relative; }
+.arrastrado { opacity: 0.45; }
+
+.drop-before::before,
+.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.drop-before::before { top: -1px; }
+.drop-after::after { bottom: -1px; }
+
+/* El asa no arrastra texto: solo enciende el arrastre del bloque. */
+.asa { cursor: grab; }
+.asa:active { cursor: grabbing; }
+
 .row {
   display: flex;
   align-items: center;

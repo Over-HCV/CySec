@@ -6,9 +6,11 @@
 > (parseo con ida y vuelta demostrable) son la red de seguridad de todo lo
 > demás, así que no se empieza la interfaz sin ellos.
 >
-> Estado: **M0–M4 hechos**, M5 a medias. Última revisión: 15 de agosto de 2026,
-> con los **bloques contenedores** (un `\begin…\end` es un bloque que contiene a
-> otros) y el pase de cristal de macvue.
+> Estado: **M0–M4 hechos**, M5 a medias. Última revisión: 28 de agosto de 2026,
+> con el **bloque de imagen** (subir, pegar y arrastrar una captura a `pips/`) y
+> el **arrastrar-soltar** para reordenar. Antes, el 15 de agosto, los **bloques
+> contenedores** (un `\begin…\end` es un bloque que contiene a otros) y el pase
+> de cristal de macvue.
 
 ## Contexto
 
@@ -68,6 +70,8 @@ web/app/features/visual/
 └── components/
     ├── VisualEditor.vue  lista de bloques de primer nivel + añadir
     ├── BlockNode.vue     un bloque y sus hijos; recursivo
+    ├── BlockImage.vue    miniatura, pie y ancho de una imagen
+    ├── ImageDrop.vue     soltar, buscar o pegar el archivo
     ├── RichText.vue      texto con formato (contenteditable → LaTeX)
     ├── FormatBar.vue     barra fija: negrita, cursiva, código
     └── BlockField.vue    campo con borrador local mientras tiene el foco
@@ -88,7 +92,7 @@ dentro de nada se pinte igual a cualquier profundidad. Las acciones no suben por
 ```ts
 type BlockKind =
   | 'section' | 'caso' | 'fuentes' | 'fuente' | 'pregunta' | 'respuesta'
-  | 'mcq' | 'opcion' | 'porque' | 'input' | 'env' | 'preamble'
+  | 'mcq' | 'opcion' | 'porque' | 'input' | 'env' | 'figura' | 'preamble'
   | 'paragraph' | 'atom' | 'meta' | 'bibEntry' | 'raw'
 
 interface Span { from: number, to: number }          // offsets en el Y.Text
@@ -226,6 +230,7 @@ cambió durante la implementación, por tres razones:
 | Selección múltiple | `\begin{mcq}{enunciado}\opcion{…}\opcion*{…}\end{mcq}` | enunciado + opciones con marca de correcta |
 | Nota de borrador | `\porque{título}{texto}` | título, texto |
 | Archivo incluido | `\input{ruta}` | ruta |
+| Imagen | `\begin{figure}[htbp]…\includegraphics…\end{figure}` | miniatura, pie y ancho |
 | Entrada bibliográfica | `@book{clave, campo = {…}}` | tipo, clave y los campos que tenga la entrada |
 | LaTeX crudo | cualquier otra cosa | editor de texto monoespaciado |
 
@@ -234,6 +239,11 @@ Las macros de referencia están en `latex/tex/common/boxes.tex` y
 
 El bloque «Párrafo» con marcas (`\textbf`, `\emph`, `\texttt`) es M6: hoy la
 prosa suelta cae en bloques `raw`, uno por párrafo.
+
+La subida vive fuera de `features/visual/`, en
+`shared/composables/useProjectAssets.ts` (sesión, Storage y `files`) y en
+`shared/lib/asset-name.ts` (la matrícula y el saneado del nombre, que son lógica
+pura y por eso se prueban sin arrancar Nuxt, como `anchor-menu.ts`).
 
 ## Interacción
 
@@ -319,8 +329,20 @@ mide mal desde `display: none`.
 - [x] Añadir bloque desde un menú con las plantillas del catálogo.
 - [x] Bloques contenedores: anidamiento sin límite, plegado, añadir dentro y
       renombrar el entorno. Ver «Contenedores».
+- [x] Handle con arrastrar-soltar, **entre hermanos**, con línea de destino y
+      las flechas intactas como camino de teclado. El motor es `moveBlockTo`, que
+      generaliza el `moveBlock` de M3: lo que se permuta es el texto de los
+      bloques visibles y **los huecos se quedan donde están**. Si viajaran con su
+      bloque, reordenar iría apilando líneas en blanco en un extremo del archivo
+      y quitándolas del otro. Sin dependencias: `draggable` nativo, encendido
+      solo mientras se aprieta el asa para no secuestrar el arrastre de texto.
+- [x] Bloque **Imagen**, que era «fuera del alcance». Ver «Imágenes».
+- [x] El menú de bloques pasa a **dos columnas fijas** llenadas por filas, con el
+      último elemento a lo ancho si el número es impar. Antes eran cinco filas
+      fijas llenadas por columnas, y eso ataba el número de columnas al de
+      opciones: el bloque número once habría abierto una tercera columna con un
+      solo elemento dentro.
 - [ ] `SlashMenu.vue`: abrir con `/`, filtrar al teclear, teclado completo.
-- [ ] Handle con arrastrar-soltar (hoy se reordena con las flechas).
 - [ ] Convertir un bloque a otro tipo.
 - **Listo cuando**: se puede montar una sección nueva (caso + fuentes + 3
   preguntas) sin escribir una sola macro.
@@ -357,11 +379,14 @@ mide mal desde `display: none`.
    sobre un `Y.Text` en memoria — sin sesión, sin base de datos y sin compilador—
    con los archivos del curso a un desplegable de distancia y el LaTeX resultante
    al lado. Es la forma rápida de ver de verdad cada cambio en vez de suponerlo.
-1. **Unitaria**: `pnpm test` en `web/` — 89 tests sobre los archivos reales del
+1. **Unitaria**: `pnpm test` en `web/` — 268 tests sobre los archivos reales del
    repo (`latex/tex/bib/refs.bib`, `latex/workshops/ws-01/**`). Es la red de
    seguridad del principio 4; si esto pasa, no se corrompen documentos. La
    partición se comprueba también dentro de cada contenedor, a cualquier
-   profundidad.
+   profundidad. `test/figura.test.ts` vigila el bloque de imagen —sacar `figure`
+   de los entornos opacos es lo que más podía romper— y los nombres que se
+   generan; `test/doc-sync.test.ts` vigila que reordenar sea una permutación
+   exacta del archivo, sin ganar ni perder líneas en blanco.
 2. **Concurrencia**: en `test/doc-sync.test.ts`, con dos `Y.Doc` en memoria —
    uno edita por bloques y el otro por texto. Sin red ni Supabase, así que corre
    en cada `pnpm test` en vez de a mano como `web/scripts/collab-smoke.ts`.
@@ -370,6 +395,10 @@ mide mal desde `display: none`.
    - abrir `main.tex` → pestaña Visual → los bloques coinciden con el documento;
    - `/` → «Nota de borrador» → rellenar → pestaña Código → la macro está bien
      escrita;
+   - «Añadir bloque» → «Imagen» → soltar o pegar un PNG → aparece
+     `pips/QRT-482.png` en el árbol de archivos y la miniatura en el bloque;
+   - arrastrar un bloque por su asa: la línea de destino aparece entre hermanos y
+     no cuando el destino es de otro padre;
    - **Compilar** → el PDF cambia como se espera;
    - segunda ventana en incógnito con el mismo proyecto: editar en código y ver
      cómo se actualiza el bloque en la primera.
@@ -387,8 +416,48 @@ mide mal desde `display: none`.
 | Un valor con llaves descompensadas rompe el `.tex` para todos | `checkValue` lo rechaza antes de escribir y el bloque avisa en línea |
 | Documentos grandes | Reparseo completo hasta ~200 KB; incremental solo si M7 lo justifica |
 
+## Imágenes
+
+Un `\begin{figure}` deja de ser opaco cuando lleva un `\includegraphics` dentro:
+se convierte en un bloque `figura`. Es un bloque **hoja**, no un contenedor —su
+cuerpo no se parte en hijos—, así que la identidad «bloque = su substring» se
+cumple sola y el `\centering`, el `[htbp]` y el `\label` viajan intactos aunque
+la interfaz no los enseñe. Un `figure` sin imagen (uno de TikZ, una tabla puesta
+a flotar) sigue saliendo entero como `raw`, igual que antes. Un
+`\includegraphics` suelto, fuera de todo `figure`, también es un bloque `figura`.
+
+Los campos apuntan al pie, a la ruta y **solo al número** del
+`width=0.8\linewidth`: cambiar el tamaño es un parche de tres caracteres, no
+reescribir la macro.
+
+El archivo se sube a `pips/` con el nombre de una **matrícula** —`QRT-482`, sin
+`I`, `O`, `0` ni `1`, que son las que se confunden al dictarlas—, o con el que
+escriba quien lo sube. Va al bucket `project-assets` y a una fila de `files` con
+`kind: 'binary'`, que es lo único que el compilador sabe leer: `syncSources`
+escribe cada binario en `safeJoin(workdir, file.path)` y `latexmk` corre desde la
+raíz del workdir, así que **`files.path` es la ruta que va dentro del
+`\includegraphics`** y no hace falta `\graphicspath`. Se suben PNG, JPG y PDF y
+nada más: son los que `xelatex` sabe incluir, y un `webp` se subiría sin protestar
+para romper la compilación de todo el mundo después.
+
+Se sube con `insert`, no con `upsert`: las políticas de `project-assets`
+(`002_storage.sql`) dan `insert`, `select` y `delete`, pero **no** `update`.
+
+Tres formas de dar la imagen, porque las tres acaban en el mismo `File`: soltarla,
+buscarla o **pegarla** —una captura recién hecha vive en el portapapeles y en
+ningún archivo—. Pegar funciona también sin abrir el diálogo, dentro de un párrafo
+o en la línea final de un contenedor: la figura se coloca detrás del párrafo o
+dentro del contenedor, nunca en medio de la prosa, porque en LaTeX una figura es
+un bloque y no una palabra.
+
+Borrar el bloque **no borra el archivo**: puede estar citado desde otro sitio, y
+sigue en el árbol para quitarlo a mano.
+
+Sin proyecto —el banco de pruebas de `/dev/visual`— no hay dónde subir ni qué
+firmar: el bloque se pinta sin miniatura y la opción del menú sale deshabilitada
+diciendo por qué.
+
 ## Fuera del alcance de la v1
 
-Tablas, TikZ, matemáticas WYSIWYG, subida de imágenes, edición del preámbulo por
-formulario. Todo eso vive en bloques `raw` y se abordará cuando el núcleo esté
-asentado.
+Tablas, TikZ, matemáticas WYSIWYG, edición del preámbulo por formulario. Todo eso
+vive en bloques `raw` y se abordará cuando el núcleo esté asentado.

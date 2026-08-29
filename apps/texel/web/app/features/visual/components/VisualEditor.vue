@@ -14,15 +14,21 @@
 import { Plus } from 'lucide-vue-next'
 import type { SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
 import { useBlocks } from '../composables/useBlocks'
-import { insertable } from '../lib/catalog'
+import { figureTemplate, insertable } from '../lib/catalog'
 import { iconOf } from '../lib/icons'
 import { VISUAL_API } from '../lib/api'
-import { docKindOf, type BlockKind } from '../lib/types'
+import { docKindOf, type Block, type BlockKind } from '../lib/types'
 
 const props = defineProps<{
   provider: SupabaseYjsProvider
   path: string
   canWrite: boolean
+  /**
+   * Proyecto al que pertenece el archivo. Falta en el banco de pruebas
+   * (`/dev/visual`), que trabaja sobre un `Y.Text` en memoria: allí no hay
+   * dónde subir una imagen y el bloque se ofrece deshabilitado.
+   */
+  projectId?: string
 }>()
 
 const kind = computed(() => docKindOf(props.path) ?? 'tex')
@@ -30,11 +36,69 @@ const ytext = props.provider.doc.getText('content')
 
 const {
   text, blocks, sourceOf, problems, notice, collapsed, caret, placeCaret, toggleCollapse,
-  edit, split, editBody, rename, addInside, writeInside, insert, remove, duplicate, move, toggle
+  edit, split, editBody, rename, addInside, writeInside, insert, insertAfter, remove,
+  duplicate, move, moveTo, toggle, dragging, dropTarget
 } = useBlocks(ytext, kind.value)
+
+const { uploadImage, assetUrl, canUpload } = useProjectAssets(() => props.projectId)
 
 /** Los huecos de solo espacios forman parte del documento, pero no se pintan. */
 const visible = computed(() => blocks.value.filter(b => !b.flags?.blank))
+
+/**
+ * Subir una imagen y meterla en el documento.
+ *
+ * El `figure` no se puede plantillar de antemano como los demás bloques: hasta
+ * que el archivo no está en `pips/` no hay ruta que escribir dentro. Por eso el
+ * menú abre primero el diálogo y solo después inserta, con el LaTeX ya
+ * compuesto.
+ */
+const dialogo = ref<{ at: number } | null>(null)
+const subiendo = ref(false)
+const errorSubida = ref('')
+
+function pedirImagen(at: number) {
+  errorSubida.value = ''
+  dialogo.value = { at }
+}
+
+async function onSubmit(file: File, name: string) {
+  if (!dialogo.value) return
+  subiendo.value = true
+  errorSubida.value = ''
+  try {
+    const { path, name: base } = await uploadImage(file, name)
+    insert(dialogo.value.at, 'figura', figureTemplate(path, base))
+    dialogo.value = null
+  } catch (e) {
+    errorSubida.value = (e as Error).message
+  } finally {
+    subiendo.value = false
+  }
+}
+
+/**
+ * Pegar una imagen: se sube y se coloca sin abrir ningún diálogo.
+ *
+ * Detrás del párrafo en el que se estaba escribiendo, o dentro del contenedor
+ * si lo que tenía el foco era su última línea —pegar en una respuesta vacía es
+ * pegar *en* la respuesta—. Nunca en medio de la prosa: en LaTeX una figura es
+ * un bloque, no una palabra, y colarla dentro partiría el párrafo en dos.
+ */
+async function insertImage(target: Block, file: File, where: 'after' | 'inside' = 'after') {
+  const { path, name } = await uploadImage(file)
+  const latex = figureTemplate(path, name)
+  if (where === 'inside') addInside(target, 'figura', latex)
+  else insertAfter(target, 'figura', latex)
+}
+
+/** Cambiar la imagen de un bloque que ya existe: solo se reescribe la ruta. */
+async function replaceImage(block: Block, file: File) {
+  const campo = block.fields.find(f => f.name === 'ruta')
+  if (!campo) return
+  const { path } = await uploadImage(file)
+  edit(block, campo, path)
+}
 
 // El árbol es recursivo y sin límite de profundidad: las acciones se inyectan
 // una vez en vez de encadenar `emit` de padre en padre.
@@ -54,15 +118,23 @@ provide(VISUAL_API, {
   addInside,
   writeInside,
   move,
+  moveTo,
+  dragging,
+  dropTarget,
   duplicate,
   remove,
-  toggleOption: toggle
+  toggleOption: toggle,
+  assetUrl,
+  canUpload: canUpload.value,
+  insertImage,
+  replaceImage
 })
 
 /** Añadir al final del documento desde la barra inferior. */
 const opciones = computed(() => insertable(kind.value))
 
 function addAtEnd(blockKind: BlockKind) {
+  if (blockKind === 'figura') { pedirImagen(text.value.length); return }
   insert(text.value.length, blockKind)
 }
 </script>
@@ -107,7 +179,10 @@ function addAtEnd(blockKind: BlockKind) {
             <AppMenuItem
               v-for="spec in opciones"
               :key="spec.kind"
-              :hint="spec.hint"
+              :hint="spec.kind === 'figura' && !canUpload
+                ? 'Aquí no: este documento no está dentro de un proyecto'
+                : spec.hint"
+              :disabled="spec.kind === 'figura' && !canUpload"
               @select="addAtEnd(spec.kind)"
             >
               <template #icon>
@@ -119,5 +194,13 @@ function addAtEnd(blockKind: BlockKind) {
         </AppMenu>
       </div>
     </div>
+
+    <ImageDrop
+      v-if="dialogo"
+      :busy="subiendo"
+      :error="errorSubida"
+      @close="dialogo = null"
+      @submit="onSubmit"
+    />
   </div>
 </template>

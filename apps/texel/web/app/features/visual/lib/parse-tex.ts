@@ -21,7 +21,7 @@ import { isProse } from './inline'
  * contenedor genérico y se sigue escaneando dentro.
  */
 const OPAQUE = new Set([
-  'table', 'tabular', 'tabularx', 'longtable', 'figure', 'center',
+  'table', 'tabular', 'tabularx', 'longtable', 'center',
   'verbatim', 'lstlisting', 'minted', 'equation', 'align', 'displaymath',
   'tcolorbox', 'porquebox'
 ])
@@ -256,6 +256,14 @@ function readCommand(
     })
   }
 
+  if (name.value === 'includegraphics') {
+    const graphics = readGraphics(text, name.end, limit)
+    if (!graphics) return null
+    return block('figura', at, graphics.end, graphics.fields, undefined, undefined, {
+      cmd: 'includegraphics'
+    })
+  }
+
   const atom = ATOMS[name.value]
   if (atom) return readAtom(text, at, name, atom.arg, limit)
 
@@ -291,6 +299,98 @@ function readAtom(
   }
 
   return block('atom', at, name.end, [], undefined, undefined, meta)
+}
+
+/**
+ * El `\includegraphics[…]{…}` que empieza tras `after`, con sus campos.
+ *
+ * `ancho` apunta **solo al número** de `width=0.8\linewidth`: así cambiar el
+ * tamaño es un parche de tres caracteres y no reescribe la macro entera. Si no
+ * hay opciones, o no hay un `width=`, el campo no existe y la interfaz ofrece
+ * el ancho por defecto.
+ */
+function readGraphics(
+  text: string,
+  after: number,
+  limit: number
+): { fields: Field[], end: number } | null {
+  const start = skipSpace(text, after)
+  const options = text[start] === '[' ? readGroup(text, start, true, '[', ']') : null
+  if (options && options.end > limit) return null
+
+  const ruta = argument(text, options ? options.end : after, limit)
+  if (!ruta) return null
+
+  const fields = [field(text, 'ruta', ruta.inner)]
+  const ancho = options ? widthSpan(text, options.inner) : null
+  if (ancho) fields.push(field(text, 'ancho', ancho))
+  return { fields, end: ruta.end }
+}
+
+/** Rango del número de `width=0.8\linewidth` dentro de los corchetes. */
+function widthSpan(text: string, options: Span): Span | null {
+  const source = text.slice(options.from, options.to)
+  const match = /width\s*=\s*([0-9]*\.?[0-9]+)/.exec(source)
+  if (!match) return null
+  const from = options.from + match.index + match[0].length - match[1]!.length
+  return { from, to: from + match[1]!.length }
+}
+
+/**
+ * `\begin{figure} … \end{figure}` con una imagen dentro.
+ *
+ * Es un bloque **hoja**, no un contenedor: su cuerpo no se parte en hijos, así
+ * que la identidad «bloque = su substring» se cumple sola y el `\centering`, el
+ * `\label` y el `[htbp]` viajan intactos aunque la interfaz no los enseñe.
+ */
+function readFigure(
+  text: string,
+  at: number,
+  bodyFrom: number,
+  close: { bodyEnd: number, end: number, name: Span }
+): { block: Block, end: number } | null {
+  const graphics = commandAt(text, bodyFrom, close.bodyEnd, 'includegraphics')
+  if (graphics === null) return null
+  const image = readGraphics(text, graphics.end, close.bodyEnd)
+  if (!image) return null
+
+  const fields: Field[] = []
+  const caption = commandAt(text, bodyFrom, close.bodyEnd, 'caption')
+  if (caption !== null) {
+    const pie = argument(text, caption.end, close.bodyEnd)
+    if (pie) fields.push(field(text, 'pie', pie.inner))
+  }
+  fields.push(...image.fields)
+
+  return block('figura', at, close.end, fields, undefined, undefined, {
+    env: 'figure',
+    cmd: 'includegraphics',
+    bodyFrom,
+    bodyTo: close.bodyEnd
+  })
+}
+
+/**
+ * Busca una macro por nombre en un tramo, saltando comentarios. Devuelve dónde
+ * empieza la barra y dónde acaba el nombre, o `null` si no está.
+ */
+function commandAt(
+  text: string,
+  from: number,
+  to: number,
+  cmd: string
+): { at: number, end: number } | null {
+  let i = from
+  while (i < to) {
+    const c = text[i]
+    if (c === '%') { i = endOfLine(text, i); continue }
+    if (c !== '\\') { i++; continue }
+    const name = commandName(text, i)
+    if (!name) { i += 2; continue }
+    if (name.value === cmd) return { at: i, end: name.end }
+    i = name.end
+  }
+  return null
 }
 
 function readEnvironment(
@@ -348,6 +448,12 @@ function readEnvironment(
       const enunciado = argument(text, nameArg.end, close.bodyEnd)
       if (!enunciado) return null
       return container('mcq', [field(text, 'enunciado', enunciado.inner)], enunciado.end)
+    }
+    case 'figure': {
+      const figura = readFigure(text, at, nameArg.end, close)
+      // Un `figure` sin `\includegraphics` —uno dibujado con TikZ, una tabla
+      // puesta a flotar— no es una imagen: se conserva entero como antes.
+      return figura ?? { block: rawEnv(at, close.end), end: close.end }
     }
   }
 

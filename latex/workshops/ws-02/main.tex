@@ -1,0 +1,14 @@
+% workshops/_template/main.tex — semilla para talleres nuevos (`make new WS=ws-02`).
+\documentclass[es]{cysec}
+
+\input{meta}
+
+\begin{document}
+\makewsheader
+
+\input{sections/01-seccion}
+
+\nocite{*}   % incluye toda la bibliografía base, esté citada o no
+\printbibliography[title={Referencias},heading=bibliography]
+
+\end{document}

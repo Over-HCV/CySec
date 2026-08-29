@@ -605,6 +605,7 @@ async function focusFile(path: string, line?: number) {
             :provider="provider"
             :path="activeFile.path"
             :can-write="canWrite"
+            :project-id="projectId"
             class="absolute inset-0"
           />
 

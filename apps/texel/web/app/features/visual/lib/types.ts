@@ -39,6 +39,7 @@ export type BlockKind =
   | 'porque'     // \porque{título}{texto}
   | 'input'      // \input{ruta}
   | 'env'        // \begin{cualquiera}{args…} … \end{cualquiera}
+  | 'figura'     // \begin{figure} … \includegraphics … \end{figure}
   | 'preamble'   // todo lo anterior a \begin{document}, agrupado
   | 'paragraph'  // prosa: se edita con formato, no como código
   | 'atom'       // macro suelta con nombre propio (\makewsheader, \wstitle…)

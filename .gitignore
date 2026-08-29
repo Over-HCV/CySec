@@ -40,4 +40,4 @@ dist/
 # `vercel link`. Los `.env` ya los cubre la sección de secretos de arriba: el
 # CLI añadió aquí un `.env*` que, por ser la última regla, pisaba el
 # `!.env.example` y volvía a ignorar los ejemplos.
-.vercel
+**/*.pem

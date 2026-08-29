@@ -162,9 +162,15 @@ export function insertBlock(
   ytext: Y.Text,
   at: number,
   kind: BlockKind,
-  guard?: { span: Span, expected: string }
+  guard?: { span: Span, expected: string },
+  /**
+   * LaTeX a escribir en lugar del del catálogo. Lo usa la imagen, cuyo bloque
+   * no se puede plantillar de antemano: hasta que el archivo no está subido no
+   * se sabe qué ruta lleva dentro.
+   */
+  override?: string
 ): number | typeof STALE {
-  const template = specOf(kind).template ?? ''
+  const template = override ?? specOf(kind).template ?? ''
   const caret = template.indexOf('|')
   const body = caret === -1 ? template : template.slice(0, caret) + template.slice(caret + 1)
 
@@ -236,21 +242,71 @@ export function moveBlock(
 ): EditProblem {
   const target = neighbour(blocks, index, dir)
   if (target === -1) return null
+  return moveBlockTo(ytext, blocks, index, target, dir === -1 ? 'before' : 'after', snapshot)
+}
 
-  const a = blocks[Math.min(index, target)]!
-  const b = blocks[Math.max(index, target)]!
-  const region = { from: a.span.from, to: b.span.to }
+/**
+ * Lleva un bloque a cualquier otra posición de su lista de hermanos: es lo que
+ * hace el arrastrar-soltar, y las flechas son el caso de «al vecino».
+ *
+ * Lo que se permuta es el **texto de los bloques visibles**; los huecos que hay
+ * entre ellos —la línea en blanco que separa dos párrafos, la indentación de una
+ * lista— se quedan donde están. Es lo que evita que reordenar vaya apilando
+ * saltos de línea en un extremo del archivo y quitándolos del otro: la
+ * separación es del documento, no del bloque.
+ *
+ * La escritura es **un solo corte y una sola pegada** del tramo afectado, y se
+ * comprueba con `fresh` exactamente ese tramo: es lo que se va a reescribir, así
+ * que es lo que tiene que seguir intacto.
+ */
+export function moveBlockTo(
+  ytext: Y.Text,
+  blocks: Block[],
+  index: number,
+  target: number,
+  edge: 'before' | 'after',
+  snapshot: string
+): EditProblem {
+  // Los huecos en blanco no se pintan, así que tampoco cuentan para ordenar:
+  // se trabaja sobre las posiciones de lo que de verdad se ve.
+  const visible = blocks.map((b, i) => (b.flags?.blank ? -1 : i)).filter(i => i !== -1)
+  const src = visible.indexOf(index)
+  const dst = visible.indexOf(target)
+  if (src === -1 || dst === -1) return STALE
+  if (src === dst) return null
+  // Soltar justo delante de sí mismo, o justo detrás, es dejarlo donde estaba.
+  if (edge === 'before' && dst === src + 1) return null
+  if (edge === 'after' && dst === src - 1) return null
+
+  const lo = Math.min(src, dst)
+  const hi = Math.max(src, dst)
+  const region = {
+    from: blocks[visible[lo]!]!.span.from,
+    to: blocks[visible[hi]!]!.span.to
+  }
   const expected = snapshot.slice(region.from, region.to)
   if (!fresh(ytext.toString(), region, expected)) return STALE
 
-  const between = snapshot.slice(a.span.to, b.span.from)
-  const swapped = snapshot.slice(b.span.from, b.span.to)
-    + between
-    + snapshot.slice(a.span.from, a.span.to)
+  const order: number[] = []
+  for (let i = lo; i <= hi; i++) if (i !== src) order.push(i)
+  order.splice(order.indexOf(dst) + (edge === 'after' ? 1 : 0), 0, src)
+
+  let moved = ''
+  for (let k = lo; k <= hi; k++) {
+    const block = blocks[visible[order[k - lo]!]!]!
+    moved += snapshot.slice(block.span.from, block.span.to)
+    // El hueco que sigue a esta posición, no el que seguía a este bloque.
+    if (k < hi) {
+      moved += snapshot.slice(
+        blocks[visible[k]!]!.span.to,
+        blocks[visible[k + 1]!]!.span.from
+      )
+    }
+  }
 
   ytext.doc!.transact(() => {
     ytext.delete(region.from, region.to - region.from)
-    ytext.insert(region.from, swapped)
+    ytext.insert(region.from, moved)
   }, VISUAL_ORIGIN)
   return null
 }

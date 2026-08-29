@@ -135,6 +135,20 @@ export const CATALOG: BlockSpec[] = [
     template: '\\begin{itemize}\n  \\item |\n\\end{itemize}\n\n'
   },
   {
+    kind: 'figura',
+    label: 'Imagen',
+    icon: 'Image',
+    hint: 'Una captura o una foto, con su pie',
+    doc: 'tex',
+    fields: [
+      { name: 'pie', label: 'Pie' },
+      { name: 'ruta', label: 'Archivo' },
+      { name: 'ancho', label: 'Ancho' }
+    ]
+    // Sin `template`: primero hay que subir el archivo, y hasta entonces no se
+    // sabe qué ruta escribir. La plantilla la compone `figureTemplate`.
+  },
+  {
     kind: 'preamble',
     label: 'Preámbulo',
     icon: 'Settings2',
@@ -235,6 +249,34 @@ export const KNOWN_COMMANDS = [
   'porque', 'pregunta', 'fuente', 'opcion', 'section', 'subsection', 'input',
   ...Object.keys(ATOMS)
 ]
+// `includegraphics` **no** entra en la lista de arriba, aunque el editor sepa
+// leerlo: la lista sirve para avisar de «esto se intentó escribir y no se pudo»,
+// y se comprueba también dentro de los entornos opacos, que salen enteros como
+// `raw`. Un `\begin{center}\includegraphics{…}\end{center}` —el modo de poner
+// una imagen a mano de toda la vida— avisaría de una llave sin cerrar que no
+// existe. El aviso vale menos que ese falso positivo.
+
+/** Ancho por defecto de una imagen recién puesta, en fracciones de `\linewidth`. */
+export const FIGURE_WIDTH = '0.8'
+
+/**
+ * El LaTeX de una imagen ya subida.
+ *
+ * Se compone aquí y no en el catálogo como `template` porque hace falta la ruta
+ * real: el bloque nace con su archivo dentro, nunca vacío. El `|` es la marca de
+ * cursor de `insertBlock`, y va en el pie, que es lo único que queda por decidir.
+ *
+ * `[htbp]` y no `[H]`: `latex/tex/common/preamble.tex` carga `graphicx` pero no
+ * `float`, así que `[H]` no existiría.
+ */
+export function figureTemplate(path: string, label: string): string {
+  return `\\begin{figure}[htbp]\n`
+    + `  \\centering\n`
+    + `  \\includegraphics[width=${FIGURE_WIDTH}\\linewidth]{${path}}\n`
+    + `  \\caption{|}\n`
+    + `  \\label{fig:${label}}\n`
+    + `\\end{figure}\n\n`
+}
 
 const BY_KIND = new Map(CATALOG.map(spec => [spec.kind, spec]))
 

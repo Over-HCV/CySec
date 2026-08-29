@@ -52,6 +52,8 @@ const emit = defineEmits<{
   split: [string, string]
   /** Ya se ha colocado el cursor; quien lo pidió puede olvidarse. */
   caretTaken: []
+  /** Se ha pegado una imagen: no es texto, así que la coloca quien nos usa. */
+  pasteImage: [File]
 }>()
 
 /** Espera antes de escribir en el documento mientras se teclea. */
@@ -463,9 +465,17 @@ function onKeydown(event: KeyboardEvent) {
   target.apply(key === 'b' ? 'bold' : key === 'i' ? 'italic' : 'code')
 }
 
-/** Al pegar, texto plano: pegar HTML de fuera traería estilos que no son LaTeX. */
+/**
+ * Al pegar, texto plano: pegar HTML de fuera traería estilos que no son LaTeX.
+ *
+ * Salvo que lo pegado sea una imagen —una captura recién hecha vive en el
+ * portapapeles y en ningún archivo—: entonces no hay texto que insertar y se
+ * avisa hacia arriba, que es quien sabe subirla y dónde ponerla.
+ */
 function onPaste(event: ClipboardEvent) {
   event.preventDefault()
+  const imagen = [...(event.clipboardData?.files ?? [])].find(f => f.type.startsWith('image/'))
+  if (imagen) { emit('pasteImage', imagen); return }
   const text = event.clipboardData?.getData('text/plain') ?? ''
   document.execCommand('insertText', false, text)
 }

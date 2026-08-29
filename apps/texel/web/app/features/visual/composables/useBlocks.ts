@@ -19,8 +19,8 @@
  */
 import type * as Y from 'yjs'
 import {
-  applyBodyEdit, applyFieldEdit, duplicateBlock, insertBlock, insideOf, moveBlock, parseDoc,
-  removeBlock, renameEnv, STALE, toggleOption, VISUAL_ORIGIN, type EditProblem
+  applyBodyEdit, applyFieldEdit, duplicateBlock, insertBlock, insideOf, moveBlock, moveBlockTo,
+  parseDoc, removeBlock, renameEnv, STALE, toggleOption, VISUAL_ORIGIN, type EditProblem
 } from '../lib/doc-sync'
 import { childKind } from '../lib/catalog'
 import { blockAt, siblingsAt, type Block, type BlockKind, type DocKind, type Field } from '../lib/types'
@@ -57,6 +57,14 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
    * Los offsets se anotan **después** de escribir, ya en las coordenadas nuevas.
    */
   const caret = ref<number | null>(null)
+
+  /**
+   * Estado del arrastrar-soltar. Vive aquí y no en el componente porque el
+   * bloque que se arrastra y el que pinta la línea de destino son dos nodos
+   * distintos del árbol, y entre ellos puede haber cinco niveles de anidamiento.
+   */
+  const dragging = ref<string | null>(null)
+  const dropTarget = ref<{ id: string, edge: 'before' | 'after' } | null>(null)
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let noticeTimer: ReturnType<typeof setTimeout> | null = null
@@ -248,12 +256,12 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
   }
 
   /** Añade un hijo al final de un contenedor. */
-  function addInside(container: Block, blockKind?: BlockKind) {
+  function addInside(container: Block, blockKind?: BlockKind, template?: string) {
     structural(container, (fresh) => {
       const at = insideOf(fresh)
       if (at === null) return null
       const guard = { span: fresh.span, expected: sourceOf(fresh) }
-      const result = insertBlock(ytext, at, blockKind ?? childKind(fresh.kind), guard)
+      const result = insertBlock(ytext, at, blockKind ?? childKind(fresh.kind), guard, template)
       if (result === STALE) return STALE
       // La plantilla dice con su `|` dónde se empieza a escribir; hasta ahora
       // ese dato se calculaba y se tiraba, y el bloque nuevo nacía sin cursor.
@@ -262,10 +270,51 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     })
   }
 
-  function insert(at: number, blockKind: BlockKind) {
-    const result = insertBlock(ytext, at, blockKind)
+  function insert(at: number, blockKind: BlockKind, template?: string) {
+    const result = insertBlock(ytext, at, blockKind, undefined, template)
     if (result === STALE) { refresh(); return }
     placeCaret(result)
+  }
+
+  /**
+   * Escribe LaTeX ya compuesto justo detrás de un bloque. Es por donde entra una
+   * imagen pegada dentro de un párrafo: el `figure` no se puede plantillar de
+   * antemano porque hasta que el archivo no está subido no hay ruta que poner.
+   */
+  function insertAfter(block: Block, blockKind: BlockKind, template: string) {
+    structural(block, (fresh) => {
+      const result = insertBlock(ytext, fresh.span.to, blockKind, {
+        span: fresh.span,
+        expected: sourceOf(fresh)
+      }, template)
+      if (result === STALE) return STALE
+      placeCaret(result)
+      return null
+    })
+  }
+
+  /**
+   * Suelta un bloque delante o detrás de otro. Solo entre hermanos: mover un
+   * bloque dentro o fuera de un contenedor es otra operación —hay que
+   * reindentar y el rango de destino es de otro padre—, y aquí se rechaza.
+   */
+  function moveTo(sourceId: string, targetId: string, edge: 'before' | 'after') {
+    if (parentOf(sourceId) !== parentOf(targetId)) return
+    const block = blockAt(blocks.value, sourceId)
+    if (!block) return
+    structural(block, (fresh) => {
+      const siblings = siblingsAt(blocks.value, fresh.id)
+      const index = siblings.indexOf(fresh)
+      const target = blockAt(blocks.value, targetId)
+      const to = target ? siblings.indexOf(target) : -1
+      if (index === -1 || to === -1) return STALE
+      return moveBlockTo(ytext, siblings, index, to, edge, text.value)
+    })
+  }
+
+  /** La dirección del padre: `'2.1.0'` → `'2.1'`, y `''` para los de arriba. */
+  function parentOf(id: string): string {
+    return id.includes('.') ? id.slice(0, id.lastIndexOf('.')) : ''
   }
 
   return {
@@ -287,7 +336,11 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     rename,
     addInside,
     insert,
+    insertAfter,
     writeInside,
+    moveTo,
+    dragging,
+    dropTarget,
     remove: (block: Block) => structural(block, f => removeBlock(ytext, f, text.value)),
     duplicate: (block: Block) => structural(block, f => duplicateBlock(ytext, f, text.value)),
     toggle: (block: Block) => structural(block, f => toggleOption(ytext, f, text.value)),

@@ -26,6 +26,20 @@ const EJEMPLOS: Record<string, string> = {
   'sección con caso y preguntas': TEMPLATE_FILES['sections/01-seccion.tex'] ?? '',
   'meta.tex': TEMPLATE_FILES['meta.tex'] ?? '',
   'cysec.cls (LaTeX puro)': TEMPLATE_FILES['tex/cysec.cls'] ?? '',
+  'con imagen': [
+    '\\section{Con una imagen}',
+    '',
+    '\\begin{figure}[htbp]',
+    '  \\centering',
+    '  \\includegraphics[width=0.8\\linewidth]{pips/QRT-482.png}',
+    '  \\caption{La captura del incidente}',
+    '  \\label{fig:QRT-482}',
+    '\\end{figure}',
+    '',
+    'Aquí no hay proyecto, así que no hay miniatura ni se puede subir nada: lo',
+    'que se prueba es el bloque, el pie y el ancho.',
+    ''
+  ].join('\n'),
   'prosa con marcas': [
     'Un párrafo normal con \\textbf{negrita}, \\emph{cursiva} y \\texttt{código}.',
     '',
