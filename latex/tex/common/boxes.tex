@@ -89,7 +89,7 @@
 
 % ===== captura: evidencia gráfica del laboratorio =====
 % \captura{archivo.png}{Título descriptivo de la captura}
-% Si existe img/archivo.png lo incluye como figura con su caption; si no,
+% Si existe pics/archivo.png lo incluye como figura con su caption; si no,
 % dibuja una caja punteada con el nombre exacto esperado (guardar la captura
 % con ese nombre y recompilar basta para que aparezca). La label de la figura
 % es fig:<archivo-sin-extensión>, p.ej. \cref{fig:sqlmap-hashes}.
@@ -101,10 +101,10 @@
     \renewcommand{\captura@base}{#1}}%
   \begin{figure}[htbp]
     \centering
-    \IfFileExists{img/#1}{%
-      \includegraphics[width=0.8\linewidth]{img/#1}%
+    \IfFileExists{pics/#1}{%
+      \includegraphics[width=0.8\linewidth]{pics/#1}%
     }{%
-      \PackageWarning{cysec}{Captura pendiente: img/#1}%
+      \PackageWarning{cysec}{Captura pendiente: pics/#1}%
       \begin{tcolorbox}[enhanced, sharp corners, colback=gray!4,
         colframe=gray!55!black, boxrule=0pt,
         borderline={0.8pt}{0pt}{gray!55!black,
@@ -113,7 +113,7 @@
         {\bfseries\footnotesize\color{gray!55!black}%
           \cysec@lbl{CAPTURA PENDIENTE}{PENDING SCREENSHOT}}\\[4pt]
         {\footnotesize\color{gray!45!black}%
-          \cysec@lbl{guardar como}{save as} \texttt{img/#1}}%
+          \cysec@lbl{guardar como}{save as} \texttt{pics/#1}}%
       \end{tcolorbox}%
     }
     \caption{#2}%

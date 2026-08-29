@@ -48,7 +48,7 @@ tex/common/macros.tex  \porque, \todoans, modo final
 tex/bib/refs.bib       bibliografía compartida entre talleres
 workshops/_template/   semilla que copia `make new`
 workshops/ws-01/       Taller 1 — Introducción a ciberseguridad I
-workshops/ws-02/       Taller 2 — SQL Injection y XSS (capturas en img/)
+workshops/ws-02/       Taller 2 — SQL Injection y XSS (capturas en pics/)
 ```
 
 ## Escribir un taller
@@ -84,7 +84,7 @@ sqlmap -u "http://objetivo/?param=1" --batch
 
 Un entorno `respuesta` vacío imprime la caja «Pendiente por responder» y deja
 `Respuesta pendiente` en el `.log`; un `analisis` vacío hace lo propio con
-`Análisis pendiente`, y una `\captura` sin su archivo en `img/` deja
+`Análisis pendiente`, y una `\captura` sin su archivo en `pics/` deja
 `Captura pendiente`. Así `make ws-01 FINAL=1` delata todo lo que falta:
 
 ```sh

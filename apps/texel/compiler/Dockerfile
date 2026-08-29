@@ -22,8 +22,9 @@ RUN tlmgr update --self \
       fancyhdr lastpage titlesec geometry microtype \
       cleveref mathtools booktabs multirow \
       pgf standalone tikzfill pdfcol \
-      tools psnfss \
+      tools psnfss listings \
       `# longtable y tabularx viven en 'tools'; \ding (pifont) en 'psnfss'` \
+      `# listings: bloques de código del taller 2 en adelante` \
  && tlmgr path add \
  && rm -rf /usr/local/texlive/*/texmf-var/web2c/*.log
 
