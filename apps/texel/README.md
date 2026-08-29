@@ -155,14 +155,18 @@ volcado (`web/server/utils/gh/yjs.ts`).
 
 ### Ponerlo en marcha
 
-1. Crear una **GitHub App** (Settings → Developer settings → GitHub Apps):
-   permisos de repositorio **Contents: read & write** y **Metadata: read**;
-   Callback URL `https://<tu-dominio>/api/github/callback`; sin webhook.
-2. Guardar `GITHUB_APP_ID`, `GITHUB_APP_SLUG` y `GITHUB_APP_PRIVATE_KEY` en el
-   entorno del servidor (ver `web/.env.example`).
-3. Aplicar las migraciones: `supabase db push` (o `supabase db reset` en local).
-4. En Texel: **GitHub → Instalar la App** en el repositorio del curso, luego
-   **Buscar repositorios**, elegir repo, rama y carpeta del taller, y **Enlazar**.
+Crear la GitHub App es cosa de quien despliega Texel, y se hace una vez:
+[`docs/github-app.md`](docs/github-app.md) lleva los campos exactos —ojo con
+**Setup URL**, que es el único que recibe `installation_id`—, dónde van las
+variables y qué mirar cuando algo no sale.
+
+Quien solo usa Texel no ve nada de eso: abre su proyecto, **GitHub → Conectar
+con GitHub**, autoriza, instala la App en el repositorio que quiera sincronizar
+—vuelve al proyecto solo— y elige repositorio, rama y carpeta del taller.
+
+Texto largo aparte: Texel **no guarda tokens de usuario**. El de iniciar sesión
+se usa para saber a qué instalaciones llegas y se tira; el resto lo firma la App
+con su clave privada.
 
 ## Hoja de ruta
 

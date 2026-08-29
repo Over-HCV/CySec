@@ -14,6 +14,9 @@ export interface AppConfig {
   privateKey: string
   /** Nombre corto de la App en su URL: github.com/apps/<slug>. */
   slug: string
+  /** Credenciales de «iniciar sesión con GitHub». Sin ellas no hay identidad. */
+  clientId: string | null
+  clientSecret: string | null
 }
 
 /**
@@ -28,7 +31,13 @@ export function appConfig(): AppConfig | null {
   // Manager y en Vercel viaja con saltos de verdad. Se admiten las dos.
   const privateKey = process.env.GITHUB_APP_PRIVATE_KEY?.replace(/\\n/g, '\n')
   if (!appId || !privateKey || !slug) return null
-  return { appId, privateKey, slug }
+  return {
+    appId,
+    privateKey,
+    slug,
+    clientId: process.env.GITHUB_CLIENT_ID ?? null,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET ?? null
+  }
 }
 
 export function requireAppConfig(): AppConfig {
@@ -58,7 +67,24 @@ export function installationClient(installationId: number, config = requireAppCo
   })
 }
 
-/** URL donde el usuario instala la App o revisa a qué repos le dio acceso. */
-export function installUrl(config = requireAppConfig()): string {
-  return `https://github.com/apps/${config.slug}/installations/new`
+/**
+ * URL donde el usuario instala la App o revisa a qué repos le dio acceso.
+ *
+ * `state` viaja hasta el Setup URL y vuelve: es lo que permite devolver a la
+ * persona al proyecto desde el que salió, en vez de dejarla en la lista
+ * buscando dónde estaba.
+ */
+export function installUrl(projectId?: string, config = requireAppConfig()): string {
+  const base = `https://github.com/apps/${config.slug}/installations/new`
+  return projectId ? `${base}?state=${encodeURIComponent(projectId)}` : base
+}
+
+/**
+ * Credenciales de OAuth, o `null` si la App se creó sin secreto de cliente.
+ * Entonces la sincronización sigue funcionando —la App se autentica sola— pero
+ * no se puede saber *de quién* es cada instalación.
+ */
+export function oauthConfig(config = requireAppConfig()): { clientId: string, clientSecret: string } | null {
+  if (!config.clientId || !config.clientSecret) return null
+  return { clientId: config.clientId, clientSecret: config.clientSecret }
 }

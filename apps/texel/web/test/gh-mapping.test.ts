@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   defaultPathMap, syncSkipReason, toProjectPath, toRepoPath, type PathRule
 } from '../server/utils/gh/mapping'
+import { installUrl } from '../server/utils/gh/app'
 
 const MAP = defaultPathMap('latex/workshops/ws-01')
 
@@ -85,5 +86,20 @@ describe('qué archivos entran', () => {
 
   it('un archivo enorme se queda fuera', () => {
     expect(syncSkipReason('img/foto.png', 9 * 1024 * 1024)).toContain('pasa de')
+  })
+})
+
+describe('enlace de instalación', () => {
+  const CONFIG = {
+    appId: '1', privateKey: 'x', slug: 'texel', clientId: null, clientSecret: null
+  }
+
+  it('lleva el proyecto en el state, para volver a donde se estaba', () => {
+    expect(installUrl('3f2b1c4d-0000-4000-8000-abcdefabcdef', CONFIG))
+      .toBe('https://github.com/apps/texel/installations/new?state=3f2b1c4d-0000-4000-8000-abcdefabcdef')
+  })
+
+  it('sin proyecto, el enlace pelado', () => {
+    expect(installUrl(undefined, CONFIG)).toBe('https://github.com/apps/texel/installations/new')
   })
 })

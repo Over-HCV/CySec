@@ -26,6 +26,13 @@ const cursorLine = ref(1)
 const showShare = ref(false)
 const showGithub = ref(false)
 
+// Vuelta de GitHub (iniciar sesión o instalar la App): se reabre el diálogo
+// donde se estaba, y se limpia la marca para que recargar no lo abra otra vez.
+if (route.query.github === 'ok') {
+  showGithub.value = true
+  void navigateTo({ query: {} }, { replace: true })
+}
+
 const { files, refresh: refreshFiles, create, remove } = useProjectFiles(projectId)
 const { addCourseLayer } = useProjectImport()
 const { canWrite, isOwner, refresh: refreshMembers } = useProjectMembers(projectId)

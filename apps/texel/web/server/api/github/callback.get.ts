@@ -1,16 +1,18 @@
 /**
- * Vuelta de la instalación de la App.
+ * Setup URL: vuelta de instalar la App.
  *
- * GitHub redirige aquí con `installation_id`. Se guarda a nombre de quien tiene
- * la sesión abierta —es lo único que ata una instalación a un usuario de
- * Texel— y se devuelve a la lista de proyectos.
+ * GitHub manda aquí con `installation_id` y, si la ida llevaba `state`, con el
+ * proyecto desde el que se salió, que es a donde se devuelve a la persona. El
+ * `state` de este camino **no va firmado** —lo produce el enlace de instalación
+ * de GitHub, no nosotros—, así que solo se usa para elegir a dónde volver, y se
+ * comprueba que sea un proyecto del que quien vuelve es miembro.
  */
 import { appClient } from '../../utils/gh/app'
 import { requireUser } from '../../utils/gh/guard'
 
 export default defineEventHandler(async (event) => {
-  const { installation_id: raw } = getQuery(event)
-  const installationId = Number(raw)
+  const query = getQuery(event)
+  const installationId = Number(query.installation_id)
   if (!installationId) throw createError({ statusCode: 400, statusMessage: 'falta installation_id' })
 
   const caller = await requireUser(event)
@@ -24,5 +26,27 @@ export default defineEventHandler(async (event) => {
   })
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
-  return sendRedirect(event, '/?github=instalada')
+  // Acaba de instalarla: tiene acceso por definición, sin necesidad de pasar
+  // por el inicio de sesión con GitHub.
+  const { error: linkError } = await caller.admin.from('github_installation_users').upsert({
+    installation_id: installationId,
+    user_id: caller.userId
+  })
+  if (linkError) throw createError({ statusCode: 500, statusMessage: linkError.message })
+
+  return sendRedirect(event, await backTo(caller, String(query.state ?? '')))
 })
+
+/** Al proyecto de donde salió, si sigue siendo suyo; si no, a la lista. */
+async function backTo(
+  caller: Awaited<ReturnType<typeof requireUser>>,
+  projectId: string
+): Promise<string> {
+  if (!/^[0-9a-f-]{36}$/i.test(projectId)) return '/?github=ok'
+
+  const { data } = await caller.admin
+    .from('project_members').select('project_id')
+    .eq('project_id', projectId).eq('user_id', caller.userId).maybeSingle()
+
+  return data ? `/p/${projectId}?github=ok` : '/?github=ok'
+}

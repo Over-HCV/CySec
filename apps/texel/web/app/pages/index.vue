@@ -27,6 +27,14 @@ const wallpaperLabel = computed(() => wallpapers.find(o => o.id === wallpaper.va
 /** Proyecto cuyo enlace con GitHub se está mirando. */
 const githubFor = ref<Project | null>(null)
 
+// Vuelta de GitHub sin proyecto conocido (se instaló la App desde otro sitio):
+// se avisa y ya, que la lista no tiene ningún diálogo que reabrir.
+const route = useRoute()
+if (route.query.github === 'ok') {
+  onMounted(() => toast.success('GitHub conectado'))
+  void navigateTo({ query: {} }, { replace: true })
+}
+
 const creating = ref(false)
 const name = ref('')
 const error = ref('')

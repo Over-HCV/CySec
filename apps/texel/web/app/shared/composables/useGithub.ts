@@ -42,8 +42,16 @@ export interface StatusReport {
   skipped: { path: string, reason: string }[]
 }
 
+export interface GithubIdentity {
+  login: string
+  avatar_url: string | null
+}
+
 export function useGithub(projectId: MaybeRefOrGetter<string>) {
   const configured = ref(false)
+  /** La App tiene secreto de cliente: se puede iniciar sesión con GitHub. */
+  const canSignIn = ref(false)
+  const identity = ref<GithubIdentity | null>(null)
   const installUrl = ref<string | null>(null)
   const installations = ref<GithubInstallation[]>([])
   const link = ref<ProjectLink | null>(null)
@@ -68,16 +76,37 @@ export function useGithub(projectId: MaybeRefOrGetter<string>) {
     }
   }
 
+  /**
+   * Estado inicial del diálogo, en una sola pasada: si hay App, si esta persona
+   * ya inició sesión con GitHub, si el proyecto está enlazado y —si no lo
+   * está— con qué repositorios cuenta. Antes esto último era un botón que había
+   * que pulsar a mano, y sin pulsarlo el diálogo parecía vacío.
+   */
   async function refresh(): Promise<void> {
-    const config = await $fetch<{ configured: boolean, installUrl: string | null }>('/api/github/config')
+    const config = await $fetch<{
+      configured: boolean
+      canSignIn: boolean
+      identity: GithubIdentity | null
+      installUrl: string | null
+    }>('/api/github/config', { query: { projectId: toValue(projectId) } })
+
     configured.value = config.configured
+    canSignIn.value = config.canSignIn
+    identity.value = config.identity
     installUrl.value = config.installUrl
     if (!config.configured) return
 
     link.value = await $fetch<ProjectLink | null>('/api/github/link', {
       query: { projectId: toValue(projectId) }
     })
+
     if (link.value) await refreshStatus()
+    else await loadInstallations()
+  }
+
+  /** Sale del sitio: GitHub devuelve al proyecto por el `state` firmado. */
+  function signIn(): void {
+    window.location.href = `/api/github/oauth/start?projectId=${encodeURIComponent(toValue(projectId))}`
   }
 
   async function refreshStatus(): Promise<void> {
@@ -146,8 +175,8 @@ export function useGithub(projectId: MaybeRefOrGetter<string>) {
   }
 
   return {
-    configured, installUrl, installations, link, report, busy, error,
-    refresh, refreshStatus, loadInstallations, connect, disconnect, pull, push
+    configured, canSignIn, identity, installUrl, installations, link, report, busy, error,
+    refresh, refreshStatus, loadInstallations, signIn, connect, disconnect, pull, push
   }
 }
 

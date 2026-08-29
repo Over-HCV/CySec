@@ -51,8 +51,8 @@ export async function requireProject(
 /** La instalación tiene que ser de quien la usa, o cualquiera podría pedir prestado su acceso. */
 export async function requireInstallation(caller: Caller, installationId: number): Promise<void> {
   const { data, error } = await caller.admin
-    .from('github_installations').select('id')
-    .eq('id', installationId).eq('user_id', caller.userId).maybeSingle()
+    .from('github_installation_users').select('installation_id')
+    .eq('installation_id', installationId).eq('user_id', caller.userId).maybeSingle()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
   if (!data) throw createError({ statusCode: 403, statusMessage: 'esa instalación de GitHub no es tuya' })
 }

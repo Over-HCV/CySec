@@ -7,7 +7,9 @@
  * comparación que se enseña es la misma que ejecutan los botones, así que lo
  * que se lee aquí es lo que va a pasar.
  */
-import { X, GitBranch, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Unlink } from 'lucide-vue-next'
+import {
+  X, GitBranch, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Unlink, Github, ExternalLink
+} from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Change } from '~/shared/types/database'
 
@@ -15,9 +17,12 @@ const props = defineProps<{ projectId: string, projectName: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const {
-  configured, installUrl, installations, link, report, busy, error,
-  refresh, refreshStatus, loadInstallations, connect, disconnect, pull, push
+  configured, canSignIn, identity, installUrl, installations, link, report, busy, error,
+  refresh, refreshStatus, loadInstallations, signIn, connect, disconnect, pull, push
 } = useGithub(() => props.projectId)
+
+/** Dónde se explica cómo crear la App, para quien despliega Texel. */
+const SETUP_DOCS = 'https://github.com/Over-HCV/CySec/blob/main/apps/texel/docs/github-app.md'
 
 /** Selección del formulario de enlace. */
 const repoFullName = ref('')
@@ -108,12 +113,18 @@ onMounted(refresh)
         <button class="btn p-1" @click="emit('close')"><X :size="14" /></button>
       </header>
 
-      <!-- Sin App configurada no hay nada que hacer desde aquí: es una variable
-           de entorno del servidor, no algo que el usuario pueda arreglar. -->
-      <p v-if="!configured" class="text-xs text-muted">
-        Falta configurar la GitHub App en el servidor
-        (<code>GITHUB_APP_ID</code>, <code>GITHUB_APP_PRIVATE_KEY</code>, <code>GITHUB_APP_SLUG</code>).
-      </p>
+      <!-- Quien usa Texel no puede arreglar esto: es cosa de quien lo despliega,
+           una sola vez. Así que aquí no se enseñan nombres de variables, se
+           enseña a quién hay que decírselo y dónde está escrito el cómo. -->
+      <template v-if="!configured">
+        <p class="text-xs text-muted mt-0 mb-2">
+          Quien administra este Texel todavía no ha conectado GitHub, así que de momento
+          no se puede sincronizar ningún proyecto.
+        </p>
+        <a :href="SETUP_DOCS" target="_blank" rel="noopener" class="btn w-full text-center">
+          Cómo se conecta <ExternalLink :size="12" class="inline align-[-2px] ml-1" />
+        </a>
+      </template>
 
       <template v-else-if="!link">
         <p class="text-xs text-muted mt-0 mb-3">
@@ -122,15 +133,39 @@ onMounted(refresh)
           editor de tu ordenador se trae con otro.
         </p>
 
-        <div class="flex gap-2 mb-3">
-          <button class="btn flex-1" :disabled="!!busy" @click="loadInstallations">
-            <RefreshCw :size="13" class="inline align-[-2px] mr-1" />
-            Buscar repositorios
+        <!-- Sin haber iniciado sesión con GitHub no se sabe qué instalaciones
+             son suyas, así que este es el único paso que se ofrece. -->
+        <template v-if="canSignIn && !identity">
+          <button class="btn-primary w-full" :disabled="!!busy" @click="signIn">
+            <Github :size="14" class="inline align-[-3px] mr-1" />
+            Conectar con GitHub
           </button>
-          <a v-if="installUrl" :href="installUrl" target="_blank" rel="noopener" class="btn flex-1 text-center">
-            Instalar la App
+          <p class="text-[11px] text-muted mt-2 mb-0">
+            Se usa solo para saber a qué repositorios llegas. Texel no guarda tu contraseña
+            ni tu token.
+          </p>
+        </template>
+
+        <template v-else>
+          <div v-if="identity" class="flex items-center gap-2 text-xs text-muted mb-3">
+            <img v-if="identity.avatar_url" :src="identity.avatar_url" alt="" class="w-5 h-5 rounded-full">
+            <span class="flex-1">Conectado como <strong>@{{ identity.login }}</strong></span>
+            <button class="icon-btn w-7 h-7" title="Volver a mirar tus repositorios"
+              :disabled="!!busy" @click="loadInstallations">
+              <RefreshCw :size="13" />
+            </button>
+          </div>
+
+          <p v-if="!repos.length && !busy" class="text-xs text-muted mt-0 mb-2">
+            No hay ningún repositorio a tu alcance todavía: instala la App en el que quieras
+            sincronizar y vuelves aquí solo.
+          </p>
+
+          <a v-if="installUrl" :href="installUrl"
+            :class="repos.length ? 'btn w-full text-center mb-3' : 'btn-primary w-full text-center mb-3'">
+            Instalar la App en un repositorio
           </a>
-        </div>
+        </template>
 
         <template v-if="repos.length">
           <label class="block text-xs text-muted mb-1">Repositorio</label>
