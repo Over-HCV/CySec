@@ -86,3 +86,79 @@
 }{%
   \end{enumerate}\par\smallskip
 }
+
+% ===== captura: evidencia gráfica del laboratorio =====
+% \captura{archivo.png}{Título descriptivo de la captura}
+% Si existe img/archivo.png lo incluye como figura con su caption; si no,
+% dibuja una caja punteada con el nombre exacto esperado (guardar la captura
+% con ese nombre y recompilar basta para que aparezca). La label de la figura
+% es fig:<archivo-sin-extensión>, p.ej. \cref{fig:sqlmap-hashes}.
+% Un archivo faltante deja «Captura pendiente» en el .log también en FINAL,
+% misma mecánica delatora que las respuestas vacías.
+\newcommand{\captura@base}{}
+\newcommand{\captura}[2]{%
+  \IfSubStr{#1}{.}{\StrBefore{#1}{.}[\captura@base]}{%
+    \renewcommand{\captura@base}{#1}}%
+  \begin{figure}[htbp]
+    \centering
+    \IfFileExists{img/#1}{%
+      \includegraphics[width=0.8\linewidth]{img/#1}%
+    }{%
+      \PackageWarning{cysec}{Captura pendiente: img/#1}%
+      \begin{tcolorbox}[enhanced, sharp corners, colback=gray!4,
+        colframe=gray!55!black, boxrule=0pt,
+        borderline={0.8pt}{0pt}{gray!55!black,
+          dash pattern=on 4pt off 3pt},
+        width=0.8\linewidth, boxsep=10pt, halign=center]
+        {\bfseries\footnotesize\color{gray!55!black}%
+          \cysec@lbl{CAPTURA PENDIENTE}{PENDING SCREENSHOT}}\\[4pt]
+        {\footnotesize\color{gray!45!black}%
+          \cysec@lbl{guardar como}{save as} \texttt{img/#1}}%
+      \end{tcolorbox}%
+    }
+    \caption{#2}%
+    \label{fig:\captura@base}%
+  \end{figure}%
+}
+
+% ===== analisis: interpretación de una captura o resultado =====
+% Hermano de `respuesta` para lo que el profesor realmente evalúa: el
+% análisis posterior a la evidencia. Cuerpo vacío ⇒ \todoanalisis (caja en
+% borrador + warning «Análisis pendiente» en el .log, también en FINAL).
+\newcommand{\todoanalisis}[1][]{%
+  \PackageWarning{cysec}{Análisis pendiente\ifstrempty{#1}{}{ (#1)} en la
+    captura o resultado más reciente}%
+  \iffinalmode\else
+    \par\smallskip
+    \begin{tcolorbox}[enhanced, sharp corners, colback=yellow!8,
+      colframe=orange!80!black, boxrule=0.4pt, left=6pt, right=6pt,
+      top=3pt, bottom=3pt]%
+      \small\bfseries\color{orange!60!black}%
+      \cysec@lbl{Pendiente por analizar}{Analysis pending}%
+      \ifstrempty{#1}{}{\normalfont\ — #1}%
+    \end{tcolorbox}%
+    \par\smallskip
+  \fi
+}
+
+\NewEnviron{analisis}{%
+  \StrSubstitute{\detokenize\expandafter{\BODY}}{ }{}[\cysec@ansprobe]%
+  \StrSubstitute{\cysec@ansprobe}{\detokenize{\par}}{}[\cysec@ansprobe]%
+  \ifdefempty{\cysec@ansprobe}{%
+    \todoanalisis
+  }{%
+    \par\smallskip
+    \begin{tcolorbox}[enhanced, breakable, sharp corners,
+      colback=accent!3, colframe=accent!60,
+      boxrule=0.4pt, left=8pt, right=8pt, top=8pt, bottom=6pt,
+      fonttitle=\bfseries\small, coltitle=white,
+      attach boxed title to top left={xshift=6pt,yshift=-2pt},
+      boxed title style={colback=accent!60, sharp corners, boxrule=0pt,
+        top=1.5pt,bottom=1.5pt,left=5pt,right=5pt},
+      title={\cysec@lbl{Análisis}{Analysis}},
+      before upper={\setlength{\parskip}{0.5em}}]%
+      \BODY
+    \end{tcolorbox}%
+    \par\smallskip
+  }%
+}

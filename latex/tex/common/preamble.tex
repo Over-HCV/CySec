@@ -63,6 +63,44 @@
 \RequirePackage[most]{tcolorbox}
 \RequirePackage{graphicx}
 
+% --- Código (comandos, payloads, sentencias) ---
+% Estilo "cysec": mono de Libertinus (vía fontspec), keywords en accent y
+% comentarios en gris, sin números de línea y con el mismo aire de caja
+% sharp-corner que el resto de la clase.
+\RequirePackage{listings}
+\definecolor{codebg}{HTML}{F5F6F8}
+\definecolor{codecom}{HTML}{5B6470}
+\lstdefinestyle{cysec}{%
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{accent},   % sin \bfseries: Libertinus Mono no tiene negrita
+  commentstyle=\color{codecom}\itshape,
+  stringstyle=\color{oscrit},
+  numberstyle=\tiny\color{codecom},
+  numbers=none,
+  backgroundcolor=\color{codebg},
+  frame=single, framerule=0.4pt, rulecolor=\color{gray!45},
+  framexleftmargin=4pt, framexrightmargin=4pt,
+  xleftmargin=6pt, xrightmargin=6pt,
+  breaklines=true, breakatwhitespace=true,
+  showstringspaces=false,
+  columns=fullflexible, keepspaces=true,
+  aboveskip=0.8em, belowskip=0.8em,
+}
+\lstset{style=cysec}
+
+% JavaScript no viene definido en listings (sí Java, HTML, SQL, bash...),
+% así que se define aquí con el estándar ECMA-262 5th para los payloads web.
+\lstdefinelanguage{JavaScript}{%
+  keywords={break, case, catch, continue, debugger, default, delete, do,
+    else, finally, for, function, if, in, instanceof, new, return, switch,
+    this, throw, try, typeof, var, void, while, with, alert, document,
+    window, true, false, null, undefined},
+  sensitive=false,
+  comment=[l]{//},
+  morestring=[b]',
+  morestring=[b]",
+}
+
 % --- Enlaces ---
 \RequirePackage{xurl}          % quiebre de URLs largas en cualquier carácter
 \RequirePackage{hyperref}
@@ -83,5 +121,6 @@
 \RequirePackage[backend=biber,style=numeric,sorting=none,maxbibnames=99,
                 giveninits=true,isbn=false,doi=false,url=true]{biblatex}
 \addbibresource{bib/refs.bib}
+\renewcommand{\bibfont}{\raggedright}   % URLs largas de las refs no sobresalen
 
 \RequirePackage{microtype}

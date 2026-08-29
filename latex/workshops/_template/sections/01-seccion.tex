@@ -22,3 +22,16 @@ Enunciado del caso tal como lo entrega el profesor.
   \opcion{Segunda opción.}
   \opcion{Tercera opción.}
 \end{mcq}
+
+% ── Laboratorio con evidencias ────────────────────────────────────────────────
+% 1) Comando o payload en un listing (estilo global "cysec", ya aplicado):
+\begin{lstlisting}[language=bash]
+comando --con-sus-flags "objetivo"
+\end{lstlisting}
+% 2) Captura: si existe img/ejemplo.png se incluye; si no, caja punteada
+%    con el nombre esperado y warning «Captura pendiente» en el .log.
+\captura{ejemplo.png}{Título descriptivo de la captura}
+% 3) El análisis va después de la captura; vacío ⇒ caja naranja y warning
+%    «Análisis pendiente».
+\begin{analisis}
+\end{analisis}

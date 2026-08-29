@@ -1,0 +1,14 @@
+% sections/06-conclusiones.tex
+\section*{Conclusiones}
+
+El desarrollo del taller permitió evidenciar, sobre aplicaciones deliberadamente vulnerables, cómo la ausencia de controles básicos de desarrollo seguro (parametrización de consultas, escapado de salida según contexto y validación de entradas) habilita a un atacante, con herramientas de uso público y sin conocimientos profundos del interior de la aplicación, recorrer la cadena completa de una explotación: desde la identificación del punto de inyección, pasando por la enumeración de la estructura del gestor de base de datos, hasta la exfiltración de su contenido y el sobrepaso de esquemas de autenticación.
+
+Progresivamente, la resolución de los retos de XSS mostró que cada contexto de inyección (cuerpo HTML, atributos, cadenas de JavaScript o URLs) exige su propio mecanismo de escapado, y que los controles implementados como listas negras (bloquear \texttt{<script>}, validar esquemas por expresiones regulares sensibles a mayúsculas) resultan sistemáticamente evadibles, de forma que la defensa correcta siempre es tratar la entrada como dato en cada capa y nunca como código.
+
+\porque{revisar tras ejecutar la práctica}{%
+  Borrador redactado antes de la corrida: ajústalo con lo que realmente pasó
+  (por ejemplo, si en \texttt{--passwords} el usuario no era DBA, o si en el
+  nivel 6 funcionó la vía \texttt{HTTPS://} o la de \texttt{data:}), y cierra
+  con una frase que conecte con los controles de la pregunta 4 (sentencias
+  preparadas, escapado por contexto, allowlists).%
+}

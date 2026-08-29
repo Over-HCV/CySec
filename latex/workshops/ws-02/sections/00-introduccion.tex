@@ -1,0 +1,13 @@
+% sections/00-introduccion.tex
+\section*{Introducción}
+
+El presente taller se orienta a la determinación de las actividades involucradas en la explotación de vulnerabilidades sobre aplicaciones web deliberadamente vulnerables, esto mediante la ejecución práctica de ataques de \eng{SQL Injection} (inyección de sentencias SQL) y de \eng{Cross-Site Scripting} (XSS), de forma que se pueda evidenciar, en un entorno controlado, el impacto real que tiene la ausencia de controles de desarrollo seguro sobre aplicaciones expuestas en internet.
+
+En términos generales, las tareas del laboratorio se agrupan en dos frentes:
+
+\begin{itemize}
+  \item \term{SQL Injection:} ejecución de ataques de inyección SQL tanto de forma activa (apoyados de la herramienta \texttt{sqlmap} sobre un objetivo identificado mediante \eng{dorks} de búsqueda), como de forma pasiva (sobrepasando un esquema de autenticación con sentencias SQL inyectadas manualmente sobre los campos del formulario de inicio de sesión).
+  \item \term{XSS:} resolución de los seis retos del \eng{XSS Game} de Google \cite{xss-game}, incluyendo el nombre de uno de los integrantes del equipo dentro del script inyectado, tal como lo exige la evidencia de la práctica.
+\end{itemize}
+
+Como requisito previo se dispuso de una máquina virtual con la distribución Kali Linux (descargable desde \url{https://www.kali.org/downloads/}), dentro de la cual, en la ruta de menú \texttt{APLICACIONES/04} (evaluación de bases de datos), residen las utilidades de auditoría web que se usan a lo largo de la práctica, además de contar de base con las herramientas de línea de comando y navegadores necesarios para el desarrollo de los ejercicios.

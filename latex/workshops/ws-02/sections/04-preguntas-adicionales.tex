@@ -1,0 +1,74 @@
+% sections/04-preguntas-adicionales.tex
+\section{Preguntas adicionales}
+
+\pregunta{¿Qué es una inyección SQL?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  ``Es una vulnerabilidad de la capa de aplicación en la que una entrada no
+  confiable del usuario se concatena directamente sobre una sentencia SQL sin
+  sanitizar ni parametrizar, de forma que el atacante logra alterar la
+  semántica de la consulta que el motor termina ejecutando, pudiendo eludir
+  esquemas de autenticación, exponer o sobrescribir información de la base de
+  datos y, en escenarios con privilegios suficientes, incluso llegar a
+  comandos del sistema operativo del anfitrión.'' Apóyate en el marco
+  conceptual de la sección 2 y cita \texttt{owasp-sqli}.%
+}
+
+\pregunta{¿Qué es una inyección SQL activa y pasiva? Establezca las diferencias y los métodos como se ejecutan.}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  En la \textbf{activa} el atacante envía sentencias y observa directamente la
+  respuesta del servidor (datos visibles en pantalla o mensajes de error),
+  típicamente apoyado en herramientas automatizadas de fuzzing como sqlmap,
+  que prueban diccionarios de payloads contra cada parámetro, tal como se hizo
+  en la sección 3; en la \textbf{pasiva} el atacante no altera respuestas sino
+  que inyecta sobre puntos de entrada ya existentes (como un formulario de
+  login) y deduce el efecto del comportamiento de la aplicación, sin obtener
+  necesariamente un volcado directo de datos, tal como se hizo en la sección 4.
+  Diferencias a listar: grado de interacción con la respuesta, uso o no de
+  herramientas, ruido generado (la activa es mucho más detectable en logs) y
+  método (payloads automatizados y observación directa vs.\ inyección manual e
+  inferencia). Cuidado: en la literatura hay varias taxonomías (blind, error-
+  based, etc.); si el profesor manejó otra clasificación en clase, alinea la
+  respuesta con esa.%
+}
+
+\pregunta{¿Cómo es el funcionamiento de la herramienta sqlmap?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  ``sqlmap automatiza el proceso completo de la inyección: primeramente hace
+  fingerprinting del objetivo (servidor web y DBMS, con pruebas específicas
+  por motor), posteriormente prueba diccionarios de payloads contra cada
+  parámetro de la URL o de los formularios, identificando la técnica que
+  mejor responde (union query, error-based, boolean-based, time-based), y con
+  el canal de inyección establecido va encadenando sus opciones de
+  post-explotación (\texttt{--banner}, \texttt{--passwords}, \texttt{--dump},
+  entre otras) para enumerar y extraer la información del gestor.'' Cita
+  \texttt{sqlmap-docs} y relationa cada fase con lo evidenciado en las
+  capturas de la sección 3.%
+}
+
+\pregunta{¿Qué controles puede implementar para evitar la inyección de sentencias SQL sobre aplicaciones web?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Lista con término en negrita + explicación, tu patrón usual:
+  \textbf{Sentencias preparadas y consultas parametrizadas:} tratar la entrada
+  siempre como dato y nunca como parte del código SQL, que es el control
+  fundamental; \textbf{Validación de entrada allowlist:} rechazar caracteres o
+  formatos que no correspondan al tipo esperado del campo; \textbf{Mínimo
+  privilegio:} que el usuario de conexión de la aplicación solo acceda al
+  esquema que necesita, sin permisos de administración ni de lectura sobre
+  tablas ajenas; \textbf{Gestión de errores:} no exponer al usuario mensajes
+  de error del motor que revelen estructura interna; \textbf{WAF:} filtrado
+  de payloads conocidos como capa complementaria (nunca sustituto de la
+  parametrización); \textbf{Actualización y parches:} del motor y frameworks
+  para cerrar vectores conocidos. Cierra citando \texttt{owasp-sqli}.%
+}

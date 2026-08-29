@@ -1,0 +1,36 @@
+% sections/03-bypass-auth.tex
+\section{Sobrepaso del esquema de autenticación con SQL Injection pasiva}
+
+Para esta parte de la práctica se dispuso del formulario de inicio de sesión de la aplicación vulnerable de demostración bancaria publicada en \url{http://testfire.net/bank/login.aspx}, sobre el cual, haciendo uso de técnicas de inyección SQL manual (pasiva, sin herramienta automatizada), se buscó sobrepasar el sistema de autenticación para acceder a la aplicación, teniendo presente que el objetivo no es identificar usuarios por defecto sino hacer uso de la inyección de sentencias SQL.
+
+Sobre el campo de usuario se inyectó la siguiente sentencia, dejando en el campo de contraseña un valor cualquiera (la contraseña queda fuera de la consulta al ir comentada):
+
+\begin{lstlisting}[language=SQL]
+' OR '1'='1' --
+\end{lstlisting}
+
+\captura{bypass-login.png}{Formulario de inicio de sesión con la sentencia SQL inyectada en el campo usuario}
+
+\captura{bypass-autenticado.png}{Sesión iniciada tras sobrepasar el esquema de autenticación}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{Realice un análisis de la sentencia SQL usada: ¿por qué estamos sobrepasando el esquema de autenticación de la aplicación?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base del análisis de la sentencia}{%
+  La aplicación construye algo equivalente a\\
+  \texttt{SELECT * FROM users WHERE username='}$_{input1}$\texttt{' AND
+  password='}$_{input2}$\texttt{'}; el payload cierra el literal de texto con
+  la primera comilla, inyecta la condición \texttt{OR '1'='1'} (una tautología:
+  siempre verdadera) y con \texttt{--} comenta el resto de la línea original,
+  eliminando la comilla final y la verificación de la contraseña. La cláusula
+  \texttt{WHERE} queda así siempre verdadera, la consulta devuelve el primer
+  usuario de la tabla y la aplicación lo trata como sesión válida. Redáctalo
+  con esa cadena: concatenación sin parametrización, tautología y comentario;
+  y cierra con que el control ausente es validar la identidad contra el
+  resultado de una consulta consultada por credenciales, no confiar en que la
+  consulta devuelva vacío.%
+}

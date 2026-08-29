@@ -1,0 +1,9 @@
+% sections/01-inyeccion-sql.tex
+\section{Inyección SQL}
+\subsection{Marco conceptual}
+
+Muchos desarrolladores web no son conscientes de cómo las consultas SQL pueden ser manipuladas, y asumen que una consulta SQL es una orden fiable; esto significa que dichas consultas resultan capaces de eludir controles de acceso, evitando así las comprobaciones de autenticación y autorización estándar, e incluso, en algunos escenarios, que podrían permitir el acceso a comandos a nivel del sistema operativo del equipo anfitrión.
+
+La inyección directa de comandos SQL es una técnica donde un atacante crea o altera comandos SQL existentes con el objetivo de exponer datos ocultos, sobrescribir los valiosos o, peor aún, ejecutar comandos peligrosos a nivel de sistema en el equipo que hospeda la base de datos, y esto se logra a través de la práctica de tomar la entrada del usuario y combinarla con parámetros estáticos para elaborar una consulta SQL, es decir, concatenando texto no confiable directamente sobre la sentencia en lugar de tratarlo como un dato (un parámetro) de la misma \cite{owasp-sqli}.
+
+De lo anterior se desprende que la vulnerabilidad no radica en el motor de base de datos como tal, sino en la capa de aplicación que construye las consultas sin sanitizar ni parametrizar la entrada, de forma que el atacante que controla un fragmento de la sentencia termina controlando también su semántica completa: puede cerrar literales de texto, inyectar condiciones siempre verdaderas, comentar el resto de la consulta original o, mediante uniones y subconsultas, leer tablas ajenas al propósito original de la aplicación.

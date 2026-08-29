@@ -1,0 +1,235 @@
+% sections/02-sqlmap-activa.tex
+\section{Inyección SQL activa con sqlmap}
+
+\subsection{Selección del objetivo}
+
+Primeramente se realizó una búsqueda avanzada en Google con el \eng{dork} \texttt{inurl: .asp?id}, orientado a identificar páginas con parámetros potencialmente inyectables; para el ejercicio puede hacerse uso de una URL propia identificada en la búsqueda o de cualquiera de las que propone la guía del laboratorio:
+
+\begin{itemize}
+  \item \url{http://testphp.vulnweb.com/listproducts.php?cat=1}
+  \item \url{https://www.china-mould.com/cn_Contact.asp?ID=12}
+\end{itemize}
+
+Sobre esta última se trabajó la práctica, accediendo en Kali a la categoría \texttt{APLICACIONES/04} (evaluación de bases de datos) y, estando en la línea de comando, a la utilidad sqlmap \cite{sqlmap-docs}.
+
+\subsection{Opciones de la herramienta}
+
+Estando en la línea de comando se ejecutó la opción de ayuda:
+
+\begin{lstlisting}[language=bash]
+sqlmap -h
+\end{lstlisting}
+
+\pregunta{Describa las opciones que pueden ser usadas por esta herramienta.}
+\begin{respuesta}
+  De la salida de la ayuda se destacan las opciones que se usaron (y otras relevantes) a lo largo del ejercicio:
+
+  \begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{>{\ttfamily}l X}
+    \toprule
+    \normalfont\bfseries Opción & \bfseries Descripción \\
+    \midrule
+    -u URL & Objetivo de la evaluación, con el parámetro que se sospecha inyectable incluido en la URL. \\
+    --banner & Recupera el banner del DBMS (versión del motor de base de datos). \\
+    --current-user & Recupera el usuario actual con el que la aplicación se conecta a la base de datos. \\
+    --current-db & Recupera la base de datos actual (instancia en uso). \\
+    --users & Enumera los usuarios del gestor de base de datos. \\
+    --passwords & Enumera y recupera los hashes de las contraseñas de los usuarios del gestor. \\
+    --dbs & Enumera las bases de datos disponibles. \\
+    -D BD & Delimita la base de datos objetivo de las siguientes opciones. \\
+    --tables & Enumera las tablas (junto con \texttt{-D}). \\
+    -T tabla & Delimita la tabla objetivo de las siguientes opciones. \\
+    --columns & Enumera las columnas de una tabla (con \texttt{-D} y \texttt{-T}). \\
+    --dump & Volca el contenido de una tabla (con \texttt{-D} y \texttt{-T}). \\
+    --batch & Ejecuta sin preguntar, tomando el comportamiento por defecto en cada decisión interactiva. \\
+    --level / --risk & Profundidad y agresividad de las pruebas (número de parámetros y payloads probados). \\
+    -p parámetro & Delimita el parámetro a testear, en lugar de probarlos todos. \\
+    --forms & Analiza los formularios de la página objetivo en busca de campos inyectables. \\
+    --cookie / --headers & Permite autenticar la sesión (cookies de sesión) o cabeceras personalizadas. \\
+    --dbms & Fuerza el motor de base de datos, evitando el fingerprinting inicial. \\
+    --os-shell & Intenta obtener una consola interactiva del sistema operativo del servidor. \\
+    \bottomrule
+  \end{tabularx}
+  \end{center}
+\end{respuesta}
+
+\porque{antes de continuar con la tabla}{%
+  La tabla describe opciones documentadas de sqlmap y es verificable contra tu
+  propia salida de \texttt{sqlmap -h}; revísala ahí, quita las que no aparezcan
+  o añade las que te llamen la atención, y sobre todo deja claro cuáles usaste
+  en los ítems siguientes. Ojo con el encoding: copia la tabla tal cual, ya
+  está escrita para no romper el ancho de columna.%
+}
+
+\subsection{Escaneo inicial del objetivo}
+
+Procediendo con el escaneo de la URL identificada, se ejecutó la sentencia que propone la guía:
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" --batch
+\end{lstlisting}
+
+\captura{sqlmap-escaneo.png}{Salida del escaneo inicial: parámetro inyectable, servidor web y gestor de base de datos identificados}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{qué debe verse en la captura}{%
+  En caso de encontrar parámetros inyectables, sqlmap despliega al final un
+  resumen con el \emph{back-end DBMS} (se espera MySQL para
+  testphp.vulnweb.com), el servidor web (usualmente nginx en ese host de
+  Acunetix) y el tipo de inyección encontrada. Base para el análisis: ``La
+  salida evidencia que el parámetro \texttt{cat} es inyectable, confirmando que
+  la aplicación concatena directamente el valor recibido sobre la consulta SQL
+  sin ningún tipo de sanitización, de forma que un atacante puede alterar la
+  semántica de la sentencia que se ejecuta del lado del motor.'' Completa con
+  los valores exactos de tu ejecución.%
+}
+
+\subsection{Versión del motor de la base de datos}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" --banner --batch
+\end{lstlisting}
+
+\captura{sqlmap-banner.png}{Banner del DBMS: versión del motor de la base de datos}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  Con \texttt{--banner} sqlmap fuerza la recuperación del banner del motor
+  (equivalente a un \texttt{SELECT @@VERSION} en MySQL), el cual se espera que
+  informe MySQL como DBMS con su versión exacta. Base: ``El banner obtenido
+  revela el motor y la versión exacta que ejecuta el servidor, información que
+  resulta valiosa para el atacante porque le permite seleccionar payloads y
+  técnicas de explotación específicas para esa versión ( exploits públicos,
+  errores conocidos), adelantando incluso la fase de post-explotación.''%
+}
+
+\subsection{Usuario actual de la base de datos}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" --current-user --batch
+\end{lstlisting}
+
+\captura{sqlmap-usuario.png}{Usuario actual con el que la aplicación se conecta al gestor}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  Base: ``El usuario actual corresponde a la cuenta con la que la aplicación
+  web se autentica contra el motor de base de datos (para este objetivo suele
+  verse el usuario \texttt{ACUART}); su relevancia radica en que, de resultar
+  un usuario con privilegios administrativos (DBA), el atacante obtendría
+  acceso a operaciones sobre todo el gestor y no solo sobre el esquema de la
+  aplicación.'' Verifica el nombre exacto en tu salida.%
+}
+
+\subsection{Base de datos actual (instancia)}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" --current-db --batch
+\end{lstlisting}
+
+\captura{sqlmap-instancia.png}{Instancia (base de datos) en uso por la aplicación}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  Se espera que la instancia actual sea \texttt{acuart}; con ese nombre se
+  delimitan los comandos siguientes (\texttt{-D acuart}). Base: ``Identificar
+  la instancia actual permite al atacante focalizar la enumeración sobre el
+  esquema real de la aplicación, encadenando posteriormente el listado de sus
+  tablas y columnas sin necesidad de recorrer todas las bases de datos del
+  servidor.''%
+}
+
+\subsection{Hashes de las contraseñas de los usuarios}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" --passwords --batch
+\end{lstlisting}
+
+\captura{sqlmap-hashes.png}{Usuarios del gestor y hashes de sus contraseñas recuperados}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  \texttt{--passwords} enumera los usuarios del gestor e intenta leer sus
+  hashes; lo que devuelva depende de los privilegios del usuario actual (si
+  no es DBA puede fallar o devolver solo el usuario actual, lo cual también es
+  un hallazgo válido y hay que reportarlo). Base: ``La recuperación de hashes
+  de contraseñas constituye una de las afectaciones más serias evidenciadas,
+  dado que estos pueden someterse a cracking fuera de línea (diccionario o
+  fuerza bruta) y, de reutilizarse la misma credencial en otros sistemas,
+  escalar el incidente más allá de la aplicación vulnerable.'' Si sqlmap
+  pregunta por almacenar la tabla diccionario, acepta con el default de
+  \texttt{--batch}.%
+}
+
+\subsection{Esquema de tablas de la base de datos actual}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" -D acuart --tables --batch
+\end{lstlisting}
+
+\captura{sqlmap-esquema.png}{Tablas de la instancia acuart enumeradas}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  Ajusta \texttt{-D} al nombre real que te devolvió el ítem de la instancia.
+  Base: ``La enumeración del esquema expone la estructura interna de la
+  aplicación (se esperan tablas como \texttt{artists}, \texttt{carts} o
+  \texttt{customers}), información que en manos del atacante define
+  exactamente dónde resides la información sensible y habilita el volcado
+  dirigido de cualquiera de ellas.''%
+}
+
+\subsection{Columnas de una de las tablas}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" -D acuart -T artists --columns --batch
+\end{lstlisting}
+
+\captura{sqlmap-columnas.png}{Columnas y tipos de la tabla artists}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  Puedes cambiar \texttt{artists} por la tabla que te llame la atención
+  (\texttt{customers} suele ser más ilustrativa por contener datos personales).
+  Base: ``El detalle de columnas y tipos de dato completa el mapa del esquema,
+  permitiendo al atacante construir consultas quirúrgicas (por ejemplo,
+  seleccionando únicamente las columnas de credenciales o de datos personales)
+  y reduciendo el ruido de la extracción para evitar detección.''%
+}
+
+\subsection{Volcado del contenido de una tabla}
+
+\begin{lstlisting}[language=bash]
+sqlmap -u "http://testphp.vulnweb.com/listproducts.php?cat=1" -D acuart -T artists --dump --batch
+\end{lstlisting}
+
+\captura{sqlmap-dump.png}{Registros de la tabla artists volcados en pantalla}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{guía para este ítem}{%
+  Base: ``El volcado materializa la exfiltración: los registros salen del
+  motor y quedan en poder del atacante (sqlmap incluso los persiste en un CSV
+  local con \texttt{--dump}); sobre una tabla con datos reales de clientes el
+  mismo comando entregaría nombres, correos y tarjetas, con lo cual queda
+  demostrado que la falta de parametrización de una sola consulta compromete
+  la confidencialidad de toda la información hospedada.'' De haber volcado
+  \texttt{customers}, cierra la cadena con la mención de qué datos personales
+  quedaron expuestos.%
+}
