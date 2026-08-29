@@ -18,7 +18,7 @@ const FIGURA = `\\section{Con imagen}
 
 \\begin{figure}[htbp]
   \\centering
-  \\includegraphics[width=0.8\\linewidth]{pips/QRT-482.png}
+  \\includegraphics[width=0.8\\linewidth]{pics/QRT-482.png}
   \\caption{La captura del incidente}
   \\label{fig:QRT-482}
 \\end{figure}
@@ -45,7 +45,7 @@ describe('parseo de un `figure`', () => {
     expect(figura.items).toBeUndefined()
     expect(FIGURA.slice(figura.span.from, figura.span.to))
       .toBe('\\begin{figure}[htbp]\n  \\centering\n'
-        + '  \\includegraphics[width=0.8\\linewidth]{pips/QRT-482.png}\n'
+        + '  \\includegraphics[width=0.8\\linewidth]{pics/QRT-482.png}\n'
         + '  \\caption{La captura del incidente}\n  \\label{fig:QRT-482}\n\\end{figure}')
   })
 
@@ -53,7 +53,7 @@ describe('parseo de un `figure`', () => {
     const figura = parseTex(FIGURA).find(b => b.kind === 'figura')!
     const campo = (name: string) => figura.fields.find(f => f.name === name)!
     expect(campo('pie').value).toBe('La captura del incidente')
-    expect(campo('ruta').value).toBe('pips/QRT-482.png')
+    expect(campo('ruta').value).toBe('pics/QRT-482.png')
     // Solo el número: cambiar el ancho es un parche de tres caracteres, no
     // reescribir la macro entera.
     expect(campo('ancho').value).toBe('0.8')
@@ -69,7 +69,7 @@ describe('parseo de un `figure`', () => {
   })
 
   it('un `figure` sin pie se lee igual, y sin campo `pie`', () => {
-    const suelto = `\\begin{figure}\n  \\includegraphics{pips/HKD-207.jpg}\n\\end{figure}\n`
+    const suelto = `\\begin{figure}\n  \\includegraphics{pics/HKD-207.jpg}\n\\end{figure}\n`
     const figura = parseTex(suelto).find(b => b.kind === 'figura')!
     expect(figura.fields.map(f => f.name)).toEqual(['ruta'])
     expect(joined(suelto, parseTex(suelto))).toBe(suelto)
@@ -79,17 +79,17 @@ describe('parseo de un `figure`', () => {
     // `center` sale entero como `raw`, y el aviso de «falta cerrar una llave»
     // se comprueba también ahí dentro: `\\includegraphics` no puede estar en la
     // lista de macros conocidas o este idioma de toda la vida avisaría en falso.
-    const centro = `\\begin{center}\n  \\includegraphics[width=6cm]{pips/ABC-234.png}\n\\end{center}\n`
+    const centro = `\\begin{center}\n  \\includegraphics[width=6cm]{pics/ABC-234.png}\n\\end{center}\n`
     const blocks = parseTex(centro)
     expect(blocks.some(b => b.flags?.broken)).toBe(false)
     expect(joined(centro, blocks)).toBe(centro)
   })
 
   it('un `\\includegraphics` suelto también es una imagen, no un `raw` roto', () => {
-    const suelto = `Antes.\n\n\\includegraphics[width=0.5\\linewidth]{pips/ABC-234.png}\n\nDespués.\n`
+    const suelto = `Antes.\n\n\\includegraphics[width=0.5\\linewidth]{pics/ABC-234.png}\n\nDespués.\n`
     const blocks = parseTex(suelto)
     const figura = blocks.find(b => b.kind === 'figura')!
-    expect(figura.fields.find(f => f.name === 'ruta')!.value).toBe('pips/ABC-234.png')
+    expect(figura.fields.find(f => f.name === 'ruta')!.value).toBe('pics/ABC-234.png')
     expect(blocks.some(b => b.flags?.broken)).toBe(false)
     expect(joined(suelto, blocks)).toBe(suelto)
   })
@@ -103,7 +103,7 @@ describe('editar una imagen', () => {
     expect(applyFieldEdit(ytext, ancho, '1.0')).toBeNull()
 
     const after = ytext.toString()
-    expect(after).toContain('\\includegraphics[width=1.0\\linewidth]{pips/QRT-482.png}')
+    expect(after).toContain('\\includegraphics[width=1.0\\linewidth]{pics/QRT-482.png}')
     expect(after).toContain('\\label{fig:QRT-482}')
     expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
   })
@@ -112,8 +112,8 @@ describe('editar una imagen', () => {
     const ytext = docWith(FIGURA)
     const figura = parseDoc(FIGURA, 'tex').find(b => b.kind === 'figura')!
     const ruta = figura.fields.find(f => f.name === 'ruta')!
-    expect(applyFieldEdit(ytext, ruta, 'pips/HKD-207.jpg')).toBeNull()
-    expect(ytext.toString()).toContain('{pips/HKD-207.jpg}')
+    expect(applyFieldEdit(ytext, ruta, 'pics/HKD-207.jpg')).toBeNull()
+    expect(ytext.toString()).toContain('{pics/HKD-207.jpg}')
     expect(ytext.toString()).toContain('\\caption{La captura del incidente}')
   })
 })
@@ -121,9 +121,9 @@ describe('editar una imagen', () => {
 describe('el LaTeX que se escribe al poner una imagen', () => {
   it('se lee de vuelta como el bloque que lo escribió', () => {
     // El `|` es la marca de cursor de `insertBlock`; el documento no lo lleva.
-    const latex = figureTemplate('pips/QRT-482.png', 'QRT-482').replace('|', '')
+    const latex = figureTemplate('pics/QRT-482.png', 'QRT-482').replace('|', '')
     const figura = parseTex(latex).find(b => b.kind === 'figura')!
-    expect(figura.fields.find(f => f.name === 'ruta')!.value).toBe('pips/QRT-482.png')
+    expect(figura.fields.find(f => f.name === 'ruta')!.value).toBe('pics/QRT-482.png')
     expect(latex).toContain('\\label{fig:QRT-482}')
     expect(joined(latex, parseTex(latex))).toBe(latex)
   })

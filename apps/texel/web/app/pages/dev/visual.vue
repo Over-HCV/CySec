@@ -31,7 +31,7 @@ const EJEMPLOS: Record<string, string> = {
     '',
     '\\begin{figure}[htbp]',
     '  \\centering',
-    '  \\includegraphics[width=0.8\\linewidth]{pips/QRT-482.png}',
+    '  \\includegraphics[width=0.8\\linewidth]{pics/QRT-482.png}',
     '  \\caption{La captura del incidente}',
     '  \\label{fig:QRT-482}',
     '\\end{figure}',

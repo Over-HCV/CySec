@@ -7,7 +7,7 @@
  */
 
 /** Carpeta del proyecto donde van las imágenes que se suben desde el editor. */
-export const PIPS_DIR = 'pips'
+export const PICS_DIR = 'pics'
 
 /**
  * Lo que `xelatex` sabe incluir. Un `webp` o un `gif` se subirían sin protestar

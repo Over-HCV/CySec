@@ -114,7 +114,7 @@ function submit() {
         <input v-model="name" class="input flex-1 min-w-0 font-mono text-xs" spellcheck="false">
       </label>
       <p class="text-[11px] text-[var(--text-faint)] mt-1 mb-0">
-        Se guarda en <code>pips/</code>. El nombre sale de una matrícula para que sea fácil de
+        Se guarda en <code>pics/</code>. El nombre sale de una matrícula para que sea fácil de
         leer y de repetir en voz alta; cámbialo si prefieres otro.
       </p>
 

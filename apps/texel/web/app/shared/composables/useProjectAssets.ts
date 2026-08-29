@@ -6,17 +6,17 @@
  * que el compilador sabe leer: `syncSources` escribe cada binario en
  * `safeJoin(workdir, file.path)` y `latexmk` corre desde la raíz del workdir,
  * así que `files.path` **es** la ruta que va dentro del `\includegraphics`.
- * Por eso no hace falta `\graphicspath`: `pips/QRT-482.png` resuelve igual
+ * Por eso no hace falta `\graphicspath`: `pics/QRT-482.png` resuelve igual
  * desde `main.tex` que desde `sections/03-….tex`.
  *
  * Todo va con la sesión del usuario: el RLS del bucket ya deja escribir a un
  * editor del proyecto.
  */
-import { extensionDe, PIPS_DIR, plate, slug } from '~/shared/lib/asset-name'
+import { extensionDe, PICS_DIR, plate, slug } from '~/shared/lib/asset-name'
 import { MAX_FILE_BYTES } from '~/features/projects/lib/import-folder'
 
 export interface AssetUpload {
-  /** Ruta dentro del proyecto: `pips/QRT-482.png`. */
+  /** Ruta dentro del proyecto: `pics/QRT-482.png`. */
   path: string
   /** El nombre sin carpeta ni extensión; sirve de `\label{fig:…}`. */
   name: string
@@ -35,7 +35,7 @@ export function useProjectAssets(projectId: MaybeRefOrGetter<string | null | und
   }
 
   /**
-   * Sube una imagen a `pips/` y devuelve su ruta.
+   * Sube una imagen a `pics/` y devuelve su ruta.
    *
    * El nombre se comprueba contra las rutas que ya existen: sin `upsert`. Las
    * políticas de `project-assets` (`002_storage.sql`) dan `insert`, `select` y
@@ -63,7 +63,7 @@ export function useProjectAssets(projectId: MaybeRefOrGetter<string | null | und
       for (let i = 0; i < 5 && usadas.has(`${base}${ext}`); i++) base = plate()
     }
 
-    const path = `${PIPS_DIR}/${base}${ext}`
+    const path = `${PICS_DIR}/${base}${ext}`
     const storagePath = `${project}/${path}`
 
     const { error } = await supabase.storage
@@ -84,15 +84,15 @@ export function useProjectAssets(projectId: MaybeRefOrGetter<string | null | und
     return { path, name: base }
   }
 
-  /** Los nombres de archivo que ya viven en `pips/`. */
+  /** Los nombres de archivo que ya viven en `pics/`. */
   async function usedNames(project: string): Promise<Set<string>> {
     const { data, error } = await supabase
       .from('files')
       .select('path')
       .eq('project_id', project)
-      .like('path', `${PIPS_DIR}/%`)
+      .like('path', `${PICS_DIR}/%`)
     if (error) throw error
-    return new Set((data ?? []).map(row => (row.path as string).slice(PIPS_DIR.length + 1)))
+    return new Set((data ?? []).map(row => (row.path as string).slice(PICS_DIR.length + 1)))
   }
 
   /**

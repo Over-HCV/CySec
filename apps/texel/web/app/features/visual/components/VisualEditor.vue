@@ -49,7 +49,7 @@ const visible = computed(() => blocks.value.filter(b => !b.flags?.blank))
  * Subir una imagen y meterla en el documento.
  *
  * El `figure` no se puede plantillar de antemano como los demás bloques: hasta
- * que el archivo no está en `pips/` no hay ruta que escribir dentro. Por eso el
+ * que el archivo no está en `pics/` no hay ruta que escribir dentro. Por eso el
  * menú abre primero el diálogo y solo después inserta, con el LaTeX ya
  * compuesto.
  */

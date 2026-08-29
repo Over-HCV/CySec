@@ -7,7 +7,7 @@
 > demás, así que no se empieza la interfaz sin ellos.
 >
 > Estado: **M0–M4 hechos**, M5 a medias. Última revisión: 28 de agosto de 2026,
-> con el **bloque de imagen** (subir, pegar y arrastrar una captura a `pips/`) y
+> con el **bloque de imagen** (subir, pegar y arrastrar una captura a `pics/`) y
 > el **arrastrar-soltar** para reordenar. Antes, el 15 de agosto, los **bloques
 > contenedores** (un `\begin…\end` es un bloque que contiene a otros) y el pase
 > de cristal de macvue.
@@ -396,7 +396,7 @@ mide mal desde `display: none`.
    - `/` → «Nota de borrador» → rellenar → pestaña Código → la macro está bien
      escrita;
    - «Añadir bloque» → «Imagen» → soltar o pegar un PNG → aparece
-     `pips/QRT-482.png` en el árbol de archivos y la miniatura en el bloque;
+     `pics/QRT-482.png` en el árbol de archivos y la miniatura en el bloque;
    - arrastrar un bloque por su asa: la línea de destino aparece entre hermanos y
      no cuando el destino es de otro padre;
    - **Compilar** → el PDF cambia como se espera;
@@ -430,7 +430,7 @@ Los campos apuntan al pie, a la ruta y **solo al número** del
 `width=0.8\linewidth`: cambiar el tamaño es un parche de tres caracteres, no
 reescribir la macro.
 
-El archivo se sube a `pips/` con el nombre de una **matrícula** —`QRT-482`, sin
+El archivo se sube a `pics/` con el nombre de una **matrícula** —`QRT-482`, sin
 `I`, `O`, `0` ni `1`, que son las que se confunden al dictarlas—, o con el que
 escriba quien lo sube. Va al bucket `project-assets` y a una fila de `files` con
 `kind: 'binary'`, que es lo único que el compilador sabe leer: `syncSources`
