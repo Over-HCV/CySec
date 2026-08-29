@@ -21,7 +21,24 @@ export interface Caller {
 export async function requireUser(event: H3Event): Promise<Caller> {
   const user = await serverSupabaseUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: 'sesión no iniciada' })
-  return { userId: user.id, admin: serverSupabaseServiceRole(event) }
+  return { userId: user.id, admin: adminClient(event) }
+}
+
+/**
+ * El cliente que se salta el RLS. Sin `SUPABASE_SERVICE_KEY` el módulo lanza un
+ * «Your project's URL and Key are required», que sale como un 500 pelado y no
+ * dice qué falta: en un despliegue nuevo es justo la variable que se olvida,
+ * porque el resto de la aplicación funciona sin ella.
+ */
+function adminClient(event: H3Event): SupabaseClient {
+  try {
+    return serverSupabaseServiceRole(event)
+  } catch {
+    throw createError({
+      statusCode: 501,
+      statusMessage: 'falta SUPABASE_SERVICE_KEY en el servidor: sin ella no se puede sincronizar'
+    })
+  }
 }
 
 /**
