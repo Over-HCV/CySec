@@ -42,8 +42,10 @@ export default defineNuxtConfig({
       login: '/auth',
       callback: '/confirm',
       // Solo el editor y la lista de proyectos exigen sesión; la vista previa
-      // de una invitación tiene que poder verse antes de iniciar sesión.
-      exclude: ['/auth', '/invite/**']
+      // de una invitación tiene que poder verse antes de iniciar sesión, y el
+      // banco de pruebas del modo visual —que solo existe en desarrollo y no
+      // toca la base de datos— tampoco tiene por qué pedirla.
+      exclude: ['/auth', '/invite/**', '/dev/**']
     }
   },
 

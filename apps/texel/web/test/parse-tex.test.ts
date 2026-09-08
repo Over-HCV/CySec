@@ -201,13 +201,17 @@ describe.skipIf(!hasRepo)('parseTex sobre 04-aaa-dbir (tabla)', () => {
   const text = repoFile(SECTIONS[3]!)
   const blocks = parseTex(text)
 
-  it('mantiene la tabla entera en un solo raw', () => {
-    const tabla = blocks.find(b =>
-      b.kind === 'raw' && text.slice(b.span.from, b.span.to).includes('\\begin{table}'))
+  it('el flotante es un contenedor y la tabla de dentro, un bloque de tabla', () => {
+    // `table` dejó de ser opaco: ahora el `\caption` y el `tabular` de dentro
+    // son bloques propios, que es lo que permite editar la tabla por celdas.
+    const flotante = flatten(blocks).find(b => b.kind === 'env' && b.meta!.env === 'table')
+    expect(flotante).toBeDefined()
+    const tabla = flatten([flotante!]).find(b => b.kind === 'table')
     expect(tabla).toBeDefined()
-    const src = text.slice(tabla!.span.from, tabla!.span.to)
-    expect(src).toContain('\\end{table}')
-    expect(src).toContain('\\bottomrule')
+    expect(tabla!.meta!.table!.cols).toBeGreaterThan(1)
+    // Y el archivo se sigue reconstruyendo entero, reglas incluidas.
+    expect(joined(text, blocks)).toBe(text)
+    expect(text.slice(tabla!.span.from, tabla!.span.to)).toContain('\\bottomrule')
   })
 
   it('encuentra las dos secciones del archivo', () => {
@@ -265,11 +269,13 @@ describe.skipIf(!hasRepo)('parseTex en casos límite', () => {
 
 describe.skipIf(!hasRepo)('entornos como contenedores', () => {
   it('un entorno cualquiera se convierte en un bloque con hijos', () => {
-    const s = '\\begin{itemize}\n\\item uno\n\\end{itemize}\n'
+    // `itemize` ya no vale de ejemplo de «entorno cualquiera»: tiene ficha
+    // propia desde que los `\item` se leen uno a uno. Ver `test/lista.test.ts`.
+    const s = '\\begin{quote}\ncuerpo\n\\end{quote}\n'
     const [env] = parseTex(s)
     expect(env!.kind).toBe('env')
-    expect(env!.meta!.env).toBe('itemize')
-    expect(s.slice(env!.meta!.bodyFrom!, env!.meta!.bodyTo!)).toBe('\n\\item uno\n')
+    expect(env!.meta!.env).toBe('quote')
+    expect(s.slice(env!.meta!.bodyFrom!, env!.meta!.bodyTo!)).toBe('\ncuerpo\n')
     expect(joined(s, parseTex(s))).toBe(s)
   })
 
@@ -309,11 +315,19 @@ describe.skipIf(!hasRepo)('entornos como contenedores', () => {
     expect(joined(s, parseTex(s))).toBe(s)
   })
 
-  it('un entorno opaco sigue entero como raw', () => {
+  it('un tabular es un bloque de tabla, y sigue siendo hoja', () => {
     const s = '\\begin{tabular}{ll}\na & b \\\\\n\\end{tabular}\n'
     const [tabla] = parseTex(s)
-    expect(tabla!.kind).toBe('raw')
+    expect(tabla!.kind).toBe('table')
     expect(tabla!.items).toBeUndefined()
+    expect(joined(s, parseTex(s))).toBe(s)
+  })
+
+  it('un entorno opaco de verdad sigue entero como raw', () => {
+    const s = '\\begin{equation}\n  a = b\n\\end{equation}\n'
+    const [formula] = parseTex(s)
+    expect(formula!.kind).toBe('raw')
+    expect(formula!.items).toBeUndefined()
   })
 
   it('sin \\begin{document} no se agrupa preámbulo', () => {

@@ -111,6 +111,17 @@ export const SAMPLE_MAIN = `\\documentclass[es]{cysec}
 `
 
 export const REFS_BIB = 'latex/tex/bib/refs.bib'
+export const WS02 = 'latex/workshops/ws-02'
+/** El taller que estrena listings, capturas y tablas. */
+export const SECTIONS_02 = [
+  `${WS02}/sections/00-introduccion.tex`,
+  `${WS02}/sections/01-inyeccion-sql.tex`,
+  `${WS02}/sections/02-sqlmap-activa.tex`,
+  `${WS02}/sections/03-bypass-auth.tex`,
+  `${WS02}/sections/04-preguntas-adicionales.tex`,
+  `${WS02}/sections/05-xss.tex`,
+  `${WS02}/sections/06-conclusiones.tex`
+]
 export const WS01 = 'latex/workshops/ws-01'
 export const SECTIONS = [
   `${WS01}/sections/01-confidencialidad.tex`,

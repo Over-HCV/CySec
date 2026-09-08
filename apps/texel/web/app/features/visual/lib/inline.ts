@@ -28,8 +28,15 @@ export type InlineNode =
   | { kind: 'mark', mark: Mark, cmd: string, children: InlineNode[] }
   /** Un carácter que en LaTeX va escapado (`\%`, `\_`, `\textbackslash`…). */
   | { kind: 'escape', value: string, source: string }
-  /** Cualquier otra cosa: se conserva literal y no se edita por dentro. */
-  | { kind: 'opaque', source: string, label: string }
+  /**
+   * Cualquier otra cosa: se conserva literal y no se edita por dentro.
+   *
+   * `text` es lo que la ficha enseña cuando el argumento **es** el contenido —el
+   * enlace de un `\url{…}`—; sin él la ficha solo diría «\url» y la línea de la
+   * lista se quedaría sin lo único que tenía que decir. No cambia `label`, que
+   * es con lo que `isProse` decide si un tramo es prosa.
+   */
+  | { kind: 'opaque', source: string, label: string, text?: string }
 
 /**
  * Macros que son solo formato. El valor semántico (`\term`, `\eng`) se pinta
@@ -129,9 +136,17 @@ export function parseInline(latex: string): InlineNode[] {
     // Macro desconocido, o conocido pero con el argumento sin cerrar: se traga
     // entero con su grupo si lo tiene, y se queda opaco.
     const arg = readGroup(latex, name.end, false)
-    const end = arg ? arg.end : name.end
+    // `\href{url}{texto}`: lo que se lee es el segundo grupo, no el primero.
+    const segundo = name.value === 'href' && arg ? readGroup(latex, arg.end, false) : null
+    const end = segundo ? segundo.end : arg ? arg.end : name.end
+    const legible = segundo ?? (name.value === 'url' ? arg : null)
     flush()
-    out.push({ kind: 'opaque', source: latex.slice(i, end), label: `\\${name.value}` })
+    out.push({
+      kind: 'opaque',
+      source: latex.slice(i, end),
+      label: `\\${name.value}`,
+      ...(legible ? { text: latex.slice(legible.inner.from, legible.inner.to) } : {})
+    })
     i = end
   }
 

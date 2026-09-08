@@ -154,3 +154,29 @@ describe.skipIf(!hasRepo)('offsets: lo que se ve ⇄ lo que se guarda', () => {
     }
   })
 })
+
+describe('fichas que se leen', () => {
+  it('un `\\url{…}` enseña su enlace y vuelve a salir igual', () => {
+    const [nodo] = parseInline('\\url{https://ejemplo.test/a?b=1}')
+    expect(nodo).toMatchObject({
+      kind: 'opaque',
+      label: '\\url',
+      text: 'https://ejemplo.test/a?b=1',
+      source: '\\url{https://ejemplo.test/a?b=1}'
+    })
+    expect(serializeInline([nodo!])).toBe('\\url{https://ejemplo.test/a?b=1}')
+  })
+
+  it('un `\\href{url}{texto}` enseña el texto, que es lo que se lee', () => {
+    const source = '\\href{https://ejemplo.test}{la guía}'
+    const [nodo] = parseInline(source)
+    expect(nodo).toMatchObject({ kind: 'opaque', text: 'la guía', source })
+    expect(serializeInline([nodo!])).toBe(source)
+  })
+
+  it('los demás macros siguen enseñando su nombre', () => {
+    const [nodo] = parseInline('\\cite{togaf92}')
+    expect(nodo).toMatchObject({ kind: 'opaque', label: '\\cite' })
+    expect((nodo as { text?: string }).text).toBeUndefined()
+  })
+})

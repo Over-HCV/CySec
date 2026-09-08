@@ -116,7 +116,9 @@ function toDom(nodes: InlineNode[]): Node[] {
       chip.className = isComment ? 'mark-comment' : 'chip'
       chip.contentEditable = 'false'
       chip.dataset.src = node.source
-      chip.textContent = isComment ? '·' : node.label
+      // Un `\url{…}` enseña su enlace: es lo que se lee, y con el nombre del
+      // macro a secas la línea no diría nada. El resto sigue siendo su nombre.
+      chip.textContent = isComment ? '·' : (node.text ?? node.label)
       chip.title = node.source
       out.push(chip)
     } else {

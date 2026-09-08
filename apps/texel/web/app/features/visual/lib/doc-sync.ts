@@ -13,7 +13,8 @@
 import type * as Y from 'yjs'
 import { parseBib } from './parse-bib'
 import { parseTex } from './parse-tex'
-import { specOf } from './catalog'
+import { CONTAINER_ARGS, specOf } from './catalog'
+import { trimSpan } from './scan'
 import { assignIds, type Block, type BlockKind, type DocKind, type Field, type Span } from './types'
 
 /** Marca de origen de nuestras transacciones. */
@@ -33,6 +34,11 @@ export const STALE = 'STALE' as const
 
 /** `null` si fue bien; `STALE`; o un mensaje para enseñar en el campo. */
 export type EditProblem = string | typeof STALE | null
+
+/** El texto de un rango. */
+function slice(text: string, span: Span): string {
+  return text.slice(span.from, span.to)
+}
 
 /** ¿El documento sigue diciendo, en ese rango, exactamente lo que creemos? */
 function fresh(text: string, span: Span, expected: string): boolean {
@@ -63,6 +69,19 @@ export function checkValue(value: string): string | null {
 }
 
 /**
+ * ¿Se puede escribir este valor dentro de un entorno literal?
+ *
+ * En un `lstlisting` las llaves no significan nada —de ahí que `checkValue` no
+ * sirva—, pero un `\end{…}` sí: cerraría el entorno en mitad del código y el
+ * resto del archivo se leería como otra cosa.
+ */
+export function checkVerbatim(value: string): string | null {
+  return /\\end\s*\{/.test(value)
+    ? 'Un bloque de código no puede llevar dentro «\\end{…}»'
+    : null
+}
+
+/**
  * Reemplaza el valor de un campo. Solo se borra e inserta el rango del campo:
  * el resto del documento no se toca, ni siquiera el resto del bloque.
  *
@@ -79,7 +98,7 @@ export function applyFieldEdit(
   guard?: { span: Span, expected: string }
 ): EditProblem {
   if (value === field.value) return null
-  const problem = checkValue(value)
+  const problem = field.verbatim ? checkVerbatim(value) : checkValue(value)
   if (problem) return problem
   const text = ytext.toString()
   if (guard && !fresh(text, guard.span, guard.expected)) return STALE
@@ -141,6 +160,147 @@ export function renameEnv(ytext: Y.Text, block: Block, name: string): EditProble
 }
 
 /**
+ * Convierte un bloque en otro tipo.
+ *
+ * Dos caminos, porque son dos cosas distintas:
+ *
+ * - **Hoja**: se saca el texto que lleva dentro (`payloadOf`), se vuelve a
+ *   escribir con la forma del tipo nuevo (`renderAs`) y se reemplaza el bloque
+ *   **sin sus espacios de los bordes**: la separación entre bloques es del
+ *   documento, no del bloque, y moverla iría apilando líneas en blanco en un
+ *   extremo del archivo, que es la misma trampa que ya evita `moveBlockTo`.
+ * - **Contenedor**: no se toca el cuerpo. Se reescriben los dos extremos —el
+ *   `\begin{…}` con sus argumentos y el `\end{…}`— en una sola transacción y de
+ *   atrás hacia delante, como `renameEnv`, así que los hijos ni se enteran.
+ *
+ * Si el contenedor de partida tenía un título y el de destino no lleva
+ * argumentos, el título no se tira: baja a la primera línea del cuerpo. Perder
+ * texto sin avisar es peor que dejarlo en un sitio raro, donde se ve y se mueve.
+ */
+export function convertBlock(
+  ytext: Y.Text,
+  block: Block,
+  to: BlockKind,
+  snapshot: string
+): EditProblem {
+  if (to === block.kind) return null
+  return isContainerBlock(block)
+    ? convertContainer(ytext, block, to, snapshot)
+    : convertLeaf(ytext, block, to, snapshot)
+}
+
+function isContainerBlock(block: Block): boolean {
+  return block.items !== undefined && block.meta?.bodyFrom !== undefined
+    && block.meta?.env !== undefined
+}
+
+/** El texto que un bloque lleva dentro, sea cual sea su forma. */
+export function payloadOf(block: Block, text: string): { titulo?: string, cuerpo: string } {
+  const valor = (name: string) => block.fields.find(f => f.name === name)?.value ?? ''
+  switch (block.kind) {
+    case 'section': return { cuerpo: valor('titulo') }
+    case 'pregunta': return { cuerpo: valor('enunciado') }
+    case 'porque': return { titulo: valor('titulo'), cuerpo: valor('texto') }
+    case 'code': return { cuerpo: valor('codigo') }
+    case 'input': return { cuerpo: valor('ruta') }
+    case 'paragraph': return { cuerpo: valor('texto') }
+    default: {
+      const inner = trimSpan(text, block.span)
+      return { cuerpo: text.slice(inner.from, inner.to) }
+    }
+  }
+}
+
+/** El LaTeX de ese texto con la forma del tipo pedido. */
+export function renderAs(kind: BlockKind, payload: { titulo?: string, cuerpo: string }): string {
+  const { titulo = '', cuerpo } = payload
+  switch (kind) {
+    case 'section': return `\\section{${oneLine(cuerpo)}}`
+    case 'pregunta': return `\\pregunta{${oneLine(cuerpo)}}`
+    case 'porque': return `\\porque{${oneLine(titulo) || 'nota'}}{%\n  ${cuerpo}%\n}`
+    case 'input': return `\\input{${oneLine(cuerpo)}}`
+    case 'code': return `\\begin{lstlisting}\n${cuerpo}\n\\end{lstlisting}`
+    default: return cuerpo
+  }
+}
+
+/**
+ * Un título es de una línea: un `\section{…}` con un salto dentro compila, pero
+ * nadie lo escribe así, y el salto viene de que antes era un párrafo.
+ */
+function oneLine(value: string): string {
+  return value.replace(/\s*\n\s*/g, ' ').trim()
+}
+
+function convertLeaf(
+  ytext: Y.Text,
+  block: Block,
+  to: BlockKind,
+  snapshot: string
+): EditProblem {
+  const payload = payloadOf(block, snapshot)
+  // Un cuerpo con llaves descompensadas solo es válido donde son literales: en
+  // un bloque de código, o en el LaTeX crudo, que es de quien lo escribe.
+  if (to !== 'code' && to !== 'raw') {
+    const problem = checkValue(payload.cuerpo)
+    if (problem) return `${problem}: arréglalo antes de convertir el bloque`
+  }
+  if (to === 'code') {
+    const problem = checkVerbatim(payload.cuerpo)
+    if (problem) return problem
+  }
+
+  const core = trimSpan(snapshot, block.span)
+  const expected = snapshot.slice(core.from, core.to)
+  if (!fresh(ytext.toString(), core, expected)) return STALE
+
+  const body = renderAs(to, payload)
+  ytext.doc!.transact(() => {
+    ytext.delete(core.from, core.to - core.from)
+    ytext.insert(core.from, body)
+  }, VISUAL_ORIGIN)
+  return null
+}
+
+function convertContainer(
+  ytext: Y.Text,
+  block: Block,
+  to: BlockKind,
+  snapshot: string
+): EditProblem {
+  const { env, bodyFrom, bodyTo } = block.meta ?? {}
+  if (env === undefined || bodyFrom === undefined || bodyTo === undefined) return null
+  if (to === 'env') return null
+
+  const header = { from: block.span.from, to: bodyFrom }
+  const footer = { from: bodyTo, to: block.span.to }
+  const text = ytext.toString()
+  if (!fresh(text, header, snapshot.slice(header.from, header.to))
+    || !fresh(text, footer, snapshot.slice(footer.from, footer.to))) return STALE
+
+  // Los argumentos que el destino sí admite se conservan; los que sobran bajan
+  // al cuerpo, y los que faltan nacen vacíos.
+  const args = block.fields.map(f => f.value)
+  const admite = CONTAINER_ARGS[to] ?? 0
+  const conservados = args.slice(0, admite)
+  while (conservados.length < admite) conservados.push('')
+  const sobrantes = args.slice(admite).filter(a => a.trim() !== '')
+
+  const inicio = `\\begin{${to}}${conservados.map(a => `{${a}}`).join('')}`
+  const cierre = `\\end{${to}}`
+  const rescatado = sobrantes.length ? `\n  ${sobrantes.join('\n  ')}\n` : ''
+
+  ytext.doc!.transact(() => {
+    ytext.delete(footer.from, footer.to - footer.from)
+    ytext.insert(footer.from, cierre)
+    if (rescatado) ytext.insert(bodyFrom, rescatado)
+    ytext.delete(header.from, header.to - header.from)
+    ytext.insert(header.from, inicio)
+  }, VISUAL_ORIGIN)
+  return null
+}
+
+/**
  * Punto de inserción para un hijo nuevo: detrás del último hijo, o al principio
  * del cuerpo si el contenedor está vacío.
  */
@@ -192,6 +352,119 @@ export function removeBlock(ytext: Y.Text, block: Block, snapshot: string): Edit
 
   ytext.doc!.transact(() => {
     ytext.delete(block.span.from, length)
+  }, VISUAL_ORIGIN)
+  return null
+}
+
+/**
+ * Añade una fila vacía a una tabla, delante de la fila `index` (o al final si
+ * `index` es el número de filas).
+ *
+ * La fila nace con tantas celdas como columnas tenga la tabla y con la misma
+ * sangría que su vecina: una tabla de LaTeX se lee en el archivo, y meter una
+ * fila pegada al margen la vuelve ilegible para quien edita en la otra pestaña.
+ *
+ * Se escribe **detrás de las reglas** de la fila de destino: una fila nueva va
+ * debajo del `\midrule`, no encima, o el separador dejaría de separar lo que
+ * separaba.
+ */
+export function insertRow(
+  ytext: Y.Text,
+  block: Block,
+  index: number,
+  snapshot: string
+): EditProblem {
+  const grid = block.meta?.table
+  if (!grid) return null
+  const rows = grid.rows
+  const destino = rows[index]
+  // Delante de una fila con celdas se escribe **detrás** de sus reglas: una
+  // fila nueva va debajo del `\midrule`. Delante de una fila que solo es una
+  // regla —el `\bottomrule` del final— se escribe antes, o la fila quedaría
+  // fuera de la tabla, detrás de la línea que la cierra.
+  const at = destino
+    ? (destino.cells.length ? (destino.lead?.to ?? destino.span.from) : destino.span.from)
+    : (rows.length ? rows[rows.length - 1]!.span.to : block.meta!.bodyFrom!)
+
+  const linea = `${indentOf(snapshot, at)}${new Array(grid.cols).fill('').join(' & ')} \\\\\n`
+  return applyFieldEdit(
+    ytext,
+    { name: 'fila', span: { from: at, to: at }, value: '' },
+    linea,
+    { span: block.span, expected: snapshot.slice(block.span.from, block.span.to) }
+  )
+}
+
+/** La sangría de la línea en la que cae `at`: la que llevan sus vecinas. */
+function indentOf(text: string, at: number): string {
+  const inicio = text.lastIndexOf('\n', Math.max(0, at - 1)) + 1
+  const match = /^[ \t]*/.exec(text.slice(inicio))
+  return match ? match[0] : ''
+}
+
+/**
+ * Borra una fila de la tabla. Las reglas que la abren no se van con ella: el
+ * `\midrule` separa la cabecera del cuerpo y seguirá haciendo falta cuando la
+ * fila de debajo sea otra.
+ */
+export function removeRow(
+  ytext: Y.Text,
+  block: Block,
+  index: number,
+  snapshot: string
+): EditProblem {
+  const row = block.meta?.table?.rows[index]
+  if (!row) return null
+  const span = { from: row.lead?.to ?? row.span.from, to: row.span.to }
+  const expected = slice(snapshot, span)
+  if (!fresh(ytext.toString(), span, expected)) return STALE
+
+  // El salto que separaba la regla de su fila estaba dentro de lo que se borra,
+  // así que hay que reponerlo: si no, el `\midrule` se queda pegado a la fila
+  // siguiente en la misma línea y el archivo se vuelve ilegible en la pestaña
+  // Código. Compila igual, pero eso no es excusa.
+  const reponer = row.lead ? '\n' : ''
+
+  ytext.doc!.transact(() => {
+    ytext.delete(span.from, span.to - span.from)
+    if (reponer) ytext.insert(span.from, reponer)
+  }, VISUAL_ORIGIN)
+  return null
+}
+
+/**
+ * Sube o baja una fila. Se permuta el texto de las dos filas —sin sus reglas—,
+ * escribiendo primero la de más adelante para no desplazar a la otra, que es lo
+ * mismo que hace `renameEnv`.
+ */
+export function moveRow(
+  ytext: Y.Text,
+  block: Block,
+  index: number,
+  dir: -1 | 1,
+  snapshot: string
+): EditProblem {
+  const rows = block.meta?.table?.rows
+  if (!rows) return null
+  let other = index + dir
+  while (rows[other] && rows[other]!.cells.length === 0) other += dir
+  if (!rows[index] || !rows[other]) return null
+
+  const uno = { from: rows[index]!.lead?.to ?? rows[index]!.span.from, to: rows[index]!.span.to }
+  const otro = { from: rows[other]!.lead?.to ?? rows[other]!.span.from, to: rows[other]!.span.to }
+  const primero = uno.from < otro.from ? uno : otro
+  const segundo = uno.from < otro.from ? otro : uno
+
+  const text = ytext.toString()
+  const textoPrimero = snapshot.slice(primero.from, primero.to)
+  const textoSegundo = snapshot.slice(segundo.from, segundo.to)
+  if (!fresh(text, primero, textoPrimero) || !fresh(text, segundo, textoSegundo)) return STALE
+
+  ytext.doc!.transact(() => {
+    ytext.delete(segundo.from, segundo.to - segundo.from)
+    ytext.insert(segundo.from, textoPrimero)
+    ytext.delete(primero.from, primero.to - primero.from)
+    ytext.insert(primero.from, textoSegundo)
   }, VISUAL_ORIGIN)
   return null
 }

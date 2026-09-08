@@ -19,8 +19,9 @@
  */
 import type * as Y from 'yjs'
 import {
-  applyBodyEdit, applyFieldEdit, duplicateBlock, insertBlock, insideOf, moveBlock, moveBlockTo,
-  parseDoc, removeBlock, renameEnv, STALE, toggleOption, VISUAL_ORIGIN, type EditProblem
+  applyBodyEdit, applyFieldEdit, convertBlock, duplicateBlock, insertBlock, insertRow, insideOf,
+  moveBlock, moveBlockTo, moveRow, parseDoc, removeBlock, removeRow, renameEnv, STALE,
+  toggleOption, VISUAL_ORIGIN, type EditProblem
 } from '../lib/doc-sync'
 import { childKind } from '../lib/catalog'
 import { blockAt, siblingsAt, type Block, type BlockKind, type DocKind, type Field } from '../lib/types'
@@ -198,6 +199,48 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     return i
   }
 
+  /**
+   * Cambia el lenguaje de un bloque de código.
+   *
+   * Tres casos, porque el `[language=…]` puede no existir todavía: si hay campo
+   * se reescribe su valor —cinco caracteres—; si no lo hay se escribe la opción
+   * entera detrás del `\begin{…}`, con el bloque de guarda porque ahí el rango
+   * propio está vacío y no comprueba nada; y quitarlo solo se puede cuando el
+   * corchete no lleva nada más, o se llevaría por delante opciones que la
+   * interfaz ni enseña.
+   */
+  function setLanguage(block: Block, value: string) {
+    const fresh = resolve(block)
+    if (!fresh) { refresh(); return }
+    const key = `${block.id}:lenguaje`
+    const field = fresh.fields.find(f => f.name === 'lenguaje') ?? null
+    const { optFrom, optTo, bodyFrom } = fresh.meta ?? {}
+
+    if (value) {
+      if (field) { report(key, applyFieldEdit(ytext, field, value)); return }
+      if (bodyFrom === undefined) return
+      report(key, applyFieldEdit(
+        ytext,
+        { name: 'lenguaje', span: { from: bodyFrom, to: bodyFrom }, value: '' },
+        `[language=${value}]`,
+        { span: fresh.span, expected: sourceOf(fresh) }
+      ))
+      return
+    }
+
+    if (!field || optFrom === undefined || optTo === undefined) return
+    const opciones = text.value.slice(optFrom + 1, optTo - 1).trim()
+    if (opciones !== `language=${field.value}`) {
+      report(key, 'Este listing lleva más opciones; quítalas en la pestaña Código')
+      return
+    }
+    report(key, applyFieldEdit(ytext, {
+      name: 'opciones',
+      span: { from: optFrom, to: optTo },
+      value: text.value.slice(optFrom, optTo)
+    }, ''))
+  }
+
   function editBody(block: Block, value: string) {
     const fresh = resolve(block)
     if (!fresh) return
@@ -235,7 +278,8 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     // otro contenedor, un párrafo.
     const cuerpo = fresh.kind === 'fuentes' ? `  \\fuente{${value}}\n`
       : fresh.kind === 'mcq' ? `  \\opcion{${value}}\n`
-        : `${value}\n`
+        : fresh.kind === 'lista' ? `  \\item ${value}\n`
+          : `${value}\n`
     const inserted = `${prefix}${cuerpo}`
     // Insertar es el único caso en el que el rango propio no comprueba nada
     // —está vacío—, así que lo que tiene que seguir intacto es el contenedor.
@@ -277,13 +321,25 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
   }
 
   /**
-   * Escribe LaTeX ya compuesto justo detrás de un bloque. Es por donde entra una
-   * imagen pegada dentro de un párrafo: el `figure` no se puede plantillar de
-   * antemano porque hasta que el archivo no está subido no hay ruta que poner.
+   * Escribe un bloque nuevo pegado a otro, delante o detrás.
+   *
+   * Es lo que hace la tira «+» que aparece entre dos bloques, y también por
+   * donde entra una imagen pegada dentro de un párrafo: la macro de la captura
+   * no se puede plantillar de antemano porque hasta que el archivo no está
+   * subido no hay nombre que poner, y por eso se admite un `template`.
+   *
+   * La guarda es el bloque vecino: el sitio se dice con su rango, así que si el
+   * rango ya no es el que era, el sitio tampoco.
    */
-  function insertAfter(block: Block, blockKind: BlockKind, template: string) {
+  function insertAt(
+    block: Block,
+    edge: 'before' | 'after',
+    blockKind: BlockKind,
+    template?: string
+  ) {
     structural(block, (fresh) => {
-      const result = insertBlock(ytext, fresh.span.to, blockKind, {
+      const at = edge === 'before' ? fresh.span.from : fresh.span.to
+      const result = insertBlock(ytext, at, blockKind, {
         span: fresh.span,
         expected: sourceOf(fresh)
       }, template)
@@ -312,6 +368,31 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     })
   }
 
+  /**
+   * Cambia el tipo de un bloque. Lo que no se puede escribir —un cuerpo con
+   * llaves sin cerrar dentro de un `\section{…}`— se avisa en el bloque en vez
+   * de escribirse a medias.
+   */
+  function convert(block: Block, blockKind: BlockKind) {
+    structural(block, (fresh) => {
+      const problem = convertBlock(ytext, fresh, blockKind, text.value)
+      if (problem && problem !== STALE) { report(`${block.id}:convertir`, problem); return null }
+      report(`${block.id}:convertir`, null)
+      return problem
+    })
+  }
+
+  /**
+   * Las filas de una tabla. Son las tres operaciones que cambian su forma; el
+   * contenido de una celda es un campo como cualquier otro y va por `edit`.
+   */
+  const addRow = (block: Block, index: number) =>
+    structural(block, f => insertRow(ytext, f, index, text.value))
+  const deleteRow = (block: Block, index: number) =>
+    structural(block, f => removeRow(ytext, f, index, text.value))
+  const shiftRow = (block: Block, index: number, dir: -1 | 1) =>
+    structural(block, f => moveRow(ytext, f, index, dir, text.value))
+
   /** La dirección del padre: `'2.1.0'` → `'2.1'`, y `''` para los de arriba. */
   function parentOf(id: string): string {
     return id.includes('.') ? id.slice(0, id.lastIndexOf('.')) : ''
@@ -333,10 +414,15 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     edit,
     split,
     editBody,
+    setLanguage,
     rename,
     addInside,
     insert,
-    insertAfter,
+    insertAt,
+    convert,
+    addRow,
+    deleteRow,
+    shiftRow,
     writeInside,
     moveTo,
     dragging,

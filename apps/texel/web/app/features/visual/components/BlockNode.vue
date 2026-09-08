@@ -12,9 +12,9 @@
  */
 import { MacBadge, MacCheckbox } from '@macvue/core'
 import {
-  AlertTriangle, ChevronRight, Code2, Copy, GripVertical, Plus, Trash2
+  AlertTriangle, ChevronRight, Code2, Copy, GripVertical, Plus, Shuffle, Trash2
 } from 'lucide-vue-next'
-import { ATOMS, fieldSpecOf, specOf } from '../lib/catalog'
+import { ATOMS, conversionsFor, fieldSpecOf, specOf } from '../lib/catalog'
 import { iconOf } from '../lib/icons'
 import { VISUAL_API } from '../lib/api'
 import type { Block, Field, Span } from '../lib/types'
@@ -31,6 +31,16 @@ const isContainer = computed(() => props.block.items !== undefined)
 const isRaw = computed(() => props.block.kind === 'raw')
 /** Una imagen se dibuja sola: la ruta y el ancho los pinta `BlockImage`. */
 const isFigure = computed(() => props.block.kind === 'figura')
+/** El código tampoco pasa por el marco de campos: lo pinta `BlockCode`. */
+const isCode = computed(() => props.block.kind === 'code')
+/** Y una tabla es una rejilla de celdas, no una lista de campos. */
+const isTable = computed(() => props.block.kind === 'table')
+/**
+ * Un elemento de lista se pinta como lo que es: un punto y su texto. Ponerle
+ * delante la palabra «Elemento», como a los demás bloques, convertiría una lista
+ * de cinco puntos en cinco etiquetas repetidas.
+ */
+const isItem = computed(() => props.block.kind === 'item')
 /** Prosa: se edita con formato, no como código. */
 const isParagraph = computed(() =>
   props.block.kind === 'paragraph' && !props.block.flags?.comment)
@@ -83,9 +93,17 @@ const canWrite = computed(() => api.canWrite)
 /** Los hijos en blanco existen en el documento pero no se pintan. */
 const items = computed(() => (props.block.items ?? []).filter(b => !b.flags?.blank))
 
-/** Nombre visible: el de la macro, el del entorno, o el del catálogo. */
-const title = computed(() =>
-  atom.value?.label ?? props.block.meta?.env ?? spec.value.label)
+/**
+ * Nombre visible: el de la macro, el del entorno, o el del catálogo.
+ *
+ * Un bloque de código es la excepción: su entorno se llama `lstlisting` y eso no
+ * le dice nada a quien no sabe LaTeX, que es justo para quien está esta vista.
+ */
+const title = computed(() => atom.value?.label
+  ?? (isCode.value || isTable.value || props.block.kind === 'lista'
+    ? spec.value.label
+    : props.block.meta?.env)
+  ?? spec.value.label)
 
 const icon = computed(() => iconOf(atom.value?.icon ?? spec.value.icon))
 
@@ -93,9 +111,13 @@ const icon = computed(() => iconOf(atom.value?.icon ?? spec.value.icon))
  * Los campos que pinta el marco. De una imagen solo el pie: la ruta y el ancho
  * no son texto que escribir, son la imagen misma, y los enseña `BlockImage`.
  */
-const ownFields = computed(() => (isFigure.value
-  ? props.block.fields.filter(f => f.name === 'pie')
-  : props.block.fields))
+const ownFields = computed(() => {
+  // De una imagen solo el pie; de un bloque de código, ninguno: el cuerpo es
+  // literal y el lenguaje es un desplegable, y los dos los pinta su componente.
+  if (isFigure.value) return props.block.fields.filter(f => f.name === 'pie')
+  if (isCode.value || isTable.value) return []
+  return props.block.fields
+})
 
 /**
  * Los campos de una línea van en la cabecera y los largos, debajo. Un `\input`
@@ -120,6 +142,9 @@ const blockFields = computed(() => ownFields.value.filter(f => isLong(f)))
  * bajarlo costaría una línea de pantalla para nada.
  */
 function isLong(field: Field): boolean {
+  // El punto de una lista se queda siempre en su línea, largo o corto: bajarlo
+  // partiría la lista en dos renglones por elemento.
+  if (isItem.value) return false
   return field.value.includes('\n') || field.value.length > 60
 }
 
@@ -132,6 +157,13 @@ function isArea(field: Field): boolean {
   return fieldSpecOf(props.block.kind, field.name).multiline === true
     || field.value.includes('\n')
 }
+
+/**
+ * A qué otros tipos se puede convertir. Un contenedor conserva sus hijos —solo
+ * se le cambia el envoltorio—, así que aquí no hace falta confirmar nada: lo
+ * que se pierde, como mucho, es un título, y ese baja al cuerpo.
+ */
+const conversiones = computed(() => (canWrite.value ? conversionsFor(props.block.kind) : []))
 
 const showSource = ref(false)
 /** El LaTeX crudo empieza plegado: una línea, y se abre si hace falta. */
@@ -178,6 +210,7 @@ const emptyHint = computed(() => {
   if (props.block.kind === 'caso') return 'Escribe el enunciado del caso…'
   if (props.block.kind === 'fuentes') return 'Pega aquí un enlace…'
   if (props.block.kind === 'mcq') return 'Escribe otra opción…'
+  if (props.block.kind === 'lista') return 'Escribe otro punto…'
   return 'Escribe aquí…'
 })
 
@@ -333,7 +366,7 @@ const rawField = computed<Field>(() => ({
         />
       </span>
       <button
-        v-else
+        v-else-if="!isItem"
         class="name"
         :class="{ 'name-env': block.kind === 'env', 'name-static': !canRename }"
         :disabled="!canRename"
@@ -346,8 +379,23 @@ const rawField = computed<Field>(() => ({
       </span>
 
       <template v-for="field in headerFields" :key="field.name">
-        <span class="flabel">{{ labelOf(field.name) }}</span>
+        <span v-if="!isItem" class="flabel">{{ labelOf(field.name) }}</span>
+        <!-- El punto de una lista es prosa: se escribe con formato, no como
+             código, o una negrita se lee `\textbf{…}` en mitad de la línea. -->
+        <RichText
+          v-if="isItem && field.name === 'texto'"
+          class="min-w-0 flex-1"
+          :value="field.value"
+          :placeholder="labelOf(field.name)"
+          :disabled="!canWrite"
+          :caret="caretIn(field.span)"
+          :problem="api.problems.value[`${block.id}:${field.name}`]"
+          @commit="api.edit(block, field, $event)"
+          @caret-taken="api.placeCaret(null)"
+          @paste-image="onPasteImage"
+        />
         <BlockField
+          v-else
           :value="field.value"
           :label="labelOf(field.name)"
           :multiline="isArea(field)"
@@ -376,6 +424,26 @@ const rawField = computed<Field>(() => ({
           <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
             <ChevronRight :size="12" class="rotate-90" />
           </button>
+          <AppMenu
+            v-if="conversiones.length"
+            trigger-class="icon-btn"
+            title="Cambiar el tipo de bloque"
+          >
+            <template #trigger>
+              <Shuffle :size="12" />
+            </template>
+            <AppMenuItem
+              v-for="destino in conversiones"
+              :key="destino.kind"
+              :hint="destino.hint"
+              @select="api.convert(block, destino.kind)"
+            >
+              <template #icon>
+                <component :is="iconOf(destino.icon)" :size="12" class="shrink-0 mt-[3px]" />
+              </template>
+              {{ destino.label }}
+            </AppMenuItem>
+          </AppMenu>
           <button class="icon-btn" title="Duplicar" @click="api.duplicate(block)">
             <Copy :size="12" />
           </button>
@@ -415,6 +483,26 @@ const rawField = computed<Field>(() => ({
           <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
             <ChevronRight :size="12" class="rotate-90" />
           </button>
+          <AppMenu
+            v-if="conversiones.length"
+            trigger-class="icon-btn"
+            title="Cambiar el tipo de bloque"
+          >
+            <template #trigger>
+              <Shuffle :size="12" />
+            </template>
+            <AppMenuItem
+              v-for="destino in conversiones"
+              :key="destino.kind"
+              :hint="destino.hint"
+              @select="api.convert(block, destino.kind)"
+            >
+              <template #icon>
+                <component :is="iconOf(destino.icon)" :size="12" class="shrink-0 mt-[3px]" />
+              </template>
+              {{ destino.label }}
+            </AppMenuItem>
+          </AppMenu>
           <button class="icon-btn" title="Borrar" @click="onRemove">
             <Trash2 :size="12" />
           </button>
@@ -445,6 +533,26 @@ const rawField = computed<Field>(() => ({
           <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
             <ChevronRight :size="12" class="rotate-90" />
           </button>
+          <AppMenu
+            v-if="conversiones.length"
+            trigger-class="icon-btn"
+            title="Cambiar el tipo de bloque"
+          >
+            <template #trigger>
+              <Shuffle :size="12" />
+            </template>
+            <AppMenuItem
+              v-for="destino in conversiones"
+              :key="destino.kind"
+              :hint="destino.hint"
+              @select="api.convert(block, destino.kind)"
+            >
+              <template #icon>
+                <component :is="iconOf(destino.icon)" :size="12" class="shrink-0 mt-[3px]" />
+              </template>
+              {{ destino.label }}
+            </AppMenuItem>
+          </AppMenu>
           <button class="icon-btn" title="Borrar" @click="onRemove">
             <Trash2 :size="12" />
           </button>
@@ -474,6 +582,26 @@ const rawField = computed<Field>(() => ({
           <button class="icon-btn" title="Bajar" @click="api.move(block, 1)">
             <ChevronRight :size="12" class="rotate-90" />
           </button>
+          <AppMenu
+            v-if="conversiones.length"
+            trigger-class="icon-btn"
+            title="Cambiar el tipo de bloque"
+          >
+            <template #trigger>
+              <Shuffle :size="12" />
+            </template>
+            <AppMenuItem
+              v-for="destino in conversiones"
+              :key="destino.kind"
+              :hint="destino.hint"
+              @select="api.convert(block, destino.kind)"
+            >
+              <template #icon>
+                <component :is="iconOf(destino.icon)" :size="12" class="shrink-0 mt-[3px]" />
+              </template>
+              {{ destino.label }}
+            </AppMenuItem>
+          </AppMenu>
           <button class="icon-btn" title="Borrar" @click="onRemove">
             <Trash2 :size="12" />
           </button>
@@ -499,6 +627,8 @@ const rawField = computed<Field>(() => ({
     </div>
 
     <BlockImage v-if="isFigure" :block="block" />
+    <BlockCode v-if="isCode" :block="block" />
+    <BlockTable v-if="isTable" :block="block" />
 
     <!-- Muchos campos cortos: uno por línea, con su etiqueta delante. -->
     <div v-if="listFields.length && !isParagraph && !isComment" class="pl-[15px]">
@@ -535,12 +665,12 @@ const rawField = computed<Field>(() => ({
 
     <!-- Hijos: riel de un píxel, indentación mínima. -->
     <div v-if="isContainer && open" class="rail">
-      <BlockNode
-        v-for="child in items"
-        :key="child.id"
-        :block="child"
-        :depth="depth + 1"
-      />
+      <template v-for="child in items" :key="child.id">
+        <!-- Dentro de un contenedor también se escribe en medio: la tira va
+             delante de cada hijo, igual que en el primer nivel. -->
+        <BlockInsert :doc="api.doc" :block="child" edge="before" />
+        <BlockNode :block="child" :depth="depth + 1" />
+      </template>
 
       <!-- Línea siempre disponible al final del contenedor: es donde se escribe.
            Antes había un botón que insertaba un salto de línea invisible, así

@@ -25,6 +25,13 @@ export interface Field {
   name: string
   span: Span
   value: string
+  /**
+   * El valor es literal: dentro de un `lstlisting` una llave es una llave y no
+   * abre nada. Sin esta marca, `checkValue` se negaría a escribir un payload
+   * como `<img onerror="alert({})">` por «llaves descompensadas» que LaTeX ni
+   * mira.
+   */
+  verbatim?: boolean
 }
 
 export type BlockKind =
@@ -39,7 +46,11 @@ export type BlockKind =
   | 'porque'     // \porque{título}{texto}
   | 'input'      // \input{ruta}
   | 'env'        // \begin{cualquiera}{args…} … \end{cualquiera}
-  | 'figura'     // \begin{figure} … \includegraphics … \end{figure}
+  | 'figura'     // \begin{figure} … \includegraphics … \end{figure}, y \captura{…}{…}
+  | 'lista'      // \begin{itemize|enumerate|description} … \end{…}
+  | 'item'       // \item …, hijo de una lista
+  | 'code'       // \begin{lstlisting}[language=…] … \end{lstlisting}
+  | 'table'      // \begin{tabular|tabularx|longtable} … \end{…}
   | 'preamble'   // todo lo anterior a \begin{document}, agrupado
   | 'paragraph'  // prosa: se edita con formato, no como código
   | 'atom'       // macro suelta con nombre propio (\makewsheader, \wstitle…)
@@ -56,6 +67,28 @@ export type BlockKind =
  * `endNameTo` apuntan al nombre del entorno en el `\begin` y en el `\end`, que
  * son los dos rangos que hay que tocar a la vez para renombrarlo.
  */
+/**
+ * La rejilla de una tabla, en rangos sobre el documento.
+ *
+ * Una fila de reglas (`\toprule`, `\midrule`, `\hline`) no tiene celdas: es una
+ * línea del dibujo, se conserva tal cual y la interfaz la pinta como separador.
+ */
+export interface TableMeta {
+  cols: number
+  rows: TableRow[]
+}
+
+export interface TableRow {
+  /** Todo lo que ocupa la fila, salto de línea final incluido. */
+  span: Span
+  /** Las reglas que abren la fila (`\toprule`, `\midrule`), si las lleva. */
+  lead?: Span
+  /** El texto de esas reglas, para pintar el separador y saber que está. */
+  rule?: string
+  /** Rango del contenido de cada celda, ya sin los espacios de los bordes. */
+  cells: Span[]
+}
+
 export interface BlockMeta {
   nivel?: number
   env?: string
@@ -67,6 +100,11 @@ export interface BlockMeta {
   nameTo?: number
   endNameFrom?: number
   endNameTo?: number
+  /** Rango de los corchetes de opciones, con ellos incluidos (`[language=bash]`). */
+  optFrom?: number
+  optTo?: number
+  /** Rejilla, solo en un bloque `table`. */
+  table?: TableMeta
 }
 
 export interface Block {
@@ -93,6 +131,17 @@ export function walkBlocks(blocks: Block[], fn: (block: Block, parent: Block | n
     fn(block, parent)
     if (block.items) walkBlocks(block.items, fn, block)
   }
+}
+
+/**
+ * Nombre del campo de una celda: `c2.0` es la primera celda de la tercera fila.
+ *
+ * Las celdas son campos y no bloques hijos —una tabla es un bloque hoja—, así
+ * que necesitan un nombre estable con el que la interfaz las pida y con el que
+ * `applyFieldEdit` las vuelva a buscar tras un reparseo.
+ */
+export function cellName(row: number, col: number): string {
+  return `c${row}.${col}`
 }
 
 /** Qué escáner toca, según la extensión del archivo. */

@@ -9,9 +9,10 @@
  * La superficie es pequeña a propósito: la clase no usa xparse, tiene un único
  * comando estrellado (`\opcion*`) y un único argumento opcional (`\todoans[]`).
  */
-import type { Block, BlockMeta, Field, Span } from './types'
+import { cellName, type Block, type BlockMeta, type Field, type Span } from './types'
 import { fillGaps, readGroup, skipSpace, trimSpan } from './scan'
 import { ATOMS, KNOWN_COMMANDS, WS_META } from './catalog'
+import { readGrid } from './parse-table'
 import { isProse } from './inline'
 
 /**
@@ -21,10 +22,31 @@ import { isProse } from './inline'
  * contenedor genérico y se sigue escaneando dentro.
  */
 const OPAQUE = new Set([
-  'table', 'tabular', 'tabularx', 'longtable', 'center',
-  'verbatim', 'lstlisting', 'minted', 'equation', 'align', 'displaymath',
+  'equation', 'align', 'displaymath',
   'tcolorbox', 'porquebox'
 ])
+
+/**
+ * Entornos que son una tabla: su cuerpo se lee como rejilla de celdas.
+ *
+ * `table` y `center` **no** están aquí: son envoltorios, no tablas, y desde que
+ * dejaron de ser opacos salen como contenedores genéricos, con el `\caption` y
+ * la tabla de dentro como bloques propios.
+ */
+const TABULARS = new Set(['tabular', 'tabularx', 'tabulary', 'longtable'])
+
+/**
+ * Listas: su cuerpo son `\item`, que no llevan llaves y por eso no se leen como
+ * cualquier otra macro — cada elemento acaba donde empieza el siguiente.
+ */
+const LISTS = new Set(['itemize', 'enumerate', 'description'])
+
+/**
+ * Entornos cuyo cuerpo es **literal**: lo que hay dentro no es LaTeX, es lo que
+ * se imprime. No se escanea dentro (un `\end{…}` de un ejemplo no cerraría nada
+ * ni abriría un bloque) y el cuerpo entero es un campo de código.
+ */
+const LISTINGS = new Set(['lstlisting', 'verbatim', 'minted'])
 
 const SECTION_LEVEL: Record<string, number> = {
   section: 1,
@@ -242,6 +264,20 @@ function readCommand(
     ])
   }
 
+  // `\captura{archivo.png}{pie}`: la forma del curso de poner una evidencia
+  // (`latex/tex/common/boxes.tex`). Es una imagen como la de un `figure`, solo
+  // que la clase le pone `pics/` delante y le fija el ancho.
+  if (name.value === 'captura') {
+    const archivo = argument(text, name.end, limit)
+    if (!archivo) return null
+    const pie = argument(text, archivo.end, limit)
+    if (!pie) return null
+    return block('figura', at, pie.end, [
+      field(text, 'pie', pie.inner),
+      field(text, 'ruta', archivo.inner)
+    ], undefined, undefined, { cmd: 'captura' })
+  }
+
   if (name.value === 'fuente') {
     const arg = argument(text, name.end, limit)
     if (!arg) return null
@@ -337,6 +373,176 @@ function widthSpan(text: string, options: Span): Span | null {
 }
 
 /**
+ * Los `\item` de una lista, cada uno hasta donde empieza el siguiente.
+ *
+ * `\item` es la única macro del catálogo sin argumento entre llaves: lo que
+ * lleva dentro es todo lo que hay hasta el próximo `\item` o hasta el `\end`.
+ * Por eso el bloque abarca esa distancia entera —así los elementos particionan
+ * el cuerpo— pero el campo editable es solo el texto, sin la sangría ni el salto
+ * que lo separan del siguiente.
+ *
+ * Devuelve `null` si algún elemento lleva un entorno dentro: eso no es una línea
+ * de texto y la lista se deja como contenedor genérico.
+ */
+function readItems(text: string, from: number, to: number): Block[] | null {
+  const marks: { at: number, end: number, etiqueta: Span | null }[] = []
+  let i = from
+  let depth = 0
+
+  while (i < to) {
+    const c = text[i]
+    if (c === '%') { i = endOfLine(text, i); continue }
+    if (c === '{') { depth++; i++; continue }
+    if (c === '}') { depth--; i++; continue }
+    if (c !== '\\') { i++; continue }
+
+    const name = commandName(text, i)
+    if (!name) { i += 2; continue }
+    if (name.value === 'begin' || name.value === 'end') return null
+    if (name.value !== 'item' || depth !== 0) { i = name.end; continue }
+
+    // `\item[Etiqueta]` de una lista de descripciones.
+    let j = skipSpace(text, name.end)
+    const etiqueta = text[j] === '[' ? readGroup(text, j, true, '[', ']') : null
+    if (etiqueta && etiqueta.end <= to) j = etiqueta.end
+    marks.push({ at: i, end: j, etiqueta: etiqueta ? etiqueta.inner : null })
+    i = j
+  }
+
+  if (!marks.length) return null
+
+  return marks.map((mark, k) => {
+    const hasta = k + 1 < marks.length ? marks[k + 1]!.at : to
+    const texto = trimSpan(text, { from: mark.end, to: hasta })
+    const fields: Field[] = []
+    if (mark.etiqueta) fields.push(field(text, 'etiqueta', mark.etiqueta))
+    fields.push(field(text, 'texto', texto))
+    return block('item', mark.at, hasta, fields).block
+  })
+}
+
+/**
+ * `\begin{tabularx}{\linewidth}{>{\ttfamily}l X} … \end{tabularx}`.
+ *
+ * Bloque **hoja**, como la imagen y el listing: las celdas son campos con su
+ * rango, no bloques hijos, así que la partición del archivo se cumple sola y lo
+ * que la interfaz no enseña —el `\toprule`, un `\multicolumn`, la alineación a
+ * mano— viaja intacto.
+ */
+function readTable(
+  text: string,
+  at: number,
+  nameArg: { inner: Span, end: number },
+  env: string,
+  close: { bodyEnd: number, end: number, name: Span }
+): { block: Block, end: number } | null {
+  // `\begin{tabular}[t]{ll}`: la posición opcional va antes de los argumentos.
+  let i = skipSpace(text, nameArg.end)
+  const pos = text[i] === '[' ? readGroup(text, i, true, '[', ']') : null
+  if (pos && pos.end <= close.bodyEnd) i = pos.end
+  else i = nameArg.end
+
+  const args = sameLineArgs(text, i, close.bodyEnd)
+  if (!args.length) return null
+
+  const bodyFrom = args[args.length - 1]!.end
+  const grid = readGrid(text, bodyFrom, close.bodyEnd)
+  if (!grid) return null
+
+  // `tabularx` y `tabulary` piden primero el ancho y después las columnas.
+  const anchoPrimero = (env === 'tabularx' || env === 'tabulary') && args.length > 1
+  const fields: Field[] = []
+  if (anchoPrimero) fields.push(field(text, 'ancho', args[0]!.inner))
+  fields.push(field(text, 'columnas', args[anchoPrimero ? 1 : 0]!.inner))
+
+  grid.rows.forEach((row, r) => {
+    row.cells.forEach((cell, c) => fields.push(field(text, cellName(r, c), cell)))
+  })
+
+  return block('table', at, close.end, fields, undefined, undefined, {
+    env,
+    bodyFrom,
+    bodyTo: close.bodyEnd,
+    nameFrom: nameArg.inner.from,
+    nameTo: nameArg.inner.to,
+    endNameFrom: close.name.from,
+    endNameTo: close.name.to,
+    table: grid
+  })
+}
+
+/**
+ * `\begin{lstlisting}[language=bash] … \end{lstlisting}`.
+ *
+ * Bloque **hoja**: su cuerpo no se parte en hijos, así que la identidad «bloque
+ * = su substring» se cumple sola y las opciones que la interfaz no enseña
+ * —`caption`, `firstnumber`— viajan intactas.
+ *
+ * El campo `codigo` va marcado `verbatim`: ahí una llave es una llave, y la
+ * comprobación de llaves de `checkValue` rechazaría medio payload del taller.
+ */
+function readListing(
+  text: string,
+  at: number,
+  nameArg: { inner: Span, end: number },
+  env: string,
+  close: { bodyEnd: number, end: number, name: Span }
+): { block: Block, end: number } {
+  const afterName = nameArg.end
+  // Las opciones van pegadas al `\begin`, en su misma línea.
+  let i = afterName
+  while (i < close.bodyEnd && (text[i] === ' ' || text[i] === '\t')) i++
+  const options = text[i] === '[' ? readGroup(text, i, false, '[', ']') : null
+  const afterOptions = options && options.end <= close.bodyEnd ? options.end : afterName
+
+  const fields: Field[] = []
+  const lenguaje = options ? languageSpan(text, options.inner) : null
+  if (lenguaje) fields.push(field(text, 'lenguaje', lenguaje))
+
+  fields.push({ ...field(text, 'codigo', codeSpan(text, afterOptions, close.bodyEnd)), verbatim: true })
+
+  return block('code', at, close.end, fields, undefined, undefined, {
+    env,
+    optFrom: options ? i : undefined,
+    optTo: options ? options.end : undefined,
+    bodyFrom: afterOptions,
+    bodyTo: close.bodyEnd,
+    nameFrom: nameArg.inner.from,
+    nameTo: nameArg.inner.to,
+    endNameFrom: close.name.from,
+    endNameTo: close.name.to
+  })
+}
+
+/**
+ * El cuerpo de un listing sin las dos líneas que son del entorno: el salto que
+ * sigue al `\begin{…}` y el que precede al `\end{…}`. Sin este recorte, el
+ * campo nace con una línea en blanco arriba y otra abajo, y quien edite se las
+ * come sin querer al tocar los bordes.
+ */
+function codeSpan(text: string, from: number, bodyEnd: number): Span {
+  let start = from
+  while (start < bodyEnd && (text[start] === ' ' || text[start] === '\t' || text[start] === '\r')) start++
+  if (text[start] === '\n') start++
+  else start = from
+
+  let end = bodyEnd
+  while (end > start && (text[end - 1] === ' ' || text[end - 1] === '\t' || text[end - 1] === '\r')) end--
+  if (end > start && text[end - 1] === '\n') end--
+
+  return { from: start, to: Math.max(start, end) }
+}
+
+/** Rango del valor de `language=…` dentro de los corchetes del `\begin`. */
+function languageSpan(text: string, options: Span): Span | null {
+  const source = text.slice(options.from, options.to)
+  const match = /language\s*=\s*([A-Za-z0-9+#._-]+)/.exec(source)
+  if (!match) return null
+  const from = options.from + match.index + match[0].length - match[1]!.length
+  return { from, to: from + match[1]!.length }
+}
+
+/**
  * `\begin{figure} … \end{figure}` con una imagen dentro.
  *
  * Es un bloque **hoja**, no un contenedor: su cuerpo no se parte en hijos, así
@@ -405,6 +611,15 @@ function readEnvironment(
   const close = findEnd(text, nameArg.end, env, limit)
   if (!close) return null
 
+  if (LISTINGS.has(env)) return readListing(text, at, nameArg, env, close)
+
+  if (TABULARS.has(env)) {
+    // Sin una sola celda no hay rejilla que enseñar: se conserva entera, igual
+    // que un `figure` sin imagen.
+    return readTable(text, at, nameArg, env, close)
+      ?? { block: rawEnv(at, close.end), end: close.end }
+  }
+
   if (OPAQUE.has(env)) {
     // Reconocido lo justo para no mirar dentro; sale como un `raw` porque
     // `scanRange` no lo añade a los encontrados… salvo que lo devolvamos.
@@ -432,6 +647,25 @@ function readEnvironment(
       endNameFrom: close.name.from,
       endNameTo: close.name.to
     })
+  }
+
+  if (LISTS.has(env)) {
+    const items = readItems(text, nameArg.end, close.bodyEnd)
+    // Un elemento con un entorno dentro —una lista anidada, una imagen— no cabe
+    // en un campo de texto. Antes que enseñarlo a medias, la lista se queda como
+    // el contenedor genérico que ya era.
+    if (items) {
+      return block('lista', at, close.end, [], undefined,
+        fillGaps(text, items, nameArg.end, close.bodyEnd), {
+          env,
+          bodyFrom: nameArg.end,
+          bodyTo: close.bodyEnd,
+          nameFrom: nameArg.inner.from,
+          nameTo: nameArg.inner.to,
+          endNameFrom: close.name.from,
+          endNameTo: close.name.to
+        })
+    }
   }
 
   switch (env) {

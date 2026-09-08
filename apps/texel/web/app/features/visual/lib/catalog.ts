@@ -126,13 +126,36 @@ export const CATALOG: BlockSpec[] = [
     template: '\\input{|}\n'
   },
   {
+    kind: 'lista',
+    label: 'Lista',
+    icon: 'List',
+    hint: 'Puntos o números; cada elemento es una línea',
+    doc: 'tex',
+    fields: [],
+    template: '\\begin{itemize}\n  \\item |\n\\end{itemize}\n\n'
+  },
+  {
+    kind: 'item',
+    label: 'Elemento',
+    icon: 'Dot',
+    hint: 'Un punto de la lista',
+    doc: 'tex',
+    fields: [
+      { name: 'etiqueta', label: 'Etiqueta' },
+      { name: 'texto', label: 'Texto' }
+    ],
+    template: '  \\item |\n'
+  },
+  {
     kind: 'env',
     label: 'Entorno',
     icon: 'Box',
     hint: 'Cualquier \\begin…\\end; contiene otros bloques',
     doc: 'tex',
     fields: [],
-    template: '\\begin{itemize}\n  \\item |\n\\end{itemize}\n\n'
+    // Un `center` y no una lista: para eso está el bloque «Lista», y una lista
+    // escrita desde aquí no se leería como tal hasta escribir el primer `\item`.
+    template: '\\begin{center}\n  |\n\\end{center}\n\n'
   },
   {
     kind: 'figura',
@@ -147,6 +170,36 @@ export const CATALOG: BlockSpec[] = [
     ]
     // Sin `template`: primero hay que subir el archivo, y hasta entonces no se
     // sabe qué ruta escribir. La plantilla la compone `figureTemplate`.
+  },
+  {
+    kind: 'code',
+    label: 'Código',
+    icon: 'Terminal',
+    hint: 'Un comando, una consulta o un payload, tal cual se escribe',
+    doc: 'tex',
+    fields: [
+      { name: 'lenguaje', label: 'Lenguaje' },
+      { name: 'codigo', label: 'Código', multiline: true }
+    ],
+    template: '\\begin{lstlisting}[language=bash]\n|\n\\end{lstlisting}\n\n'
+  },
+  {
+    kind: 'table',
+    label: 'Tabla',
+    icon: 'Table',
+    hint: 'Una rejilla de celdas, con sus filas y sus reglas',
+    doc: 'tex',
+    fields: [{ name: 'columnas', label: 'Columnas' }],
+    // `tabularx` y no `tabular`: es el que reparte el ancho sobrante entre las
+    // columnas `X`, que es lo que hace que una descripción larga no se salga
+    // del margen. Es también el que usan los talleres.
+    template: '\\begin{tabularx}{\\linewidth}{@{}lX@{}}\n'
+      + '  \\toprule\n'
+      + '  | & \\\\\n'
+      + '  \\midrule\n'
+      + '   & \\\\\n'
+      + '  \\bottomrule\n'
+      + '\\end{tabularx}\n\n'
   },
   {
     kind: 'preamble',
@@ -247,6 +300,9 @@ export const WS_META = new Set(['wsnumber', 'wstitle', 'wssession', 'wsdate', 'w
  */
 export const KNOWN_COMMANDS = [
   'porque', 'pregunta', 'fuente', 'opcion', 'section', 'subsection', 'input',
+  'captura', 'lstlisting',
+  // `\item` no entra: no lleva llaves, así que no hay ninguna que se pueda
+  // quedar sin cerrar, y avisar de un `\item` suelto sería ruido.
   ...Object.keys(ATOMS)
 ]
 // `includegraphics` **no** entra en la lista de arriba, aunque el editor sepa
@@ -255,6 +311,17 @@ export const KNOWN_COMMANDS = [
 // `raw`. Un `\begin{center}\includegraphics{…}\end{center}` —el modo de poner
 // una imagen a mano de toda la vida— avisaría de una llave sin cerrar que no
 // existe. El aviso vale menos que ese falso positivo.
+
+/**
+ * Lenguajes que ofrece el bloque de código.
+ *
+ * Son los que de verdad aparecen en los talleres (`grep -ro 'language=[A-Za-z]*'
+ * latex/`) y los que la clase sabe colorear: `listings` trae `bash`, `SQL`,
+ * `HTML`, `Java` y `Python`; `JavaScript` lo define
+ * `latex/tex/common/preamble.tex`. La cadena vacía es «sin lenguaje», que es un
+ * listing perfectamente válido.
+ */
+export const LST_LANGUAGES = ['', 'bash', 'SQL', 'HTML', 'JavaScript', 'Java', 'Python']
 
 /** Ancho por defecto de una imagen recién puesta, en fracciones de `\linewidth`. */
 export const FIGURE_WIDTH = '0.8'
@@ -278,6 +345,19 @@ export function figureTemplate(path: string, label: string): string {
     + `\\end{figure}\n\n`
 }
 
+/**
+ * El LaTeX de una captura del laboratorio.
+ *
+ * `\captura{archivo.png}{pie}` (`latex/tex/common/boxes.tex`) es lo que usa el
+ * curso, y hace dos cosas que un `figure` a mano no hace: busca el archivo
+ * dentro de `pics/` —por eso aquí va el nombre y no la ruta— y, si todavía no
+ * está, dibuja una caja «captura pendiente» en vez de romper la compilación.
+ * Por eso es lo que se escribe al insertar una imagen nueva.
+ */
+export function capturaTemplate(file: string): string {
+  return `\\captura{${file}}{|}\n\n`
+}
+
 const BY_KIND = new Map(CATALOG.map(spec => [spec.kind, spec]))
 
 export function specOf(kind: BlockKind): BlockSpec {
@@ -288,7 +368,9 @@ export function specOf(kind: BlockKind): BlockSpec {
 export function insertable(doc: DocKind): BlockSpec[] {
   // `preamble`, `meta` y `atom` son agrupación o andamiaje, no algo que se
   // inserte a mano; `fuente` y `opcion` se añaden desde dentro de su contenedor.
-  const hidden = new Set<BlockKind>(['fuente', 'opcion', 'raw', 'preamble', 'meta', 'atom'])
+  const hidden = new Set<BlockKind>([
+    'fuente', 'opcion', 'item', 'raw', 'preamble', 'meta', 'atom'
+  ])
   return CATALOG.filter(spec => spec.doc === doc && !hidden.has(spec.kind))
 }
 
@@ -301,10 +383,54 @@ export function fieldSpecOf(kind: BlockKind, name: string): FieldSpec {
   return specOf(kind).fields.find(f => f.name === name) ?? { name, label: name }
 }
 
+/**
+ * A qué otro tipo se puede convertir cada bloque.
+ *
+ * La matriz es explícita y corta a propósito: convertir es reescribir LaTeX, y
+ * ofrecer combinaciones que no significan nada —una imagen «convertida» en una
+ * pregunta— solo sirve para perder texto. Se separan dos familias que no se
+ * mezclan:
+ *
+ * - **Hojas**: se conserva el texto que lleva dentro y se cambia el envoltorio.
+ * - **Contenedores**: no se toca el cuerpo, solo el `\begin` y el `\end`, así
+ *   que los hijos siguen exactamente donde estaban.
+ */
+export const CONVERSIONS: Partial<Record<BlockKind, BlockKind[]>> = {
+  paragraph: ['section', 'pregunta', 'porque', 'code', 'raw'],
+  raw: ['paragraph', 'code', 'section', 'pregunta'],
+  code: ['paragraph', 'raw'],
+  section: ['paragraph', 'pregunta', 'raw'],
+  pregunta: ['paragraph', 'section', 'porque', 'raw'],
+  porque: ['paragraph', 'pregunta', 'raw'],
+  input: ['paragraph', 'raw'],
+  caso: ['respuesta', 'mcq', 'fuentes'],
+  respuesta: ['caso', 'mcq', 'fuentes'],
+  mcq: ['caso', 'respuesta', 'fuentes'],
+  fuentes: ['caso', 'respuesta', 'mcq'],
+  env: ['caso', 'respuesta', 'mcq', 'fuentes']
+}
+
+/** Los tipos que son un `\begin…\end` con nombre fijo y hijos dentro. */
+export const CONTAINER_KINDS = new Set<BlockKind>(['caso', 'respuesta', 'mcq', 'fuentes', 'env'])
+
+/** Cuántos argumentos `{…}` lleva el `\begin` de cada contenedor con ficha. */
+export const CONTAINER_ARGS: Partial<Record<BlockKind, number>> = {
+  caso: 1,
+  mcq: 1,
+  respuesta: 0,
+  fuentes: 0
+}
+
+/** Los tipos a los que se puede convertir este, con su ficha para el menú. */
+export function conversionsFor(kind: BlockKind): BlockSpec[] {
+  return (CONVERSIONS[kind] ?? []).map(specOf)
+}
+
 /** Qué tipo de hijo ofrece un contenedor al pulsar «añadir dentro». */
 export function childKind(parent: BlockKind): BlockKind {
   if (parent === 'fuentes') return 'fuente'
   if (parent === 'mcq') return 'opcion'
+  if (parent === 'lista') return 'item'
   // En cualquier otro contenedor, lo que se quiere escribir es texto.
   return 'paragraph'
 }

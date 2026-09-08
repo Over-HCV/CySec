@@ -11,7 +11,7 @@ import * as Y from 'yjs'
 import { parseTex } from '../app/features/visual/lib/parse-tex'
 import { figureTemplate, specOf } from '../app/features/visual/lib/catalog'
 import { applyFieldEdit, parseDoc } from '../app/features/visual/lib/doc-sync'
-import { esTipoAceptado, plate, slug } from '../app/shared/lib/asset-name'
+import { baseDe, esTipoAceptado, plate, slug } from '../app/shared/lib/asset-name'
 import { joined } from './fixtures'
 
 const FIGURA = `\\section{Con imagen}
@@ -160,5 +160,16 @@ describe('nombres de archivo', () => {
     expect(esTipoAceptado('image/gif')).toBe(false)
     // Un archivo sin tipo no puede colarse por ser cadena vacía.
     expect(esTipoAceptado('')).toBe(false)
+  })
+})
+
+describe('el nombre de una imagen que falta', () => {
+  it('sale del documento, venga como ruta o como nombre a secas', () => {
+    // Es lo que evita subir la imagen con un nombre nuevo y dejar el `\captura`
+    // apuntando al viejo: se reutiliza el que el bloque ya dice.
+    expect(baseDe('pics/QRT-482.png')).toBe('QRT-482')
+    expect(baseDe('sqlmap-escaneo.png')).toBe('sqlmap-escaneo')
+    expect(baseDe('sin-extension')).toBe('sin-extension')
+    expect(baseDe('pics/con.varios.puntos.jpg')).toBe('con.varios.puntos')
   })
 })

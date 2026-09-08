@@ -34,6 +34,20 @@ export function extensionDe(type: string): string | null {
 }
 
 /**
+ * El nombre a secas de lo que hay escrito en el documento.
+ *
+ * Un `\includegraphics` lleva la ruta entera (`pics/QRT-482.png`) y un
+ * `\captura` solo el archivo (`QRT-482.png`); las dos formas dan el mismo
+ * nombre, que es el que hay que reutilizar cuando alguien sube la imagen que
+ * faltaba: si se generase uno nuevo, el documento seguiría apuntando al viejo.
+ */
+export function baseDe(ruta: string): string {
+  const archivo = ruta.slice(ruta.lastIndexOf('/') + 1)
+  const punto = archivo.lastIndexOf('.')
+  return punto > 0 ? archivo.slice(0, punto) : archivo
+}
+
+/**
  * Alfabeto de matrícula: sin `I`, `O`, `0` ni `1`.
  *
  * El nombre se dicta y se copia a mano («la imagen QRT-482»), y esas cuatro son

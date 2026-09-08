@@ -6,10 +6,12 @@
  * camino. Se inyecta una vez y cada `BlockNode` llama directamente.
  */
 import type { InjectionKey, Ref } from 'vue'
-import type { Block, BlockKind, Field } from './types'
+import type { Block, BlockKind, DocKind, Field } from './types'
 
 export interface VisualApi {
   canWrite: boolean
+  /** Qué se está editando: decide qué bloques ofrece el menú de añadir. */
+  doc: DocKind
   /** Texto completo del documento; los bloques solo guardan rangos. */
   text: Ref<string>
   /** Avisos de validación, indexados por «id de bloque»:«campo». */
@@ -29,9 +31,22 @@ export interface VisualApi {
   /** Parte un campo de prosa en dos párrafos: la tecla Enter. */
   split: (block: Block, field: Field, before: string, after: string) => void
   editBody: (block: Block, value: string) => void
+  /** Escribe el `[language=…]` de un bloque de código; con `''` lo quita. */
+  setLanguage: (block: Block, value: string) => void
   rename: (block: Block, name: string) => void
   /** Añade un hijo al final del contenedor. */
   addInside: (container: Block, kind?: BlockKind, template?: string) => void
+  /** Escribe un bloque nuevo pegado a otro: la tira «+» entre dos bloques. */
+  insertAt: (block: Block, edge: 'before' | 'after', kind: BlockKind, template?: string) => void
+  /** Escribe un bloque al final del documento; es lo único que hay si está vacío. */
+  insertAtEnd: (kind: BlockKind, template?: string) => void
+  /**
+   * Pide una imagen para meterla en un sitio concreto. Abre el diálogo de
+   * subida, que vive en `VisualEditor` porque hace falta el proyecto: el bloque
+   * no se puede escribir hasta que el archivo esté arriba y tenga nombre.
+   * `block` a `null` es «al final del documento».
+   */
+  askImage: (block: Block | null, edge: 'before' | 'after' | 'inside') => void
   /** Escribe texto al final del contenedor: la línea que cierra cada bloque. */
   writeInside: (container: Block, value: string) => void
   /** Intercambia el bloque con su vecino visible; resuelve hermanos por sí solo. */
@@ -42,6 +57,12 @@ export interface VisualApi {
   dragging: Ref<string | null>
   /** Dónde se soltaría si se soltara ya; lo pinta la fila de destino. */
   dropTarget: Ref<{ id: string, edge: 'before' | 'after' } | null>
+  /** Cambia el tipo de un bloque; los tipos posibles salen de `CONVERSIONS`. */
+  convert: (block: Block, kind: BlockKind) => void
+  /** Añade una fila vacía delante de `index`; `index` al final la pone al final. */
+  addRow: (block: Block, index: number) => void
+  deleteRow: (block: Block, index: number) => void
+  shiftRow: (block: Block, index: number, dir: -1 | 1) => void
   duplicate: (block: Block) => void
   remove: (block: Block) => void
   toggleOption: (block: Block) => void
@@ -60,6 +81,12 @@ export interface VisualApi {
   insertImage: (target: Block, file: File, where?: 'after' | 'inside') => Promise<void>
   /** Sube una imagen y escribe su ruta en el campo `ruta` de un bloque que ya existe. */
   replaceImage: (block: Block, file: File) => Promise<void>
+  /**
+   * Sube el archivo que le falta a un bloque de imagen, **con el nombre que el
+   * bloque ya dice**. Solo se toca el documento si el nombre final no es el que
+   * había escrito (otra extensión, o un nombre que hubo que sanear).
+   */
+  fillImage: (block: Block, file: File) => Promise<void>
 }
 
 export const VISUAL_API: InjectionKey<VisualApi> = Symbol('visual-api')

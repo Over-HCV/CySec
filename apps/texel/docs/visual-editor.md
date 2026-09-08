@@ -6,11 +6,14 @@
 > (parseo con ida y vuelta demostrable) son la red de seguridad de todo lo
 > demás, así que no se empieza la interfaz sin ellos.
 >
-> Estado: **M0–M4 hechos**, M5 a medias. Última revisión: 28 de agosto de 2026,
-> con el **bloque de imagen** (subir, pegar y arrastrar una captura a `pics/`) y
-> el **arrastrar-soltar** para reordenar. Antes, el 15 de agosto, los **bloques
-> contenedores** (un `\begin…\end` es un bloque que contiene a otros) y el pase
-> de cristal de macvue.
+> Estado: **M0–M4 hechos**, M5 a medias. Última revisión: 8 de septiembre de
+> 2026, con lo que pedía el ws-02: **bloque de código** (`lstlisting`), la macro
+> **`\captura`** como bloque de imagen, **insertar en cualquier hueco** y
+> **convertir un bloque en otro**, y el **bloque de tabla** con edición por
+> celdas y filas. Antes, el 28 de agosto, el bloque de imagen y el
+> arrastrar-soltar; el 15 de agosto, los **bloques contenedores** (un
+> `\begin…\end` es un bloque que contiene a otros) y el pase de cristal de
+> macvue.
 
 ## Contexto
 
@@ -57,10 +60,11 @@ Decisiones ya tomadas con el usuario:
 ```
 web/app/features/visual/
 ├── lib/
-│   ├── types.ts          Span, Field, Block, BlockKind, DocKind
+│   ├── types.ts          Span, Field, Block, BlockKind, DocKind, TableMeta
 │   ├── scan.ts           primitivas: readGroup, rawBlocks, fillGaps
 │   ├── parse-bib.ts      BibTeX → bloques
 │   ├── parse-tex.ts      LaTeX  → bloques
+│   ├── parse-table.ts    el cuerpo de un tabular → rejilla de rangos
 │   ├── inline.ts         marcas dentro de un párrafo (negrita, cursiva, código)
 │   ├── catalog.ts        definición de cada tipo de bloque + macros con nombre
 │   ├── api.ts            lo que el árbol de bloques puede hacer (inject)
@@ -70,7 +74,10 @@ web/app/features/visual/
 └── components/
     ├── VisualEditor.vue  lista de bloques de primer nivel + añadir
     ├── BlockNode.vue     un bloque y sus hijos; recursivo
+    ├── BlockInsert.vue   la tira «+» entre dos bloques
     ├── BlockImage.vue    miniatura, pie y ancho de una imagen
+    ├── BlockCode.vue     cuerpo literal y lenguaje de un `lstlisting`
+    ├── BlockTable.vue    rejilla de celdas, con sus filas
     ├── ImageDrop.vue     soltar, buscar o pegar el archivo
     ├── RichText.vue      texto con formato (contenteditable → LaTeX)
     ├── FormatBar.vue     barra fija: negrita, cursiva, código
@@ -92,8 +99,9 @@ dentro de nada se pinte igual a cualquier profundidad. Las acciones no suben por
 ```ts
 type BlockKind =
   | 'section' | 'caso' | 'fuentes' | 'fuente' | 'pregunta' | 'respuesta'
-  | 'mcq' | 'opcion' | 'porque' | 'input' | 'env' | 'figura' | 'preamble'
-  | 'paragraph' | 'atom' | 'meta' | 'bibEntry' | 'raw'
+  | 'mcq' | 'opcion' | 'porque' | 'input' | 'env' | 'figura' | 'code' | 'table'
+  | 'lista' | 'item' | 'preamble' | 'paragraph' | 'atom' | 'meta' | 'bibEntry'
+  | 'raw'
 
 interface Span { from: number, to: number }          // offsets en el Y.Text
 interface Field { name: string, span: Span, value: string }   // span del VALOR
@@ -230,7 +238,10 @@ cambió durante la implementación, por tres razones:
 | Selección múltiple | `\begin{mcq}{enunciado}\opcion{…}\opcion*{…}\end{mcq}` | enunciado + opciones con marca de correcta |
 | Nota de borrador | `\porque{título}{texto}` | título, texto |
 | Archivo incluido | `\input{ruta}` | ruta |
-| Imagen | `\begin{figure}[htbp]…\includegraphics…\end{figure}` | miniatura, pie y ancho |
+| Imagen | `\captura{archivo.png}{pie}` y `\begin{figure}…\includegraphics…\end{figure}` | miniatura, pie y ancho |
+| Código | `\begin{lstlisting}[language=bash] … \end{lstlisting}` | cuerpo literal y lenguaje |
+| Tabla | `\begin{tabular\|tabularx\|longtable} … \end{…}` | rejilla de celdas, filas y columnas del `\begin` |
+| Lista | `\begin{itemize\|enumerate\|description}\item …\end{…}` | un punto por `\item`, con formato |
 | Entrada bibliográfica | `@book{clave, campo = {…}}` | tipo, clave y los campos que tenga la entrada |
 | LaTeX crudo | cualquier otra cosa | editor de texto monoespaciado |
 
@@ -343,7 +354,23 @@ mide mal desde `display: none`.
       opciones: el bloque número once habría abierto una tercera columna con un
       solo elemento dentro.
 - [ ] `SlashMenu.vue`: abrir con `/`, filtrar al teclear, teclado completo.
-- [ ] Convertir un bloque a otro tipo.
+- [x] **Insertar en cualquier hueco**: entre cada dos bloques —y dentro de cada
+      contenedor— hay una tira que enseña un «+» al pasar el ratón, con el mismo
+      menú del catálogo (`BlockInsert.vue`). El sitio se dice con el rango del
+      bloque vecino, que es además la guarda de la escritura. La vieja barra
+      «Añadir bloque» del final del documento sobra y se ha quitado: la última
+      tira hace lo mismo, y el archivo vacío enseña el menú directamente.
+- [x] **Convertir un bloque a otro tipo** (`convertBlock` en `doc-sync.ts`), con
+      dos caminos que no se mezclan. Una **hoja** se reescribe entera a partir
+      del texto que llevaba dentro (`payloadOf` → `renderAs`), pero **sin sus
+      espacios de los bordes**: la separación entre bloques es del documento, no
+      del bloque, y moverla iría apilando líneas en blanco en un extremo del
+      archivo. Un **contenedor** no se toca por dentro: se reescriben el
+      `\begin{…}` y el `\end{…}` en una transacción y de atrás hacia delante,
+      como `renameEnv`, así que los hijos ni se enteran; si el destino no admite
+      el título del origen, el título baja a la primera línea del cuerpo en vez
+      de perderse. La matriz de conversiones es explícita (`CONVERSIONS` en el
+      catálogo): ofrecer «imagen → pregunta» solo sirve para perder texto.
 - **Listo cuando**: se puede montar una sección nueva (caso + fuentes + 3
   preguntas) sin escribir una sola macro.
 
@@ -375,12 +402,15 @@ mide mal desde `display: none`.
 
 ## Verificación
 
-0. **Banco de pruebas**: `http://localhost:3000/dev/visual` monta el modo visual
+0. **Banco de pruebas**: `http://localhost:3000/dev/visual` —excluido de la
+   redirección a `/auth` en `nuxt.config.ts`, porque no necesita sesión— monta el
+   modo visual
    sobre un `Y.Text` en memoria — sin sesión, sin base de datos y sin compilador—
    con los archivos del curso a un desplegable de distancia y el LaTeX resultante
    al lado. Es la forma rápida de ver de verdad cada cambio en vez de suponerlo.
-1. **Unitaria**: `pnpm test` en `web/` — 268 tests sobre los archivos reales del
-   repo (`latex/tex/bib/refs.bib`, `latex/workshops/ws-01/**`). Es la red de
+1. **Unitaria**: `pnpm test` en `web/` — 371 tests sobre los archivos reales del
+   repo (`latex/tex/bib/refs.bib`, `latex/workshops/ws-01/**` y, desde el bloque
+   de código y el de tabla, `latex/workshops/ws-02/**`). Es la red de
    seguridad del principio 4; si esto pasa, no se corrompen documentos. La
    partición se comprueba también dentro de cada contenedor, a cualquier
    profundidad. `test/figura.test.ts` vigila el bloque de imagen —sacar `figure`
@@ -450,6 +480,16 @@ o en la línea final de un contenedor: la figura se coloca detrás del párrafo 
 dentro del contenedor, nunca en medio de la prosa, porque en LaTeX una figura es
 un bloque y no una palabra.
 
+Cuando el archivo **falta** —el caso normal de un taller a medio escribir: la
+macro ya está puesta y la captura todavía no—, el hueco del bloque no es un
+cartel sino la zona donde se suelta: soltar, pegar o buscar el archivo lo sube
+ahí mismo. **No se pregunta el nombre**, porque el bloque ya lo dice
+(`\captura{sqlmap-escaneo.png}`) y ese es el que se usa (`baseDe` en
+`shared/lib/asset-name.ts`); inventar uno nuevo dejaría el documento apuntando al
+viejo. Solo se reescribe la ruta si el nombre final no es el que había —el
+archivo era `.jpg` y la macro decía `.png`, o el nombre necesitaba saneado—, y lo
+que salga mal se dice en el bloque en vez de perderse en la consola.
+
 Borrar el bloque **no borra el archivo**: puede estar citado desde otro sitio, y
 sigue en el árbol para quitarlo a mano.
 
@@ -457,7 +497,54 @@ Sin proyecto —el banco de pruebas de `/dev/visual`— no hay dónde subir ni q
 firmar: el bloque se pinta sin miniatura y la opción del menú sale deshabilitada
 diciendo por qué.
 
+## Código, listas y tablas
+
+Los entornos que quedaban en el cajón de sastre salen de él, porque el ws-02 está
+hecho de ellos.
+
+**`lstlisting`** (y `verbatim`, y `minted`) es un bloque `code`: cuerpo literal
+en monoespaciado y un desplegable de lenguaje que escribe solo el valor de
+`language=…` —cinco caracteres— o la opción entera si el listing no la llevaba.
+El campo del cuerpo va marcado `verbatim`, y eso cambia la validación: ahí una
+llave es una llave, así que `checkValue` no aplica y en su lugar se comprueba lo
+único que sí rompería el archivo, un `\end{…}` dentro del código.
+
+**Las tablas** (`tabular`, `tabularx`, `tabulary`, `longtable`) son un bloque
+`table`, también **hoja**: las celdas no son hijos sino campos con su rango
+(`c1.0` es la primera celda de la segunda fila), de modo que escribir en una
+celda reemplaza el texto de esa celda y nada más. Las filas se cortan por `\\`
+y las celdas por `&`, siempre a profundidad cero de llaves y saltando
+comentarios. Una regla horizontal (`\toprule`, `\midrule`, `\hline`) no es una
+fila: va pegada delante de la que abre, se guarda aparte (`lead`) y por eso
+borrar una fila no se lleva el `\midrule` que la separaba, ni añadir una la deja
+por debajo del `\bottomrule`. Añadir, borrar y mover filas escriben rangos de
+fila con `fresh()` delante, como todo lo demás.
+
+**Las listas** (`itemize`, `enumerate`, `description`) son un bloque `lista` con
+un hijo `item` por punto. `\item` es la única macro del catálogo **sin argumento
+entre llaves**: lo que lleva dentro llega hasta el próximo `\item` o hasta el
+`\end`, así que el bloque abarca esa distancia entera —los elementos particionan
+el cuerpo— y el campo editable es solo el texto, sin la sangría ni el salto. El
+punto se escribe con `RichText`, igual que un párrafo, porque eso es lo que es:
+una negrita se ve en negrita y un `\url{…}` se ve como su enlace, no como el
+nombre del macro (`inline.ts` guarda ese texto legible en el nodo opaco sin tocar
+su `source`, que sigue volviendo byte a byte). Un elemento con un entorno dentro
+—una lista anidada, una imagen— no cabe en un campo de texto: entonces la lista
+entera se queda como el contenedor genérico que ya era, que es peor de leer pero
+no pierde nada.
+
+`table` y `center` **no** son tablas: son envoltorios. Han dejado de ser opacos
+para que el `\caption` y el `tabular` de dentro salgan como bloques propios, que
+es lo que permite editar por celdas la tabla del taller, envuelta en un
+`\begin{center}`.
+
+Las columnas todavía no se añaden ni se quitan desde la interfaz: eso toca la
+especificación del `\begin` y **todas** las filas a la vez, y el campo
+«Columnas» —editable, en monoespaciado— es de momento la vía para quien sepa lo
+que hace.
+
 ## Fuera del alcance de la v1
 
-Tablas, TikZ, matemáticas WYSIWYG, edición del preámbulo por formulario. Todo eso
-vive en bloques `raw` y se abordará cuando el núcleo esté asentado.
+TikZ, matemáticas WYSIWYG, edición del preámbulo por formulario, y añadir o
+quitar **columnas** de una tabla. Todo eso vive en bloques `raw` o en el campo
+crudo que corresponda, y se abordará cuando el núcleo esté asentado.
