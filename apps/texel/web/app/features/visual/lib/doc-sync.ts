@@ -136,6 +136,42 @@ export function applyBodyEdit(
 }
 
 /**
+ * Reescribe los corchetes de opciones de la imagen de un bloque `figura`: el
+ * `[trim={…},clip,width=…]` del `\includegraphics` o el de la `\captura`.
+ *
+ * `value` es lo que va **dentro** de los corchetes; con `''` se quitan también
+ * los corchetes, que es como el recorte se deshace sin dejar rastro. Cuando el
+ * bloque no llevaba corchetes su rango está vacío y no comprueba nada por sí
+ * solo, así que se pasa el campo `ruta` como guarda: si el archivo sigue donde
+ * decía, el hueco de delante también.
+ */
+export function applyGraphicsOptions(
+  ytext: Y.Text,
+  block: Block,
+  value: string,
+  snapshot: string
+): EditProblem {
+  const { optFrom, optTo } = block.meta ?? {}
+  if (optFrom === undefined || optTo === undefined) return null
+
+  const span = { from: optFrom, to: optTo }
+  // Lo que se espera encontrar sale del parseo, no del documento de ahora
+  // mismo: leerlo del documento haría que la comprobación se aprobara sola.
+  const current = slice(snapshot, span)
+  const ruta = block.fields.find(f => f.name === 'ruta')
+  const guard = optFrom === optTo && ruta
+    ? { span: ruta.span, expected: ruta.value }
+    : undefined
+
+  return applyFieldEdit(
+    ytext,
+    { name: 'opciones', span, value: current },
+    value ? `[${value}]` : '',
+    guard
+  )
+}
+
+/**
  * Renombra el entorno de un contenedor: hay que tocar el nombre del `\begin` y
  * el del `\end` a la vez o el archivo queda roto. Se escribe primero el rango
  * de más adelante, porque escribir el primero desplazaría al segundo.

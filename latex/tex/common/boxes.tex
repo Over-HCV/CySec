@@ -89,22 +89,30 @@
 
 % ===== captura: evidencia gráfica del laboratorio =====
 % \captura{archivo.png}{Título descriptivo de la captura}
+% \captura[<opciones de \includegraphics>]{archivo.png}{Título}
 % Si existe pics/archivo.png lo incluye como figura con su caption; si no,
 % dibuja una caja punteada con el nombre exacto esperado (guardar la captura
 % con ese nombre y recompilar basta para que aparezca). La label de la figura
 % es fig:<archivo-sin-extensión>, p.ej. \cref{fig:sqlmap-hashes}.
 % Un archivo faltante deja «Captura pendiente» en el .log también en FINAL,
 % misma mecánica delatora que las respuestas vacías.
+%
+% El argumento opcional son las opciones que van dentro de los corchetes de
+% \includegraphics, y por defecto es justo el ancho de siempre, así que las dos
+% mil \captura ya escritas siguen saliendo idénticas. Existe para el recorte no
+% destructivo del editor visual, que lo escribe como
+% \captura[trim={.1\width .0\height .2\width .05\height},clip,width=0.8\linewidth]{…}{…}:
+% el archivo de pics/ nunca se toca, el recorte es texto que se puede quitar.
 \newcommand{\captura@base}{}
-\newcommand{\captura}[2]{%
-  \IfSubStr{#1}{.}{\StrBefore{#1}{.}[\captura@base]}{%
-    \renewcommand{\captura@base}{#1}}%
+\newcommand{\captura}[3][width=0.8\linewidth]{%
+  \IfSubStr{#2}{.}{\StrBefore{#2}{.}[\captura@base]}{%
+    \renewcommand{\captura@base}{#2}}%
   \begin{figure}[htbp]
     \centering
-    \IfFileExists{pics/#1}{%
-      \includegraphics[width=0.8\linewidth]{pics/#1}%
+    \IfFileExists{pics/#2}{%
+      \includegraphics[#1]{pics/#2}%
     }{%
-      \PackageWarning{cysec}{Captura pendiente: pics/#1}%
+      \PackageWarning{cysec}{Captura pendiente: pics/#2}%
       \begin{tcolorbox}[enhanced, sharp corners, colback=gray!4,
         colframe=gray!55!black, boxrule=0pt,
         borderline={0.8pt}{0pt}{gray!55!black,
@@ -113,10 +121,10 @@
         {\bfseries\footnotesize\color{gray!55!black}%
           \cysec@lbl{CAPTURA PENDIENTE}{PENDING SCREENSHOT}}\\[4pt]
         {\footnotesize\color{gray!45!black}%
-          \cysec@lbl{guardar como}{save as} \texttt{pics/#1}}%
+          \cysec@lbl{guardar como}{save as} \texttt{pics/#2}}%
       \end{tcolorbox}%
     }
-    \caption{#2}%
+    \caption{#3}%
     \label{fig:\captura@base}%
   \end{figure}%
 }

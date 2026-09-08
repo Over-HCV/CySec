@@ -15,6 +15,7 @@ import { Plus } from 'lucide-vue-next'
 import { baseDe } from '~/shared/lib/asset-name'
 import type { SupabaseYjsProvider } from '~/features/editor/lib/supabase-yjs-provider'
 import { useBlocks } from '../composables/useBlocks'
+import { useClassSupport } from '../composables/useClassSupport'
 import { capturaTemplate, insertable } from '../lib/catalog'
 import { iconOf } from '../lib/icons'
 import { VISUAL_API } from '../lib/api'
@@ -37,11 +38,13 @@ const ytext = props.provider.doc.getText('content')
 
 const {
   text, blocks, sourceOf, problems, notice, collapsed, caret, placeCaret, toggleCollapse,
-  edit, split, editBody, setLanguage, rename, addInside, writeInside, insert, insertAt, convert,
-  addRow, deleteRow, shiftRow, remove, duplicate, move, moveTo, toggle, dragging, dropTarget
+  edit, split, editBody, setCrop, setLanguage, rename, addInside, writeInside, insert, insertAt,
+  convert, addRow, deleteRow, shiftRow, remove, duplicate, move, moveTo, toggle, dragging,
+  dropTarget
 } = useBlocks(ytext, kind.value)
 
 const { uploadImage, assetUrl, canUpload } = useProjectAssets(() => props.projectId)
+const { soporta: puedeRecortar, actualizable, actualizar } = useClassSupport(() => props.projectId)
 
 /** Los huecos de solo espacios forman parte del documento, pero no se pintan. */
 const visible = computed(() => blocks.value.filter(b => !b.flags?.blank))
@@ -156,6 +159,10 @@ provide(VISUAL_API, {
   edit,
   split,
   editBody,
+  setCrop,
+  canCrop: puedeRecortar,
+  classUpdatable: actualizable,
+  updateClass: actualizar,
   setLanguage,
   rename,
   addInside,

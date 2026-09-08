@@ -9,8 +9,9 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import { parseTex } from '../app/features/visual/lib/parse-tex'
-import { figureTemplate, specOf } from '../app/features/visual/lib/catalog'
-import { applyFieldEdit, parseDoc } from '../app/features/visual/lib/doc-sync'
+import { capturaTemplate, figureTemplate, specOf } from '../app/features/visual/lib/catalog'
+import { applyFieldEdit, applyGraphicsOptions, parseDoc } from '../app/features/visual/lib/doc-sync'
+import { parseCrop, setGraphicsOptions, type Crop } from '../app/features/visual/lib/crop'
 import { baseDe, esTipoAceptado, plate, slug } from '../app/shared/lib/asset-name'
 import { joined } from './fixtures'
 
@@ -132,6 +133,79 @@ describe('el LaTeX que se escribe al poner una imagen', () => {
     // No puede: hasta que el archivo no está subido no hay ruta que escribir.
     expect(specOf('figura').label).toBe('Imagen')
     expect(specOf('figura').template).toBeUndefined()
+  })
+})
+
+describe('el recorte, que vive en el propio LaTeX', () => {
+  const CROP: Crop = { l: 0.1, b: 0, r: 0.2, t: 0.05 }
+  const CAPTURA = '\\captura{sqlmap-dbs.png}{Bases de datos encontradas}\n'
+  const RECORTADA = '\\captura[trim={0.1\\width 0\\height 0.2\\width 0.05\\height},clip,'
+    + 'width=0.8\\linewidth]{sqlmap-dbs.png}{Bases de datos encontradas}\n'
+
+  it('una `\\captura` con opciones se sigue leyendo entera', () => {
+    const blocks = parseTex(RECORTADA)
+    const figura = blocks.find(b => b.kind === 'figura')!
+    const campo = (name: string) => figura.fields.find(f => f.name === name)!
+    expect(campo('ruta').value).toBe('sqlmap-dbs.png')
+    expect(campo('pie').value).toBe('Bases de datos encontradas')
+    expect(parseCrop(campo('recorte').value)).toEqual(CROP)
+    // El ancho, que en una `\captura` sin opciones fija la clase, aquí ya se ve.
+    expect(campo('ancho').value).toBe('0.8')
+    expect(joined(RECORTADA, blocks)).toBe(RECORTADA)
+  })
+
+  it('un `figure` recortado también, y sigue siendo hoja', () => {
+    const texto = FIGURA.replace('[width=0.8\\linewidth]',
+      '[trim={0.1\\width 0\\height 0.2\\width 0.05\\height},clip,width=0.8\\linewidth]')
+    const blocks = parseTex(texto)
+    const figura = blocks.find(b => b.kind === 'figura')!
+    expect(figura.items).toBeUndefined()
+    expect(parseCrop(figura.fields.find(f => f.name === 'recorte')!.value)).toEqual(CROP)
+    expect(joined(texto, blocks)).toBe(texto)
+  })
+
+  it('recortar una `\\captura` le abre los corchetes que no tenía', () => {
+    const ytext = docWith(CAPTURA)
+    const figura = parseDoc(CAPTURA, 'tex').find(b => b.kind === 'figura')!
+    const opciones = setGraphicsOptions('', CROP, 'width=0.8\\linewidth')
+    expect(applyGraphicsOptions(ytext, figura, opciones, CAPTURA)).toBeNull()
+
+    const after = ytext.toString()
+    expect(after).toContain('\\captura[trim={0.1\\width 0\\height 0.2\\width 0.05\\height}, clip,'
+      + ' width=0.8\\linewidth]{sqlmap-dbs.png}')
+    expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
+  })
+
+  it('quitarlo deja el `\\captura` exactamente como estaba', () => {
+    const ytext = docWith(CAPTURA)
+    const inicial = parseDoc(CAPTURA, 'tex').find(b => b.kind === 'figura')!
+    applyGraphicsOptions(ytext, inicial,
+      setGraphicsOptions('', CROP, 'width=0.8\\linewidth'), CAPTURA)
+
+    // Y ahora al revés, partiendo del documento ya recortado.
+    const conRecorte = ytext.toString()
+    const figura = parseDoc(conRecorte, 'tex').find(b => b.kind === 'figura')!
+    const dentro = conRecorte.slice(figura.meta!.optFrom! + 1, figura.meta!.optTo! - 1)
+    expect(applyGraphicsOptions(ytext, figura,
+      setGraphicsOptions(dentro, null, 'width=0.8\\linewidth'), conRecorte)).toBeNull()
+    expect(ytext.toString()).toBe(CAPTURA)
+  })
+
+  it('el archivo no se toca: lo que cambia es el texto, y la ruta sigue igual', () => {
+    const ytext = docWith(CAPTURA)
+    const figura = parseDoc(CAPTURA, 'tex').find(b => b.kind === 'figura')!
+    applyGraphicsOptions(ytext, figura,
+      setGraphicsOptions('', CROP, 'width=0.8\\linewidth'), CAPTURA)
+    expect(ytext.toString()).toContain('{sqlmap-dbs.png}')
+  })
+
+  it('la `\\captura` que se escribe al subir una imagen no lleva corchetes', () => {
+    const latex = capturaTemplate('QRT-482.png').replace('|', '')
+    const figura = parseTex(latex).find(b => b.kind === 'figura')!
+    expect(figura.fields.find(f => f.name === 'recorte')).toBeUndefined()
+    // Pero ya sabe dónde irían: es lo que permite estrenarlos sin reescribirla.
+    expect(figura.meta!.optFrom).toBe(figura.meta!.optTo)
+    expect(joined(latex, parseTex(latex))).toBe(latex)
   })
 })
 

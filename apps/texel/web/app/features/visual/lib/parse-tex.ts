@@ -268,14 +268,34 @@ function readCommand(
   // (`latex/tex/common/boxes.tex`). Es una imagen como la de un `figure`, solo
   // que la clase le pone `pics/` delante y le fija el ancho.
   if (name.value === 'captura') {
-    const archivo = argument(text, name.end, limit)
+    // El `[…]` es el opcional que la clase estrenó para el recorte; casi ninguna
+    // `\captura` lo lleva, y por eso el rango puede salir vacío.
+    const start = skipSpace(text, name.end)
+    const options = text[start] === '[' ? readGroup(text, start, true, '[', ']') : null
+    if (options && options.end > limit) return null
+
+    const archivo = argument(text, options ? options.end : name.end, limit)
     if (!archivo) return null
     const pie = argument(text, archivo.end, limit)
     if (!pie) return null
-    return block('figura', at, pie.end, [
+
+    const fields = [
       field(text, 'pie', pie.inner),
       field(text, 'ruta', archivo.inner)
-    ], undefined, undefined, { cmd: 'captura' })
+    ]
+    if (options) {
+      const ancho = widthSpan(text, options.inner)
+      if (ancho) fields.push(field(text, 'ancho', ancho))
+      const recorte = cropSpan(text, options.inner)
+      if (recorte) fields.push(field(text, 'recorte', recorte))
+    }
+
+    const opt = optSpan(start, options)
+    return block('figura', at, pie.end, fields, undefined, undefined, {
+      cmd: 'captura',
+      optFrom: opt.from,
+      optTo: opt.to
+    })
   }
 
   if (name.value === 'fuente') {
@@ -296,7 +316,9 @@ function readCommand(
     const graphics = readGraphics(text, name.end, limit)
     if (!graphics) return null
     return block('figura', at, graphics.end, graphics.fields, undefined, undefined, {
-      cmd: 'includegraphics'
+      cmd: 'includegraphics',
+      optFrom: graphics.opt.from,
+      optTo: graphics.opt.to
     })
   }
 
@@ -349,7 +371,7 @@ function readGraphics(
   text: string,
   after: number,
   limit: number
-): { fields: Field[], end: number } | null {
+): { fields: Field[], end: number, opt: Span } | null {
   const start = skipSpace(text, after)
   const options = text[start] === '[' ? readGroup(text, start, true, '[', ']') : null
   if (options && options.end > limit) return null
@@ -358,9 +380,24 @@ function readGraphics(
   if (!ruta) return null
 
   const fields = [field(text, 'ruta', ruta.inner)]
-  const ancho = options ? widthSpan(text, options.inner) : null
-  if (ancho) fields.push(field(text, 'ancho', ancho))
-  return { fields, end: ruta.end }
+  if (options) {
+    const ancho = widthSpan(text, options.inner)
+    if (ancho) fields.push(field(text, 'ancho', ancho))
+    const recorte = cropSpan(text, options.inner)
+    if (recorte) fields.push(field(text, 'recorte', recorte))
+  }
+  return { fields, end: ruta.end, opt: optSpan(start, options) }
+}
+
+/**
+ * Dónde están los corchetes de opciones, **o dónde irían**.
+ *
+ * Cuando no hay corchetes el rango es vacío y apunta al sitio exacto en el que
+ * habría que abrirlos. Eso es lo que permite escribir un recorte donde hoy no
+ * hay nada a lo que apuntar, igual que el `[language=…]` de un `lstlisting`.
+ */
+function optSpan(start: number, options: { end: number } | null): Span {
+  return options ? { from: start, to: options.end } : { from: start, to: start }
 }
 
 /** Rango del número de `width=0.8\linewidth` dentro de los corchetes. */
@@ -369,6 +406,19 @@ function widthSpan(text: string, options: Span): Span | null {
   const match = /width\s*=\s*([0-9]*\.?[0-9]+)/.exec(source)
   if (!match) return null
   const from = options.from + match.index + match[0].length - match[1]!.length
+  return { from, to: from + match[1]!.length }
+}
+
+/**
+ * Rango del interior del `trim={…}`, el recorte de la imagen. Solo el valor: el
+ * `clip` que lo acompaña no se enseña porque no se puede decidir aparte —un
+ * `trim` sin `clip` correría la imagen en vez de recortarla.
+ */
+function cropSpan(text: string, options: Span): Span | null {
+  const source = text.slice(options.from, options.to)
+  const match = /trim\s*=\s*\{([^}]*)\}/.exec(source)
+  if (!match) return null
+  const from = options.from + match.index + match[0].length - 1 - match[1]!.length
   return { from, to: from + match[1]!.length }
 }
 
@@ -572,7 +622,9 @@ function readFigure(
     env: 'figure',
     cmd: 'includegraphics',
     bodyFrom,
-    bodyTo: close.bodyEnd
+    bodyTo: close.bodyEnd,
+    optFrom: image.opt.from,
+    optTo: image.opt.to
   })
 }
 

@@ -62,6 +62,17 @@
 \RequirePackage{tabularx}
 \RequirePackage[most]{tcolorbox}
 \RequirePackage{graphicx}
+% `\adjincludegraphics` es `\includegraphics` con las claves de adjustbox, y
+% entre ellas el `trim` en unidades relativas (\width, \height) con el que el
+% editor visual recorta: la imagen no se modifica nunca, el recorte es un
+% parámetro que se puede quitar.
+%
+% Se pone en su sitio con un \let y no con la opción `export` del paquete, que
+% es lo que parecería tocar: con `export`, un `\includegraphics` con `trim`
+% relativo dentro de un `figure` o un `center` —o sea, todas las capturas—
+% aborta con «File ended while scanning use of \Gread@parse@vp».
+\RequirePackage{adjustbox}
+\let\includegraphics\adjincludegraphics
 
 % --- Código (comandos, payloads, sentencias) ---
 % Estilo "cysec": mono de Libertinus (vía fontspec), keywords en accent y

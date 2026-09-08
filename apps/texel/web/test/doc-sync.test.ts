@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import {
-  applyBodyEdit, applyFieldEdit, checkValue, duplicateBlock, insertBlock, insideOf, moveBlock,
-  moveBlockTo, parseDoc, removeBlock, renameEnv, STALE, toggleOption
+  applyBodyEdit, applyFieldEdit, applyGraphicsOptions, checkValue, duplicateBlock, insertBlock,
+  insideOf, moveBlock, moveBlockTo, parseDoc, removeBlock, renameEnv, STALE, toggleOption
 } from '../app/features/visual/lib/doc-sync'
 import type { Block } from '../app/features/visual/lib/types'
 import { flatten, hasRepo, joined, REFS_BIB, repoFile, SAMPLE_MAIN, SAMPLE_TEX, SECTIONS } from './fixtures'
@@ -457,5 +457,35 @@ describe.skipIf(!hasRepo)('contenedores', () => {
     const env = parseDoc(original, 'tex')[0]!
     expect(applyBodyEdit(ytext, env, '\nnuevo\n', original)).toBeNull()
     expect(ytext.toString()).toBe('\\begin{mio}\nnuevo\n\\end{mio}\n')
+  })
+})
+
+describe('applyGraphicsOptions', () => {
+  const CAPTURA = 'Antes.\n\n\\captura{QRT-482.png}{Pie}\n'
+  const OPCIONES = 'trim={0.1\\width 0\\height 0\\width 0\\height}, clip, width=0.8\\linewidth'
+
+  it('abre los corchetes donde no los había', () => {
+    const { ytext } = docWith(CAPTURA)
+    const figura = parseDoc(CAPTURA, 'tex').find(b => b.kind === 'figura')!
+    expect(applyGraphicsOptions(ytext, figura, OPCIONES, CAPTURA)).toBeNull()
+    expect(ytext.toString()).toBe(`Antes.\n\n\\captura[${OPCIONES}]{QRT-482.png}{Pie}\n`)
+  })
+
+  it('no escribe si alguien movió el documento mientras tanto', () => {
+    // El rango de los corchetes está vacío, así que por sí solo no comprueba
+    // nada: lo que delata el desfase es la guarda sobre el nombre del archivo.
+    const { ytext } = docWith(CAPTURA)
+    const figura = parseDoc(CAPTURA, 'tex').find(b => b.kind === 'figura')!
+    ytext.insert(0, 'Un párrafo nuevo por delante.\n\n')
+    expect(applyGraphicsOptions(ytext, figura, OPCIONES, CAPTURA)).toBe(STALE)
+    expect(ytext.toString()).toContain('\\captura{QRT-482.png}{Pie}')
+  })
+
+  it('con la cadena vacía se lleva también los corchetes', () => {
+    const original = `Antes.\n\n\\captura[${OPCIONES}]{QRT-482.png}{Pie}\n`
+    const { ytext } = docWith(original)
+    const figura = parseDoc(original, 'tex').find(b => b.kind === 'figura')!
+    expect(applyGraphicsOptions(ytext, figura, '', original)).toBeNull()
+    expect(ytext.toString()).toBe(CAPTURA)
   })
 })

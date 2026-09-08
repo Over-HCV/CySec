@@ -6,6 +6,7 @@
  * camino. Se inyecta una vez y cada `BlockNode` llama directamente.
  */
 import type { InjectionKey, Ref } from 'vue'
+import type { Crop } from './crop'
 import type { Block, BlockKind, DocKind, Field } from './types'
 
 export interface VisualApi {
@@ -33,6 +34,24 @@ export interface VisualApi {
   editBody: (block: Block, value: string) => void
   /** Escribe el `[language=…]` de un bloque de código; con `''` lo quita. */
   setLanguage: (block: Block, value: string) => void
+  /**
+   * Recorta la imagen de un bloque `figura`; con `null` le quita el recorte.
+   *
+   * El archivo no se toca: el recorte es el `trim={…},clip` de las opciones, así
+   * que se puede quitar y volver a poner, y siempre se recorta desde la imagen
+   * entera.
+   */
+  setCrop: (block: Block, crop: Crop | null) => void
+  /**
+   * ¿La clase LaTeX de este proyecto entiende el recorte? Los proyectos viejos
+   * llevan su propia copia de `tex/common/*.tex`, anterior al `\captura` con
+   * opciones y al `adjustbox` que hacen falta.
+   */
+  canCrop: Ref<boolean>
+  /** ¿Se puede poner al día esa clase desde la plantilla? Falso si no está. */
+  classUpdatable: Ref<boolean>
+  /** Reescribe esos dos archivos desde la plantilla; solo a petición expresa. */
+  updateClass: () => Promise<void>
   rename: (block: Block, name: string) => void
   /** Añade un hijo al final del contenedor. */
   addInside: (container: Block, kind?: BlockKind, template?: string) => void

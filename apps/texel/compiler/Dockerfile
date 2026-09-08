@@ -23,8 +23,11 @@ RUN tlmgr update --self \
       cleveref mathtools booktabs multirow \
       pgf standalone tikzfill pdfcol \
       tools psnfss listings \
+      adjustbox collectbox ifoddpage varwidth \
       `# longtable y tabularx viven en 'tools'; \ding (pifont) en 'psnfss'` \
       `# listings: bloques de código del taller 2 en adelante` \
+      `# adjustbox (+collectbox, ifoddpage, varwidth): la opción 'export' le da a` \
+      `# \includegraphics el trim relativo del recorte del editor visual` \
  && tlmgr path add \
  && rm -rf /usr/local/texlive/*/texmf-var/web2c/*.log
 

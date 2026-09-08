@@ -19,11 +19,12 @@
  */
 import type * as Y from 'yjs'
 import {
-  applyBodyEdit, applyFieldEdit, convertBlock, duplicateBlock, insertBlock, insertRow, insideOf,
-  moveBlock, moveBlockTo, moveRow, parseDoc, removeBlock, removeRow, renameEnv, STALE,
-  toggleOption, VISUAL_ORIGIN, type EditProblem
+  applyBodyEdit, applyFieldEdit, applyGraphicsOptions, convertBlock, duplicateBlock, insertBlock,
+  insertRow, insideOf, moveBlock, moveBlockTo, moveRow, parseDoc, removeBlock, removeRow,
+  renameEnv, STALE, toggleOption, VISUAL_ORIGIN, type EditProblem
 } from '../lib/doc-sync'
-import { childKind } from '../lib/catalog'
+import { childKind, FIGURE_WIDTH } from '../lib/catalog'
+import { setGraphicsOptions, type Crop } from '../lib/crop'
 import { blockAt, siblingsAt, type Block, type BlockKind, type DocKind, type Field } from '../lib/types'
 
 /** Espera antes de repintar por un cambio ajeno, para no parpadear al teclear. */
@@ -241,6 +242,30 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     }, ''))
   }
 
+  /**
+   * Recorta la imagen de un bloque `figura`, o le quita el recorte con `null`.
+   *
+   * El archivo no se toca **nunca**: lo único que cambia es el `trim={…},clip`
+   * de las opciones, así que quitarlo devuelve la imagen entera y volver a
+   * recortar parte otra vez de ella. Es un solo parche sobre los corchetes, que
+   * puede que ni existan todavía —`applyGraphicsOptions` los abre.
+   *
+   * El ancho por defecto solo se escribe en las `\captura`: es suyo, se lo pone
+   * la macro, y estrenar el corchete sin él lo perdería. Un `\includegraphics`
+   * no tiene default que rescatar.
+   */
+  function setCrop(block: Block, crop: Crop | null) {
+    const fresh = resolve(block)
+    if (!fresh) { refresh(); return }
+    const { optFrom, optTo } = fresh.meta ?? {}
+    if (optFrom === undefined || optTo === undefined) return
+
+    const dentro = text.value.slice(optFrom, optTo).replace(/^\[|\]$/g, '')
+    const fallback = fresh.meta?.cmd === 'captura' ? `width=${FIGURE_WIDTH}\\linewidth` : ''
+    const opciones = setGraphicsOptions(dentro, crop, fallback)
+    report(`${block.id}:recorte`, applyGraphicsOptions(ytext, fresh, opciones, text.value))
+  }
+
   function editBody(block: Block, value: string) {
     const fresh = resolve(block)
     if (!fresh) return
@@ -414,6 +439,7 @@ export function useBlocks(ytext: Y.Text, kind: DocKind) {
     edit,
     split,
     editBody,
+    setCrop,
     setLanguage,
     rename,
     addInside,

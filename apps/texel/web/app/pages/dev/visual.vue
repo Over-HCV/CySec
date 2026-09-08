@@ -36,8 +36,14 @@ const EJEMPLOS: Record<string, string> = {
     '  \\label{fig:QRT-482}',
     '\\end{figure}',
     '',
+    'Y la misma imagen recortada. El recorte no toca el archivo: es el',
+    '`trim`+`clip` que se ve aquí abajo, así que se puede cambiar o quitar.',
+    '',
+    '\\captura[trim={0.12\\width 0.05\\height 0.2\\width 0.25\\height},clip,'
+      + 'width=0.8\\linewidth]{sqlmap-dbs.png}{Una captura recortada}',
+    '',
     'Aquí no hay proyecto, así que no hay miniatura ni se puede subir nada: lo',
-    'que se prueba es el bloque, el pie y el ancho.',
+    'que se prueba es el bloque, el pie, el ancho y que el recorte se lee.',
     ''
   ].join('\n'),
   'código, captura y tabla': [
