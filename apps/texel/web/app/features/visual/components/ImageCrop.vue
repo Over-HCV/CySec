@@ -100,53 +100,60 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-black/40 backdrop-blur-sm grid place-items-center p-5"
-    @click.self="emit('close')">
-    <div class="glass-menu rounded-[var(--radius-lg)] p-5 w-full max-w-2xl">
-      <header class="flex items-center gap-2 mb-3">
-        <CropIcon :size="15" />
-        <h2 class="text-base font-semibold m-0">Recortar</h2>
-        <code class="text-[11px] text-[var(--text-faint)] font-mono truncate">{{ nombre }}</code>
-        <span class="flex-1" />
-        <button class="btn p-1" title="Cerrar" @click="emit('close')"><X :size="14" /></button>
-      </header>
+  <!-- A `body` a propósito, como el menú de `AppMenu`: la tarjeta del bloque
+       lleva `content-visibility: auto` (`theme.css`), y eso implica contención
+       de pintado, que convierte a la tarjeta en el bloque contenedor de todo lo
+       `fixed` que lleve dentro. Sin el teleport el diálogo se recorta a la
+       altura del bloque y la mitad de abajo no se ve. -->
+  <Teleport to="body">
+    <div class="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm grid place-items-center p-5"
+      @click.self="emit('close')">
+      <div class="glass-menu rounded-[var(--radius-lg)] p-5 w-full max-w-2xl">
+        <header class="flex items-center gap-2 mb-3">
+          <CropIcon :size="15" />
+          <h2 class="text-base font-semibold m-0">Recortar</h2>
+          <code class="text-[11px] text-[var(--text-faint)] font-mono truncate">{{ nombre }}</code>
+          <span class="flex-1" />
+          <button class="btn p-1" title="Cerrar" @click="emit('close')"><X :size="14" /></button>
+        </header>
 
-      <!-- La imagen entera, siempre: el recorte es una ventana encima, no un
-           corte. Por eso se puede mover, ampliar y quitar cuantas veces sea. -->
-      <div class="encuadre">
-        <div ref="marco" class="marco">
-          <img :src="src" :alt="nombre" class="foto" draggable="false">
-          <div class="sombra" :style="{
-            clipPath: `polygon(0% 0%, 0% 100%, ${rect.left}% 100%, ${rect.left}% ${rect.top}%,`
-              + `${rect.left + rect.width}% ${rect.top}%, ${rect.left + rect.width}% ${rect.top + rect.height}%,`
-              + `${rect.left}% ${rect.top + rect.height}%, ${rect.left}% 100%, 100% 100%, 100% 0%)`
-          }" />
+        <!-- La imagen entera, siempre: el recorte es una ventana encima, no un
+             corte. Por eso se puede mover, ampliar y quitar cuantas veces sea. -->
+        <div class="encuadre">
+          <div ref="marco" class="marco">
+            <img :src="src" :alt="nombre" class="foto" draggable="false">
+            <div class="sombra" :style="{
+              clipPath: `polygon(0% 0%, 0% 100%, ${rect.left}% 100%, ${rect.left}% ${rect.top}%,`
+                + `${rect.left + rect.width}% ${rect.top}%, ${rect.left + rect.width}% ${rect.top + rect.height}%,`
+                + `${rect.left}% ${rect.top + rect.height}%, ${rect.left}% 100%, 100% 100%, 100% 0%)`
+            }" />
 
-          <div class="ventana" :style="{
-            left: `${rect.left}%`, top: `${rect.top}%`,
-            width: `${rect.width}%`, height: `${rect.height}%`
-          }" @pointerdown.prevent="empezar($event, null)">
-            <div class="tercios" />
-            <button v-for="h in HANDLES" :key="h.handle" class="manija" :style="{
-              left: `${h.x * 100}%`, top: `${h.y * 100}%`, cursor: h.cursor
-            }" title="Ajustar el borde" @pointerdown.prevent.stop="empezar($event, h.handle)" />
+            <div class="ventana" :style="{
+              left: `${rect.left}%`, top: `${rect.top}%`,
+              width: `${rect.width}%`, height: `${rect.height}%`
+            }" @pointerdown.prevent="empezar($event, null)">
+              <div class="tercios" />
+              <button v-for="h in HANDLES" :key="h.handle" class="manija" :style="{
+                left: `${h.x * 100}%`, top: `${h.y * 100}%`, cursor: h.cursor
+              }" title="Ajustar el borde" @pointerdown.prevent.stop="empezar($event, h.handle)" />
+            </div>
           </div>
         </div>
+
+        <p class="text-[11px] text-[var(--text-faint)] mt-2 mb-0">
+          La imagen no se modifica: el recorte se guarda como un parámetro del
+          documento, así que se puede cambiar o quitar cuando quieras.
+        </p>
+
+        <footer class="flex items-center gap-2 mt-4">
+          <button class="btn" :disabled="!recortado" @click="quitar">Quitar recorte</button>
+          <span class="flex-1" />
+          <button class="btn" @click="emit('close')">Cancelar</button>
+          <button class="btn-primary" @click="aplicar">Aplicar</button>
+        </footer>
       </div>
-
-      <p class="text-[11px] text-[var(--text-faint)] mt-2 mb-0">
-        La imagen no se modifica: el recorte se guarda como un parámetro del
-        documento, así que se puede cambiar o quitar cuando quieras.
-      </p>
-
-      <footer class="flex items-center gap-2 mt-4">
-        <button class="btn" :disabled="!recortado" @click="quitar">Quitar recorte</button>
-        <span class="flex-1" />
-        <button class="btn" @click="emit('close')">Cancelar</button>
-        <button class="btn-primary" @click="aplicar">Aplicar</button>
-      </footer>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
