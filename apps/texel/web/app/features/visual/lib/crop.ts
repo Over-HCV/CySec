@@ -142,13 +142,16 @@ const NUM = String.raw`([-+]?(?:[0-9]*\.)?[0-9]+)`
 const SIDE = new RegExp(String.raw`^${NUM}\s*\\(width|height)$`)
 
 /**
- * Lee el valor de un `trim={…}`. Devuelve `null` si no son cuatro medidas
+ * Lee el valor de un `trim`. Devuelve `null` si no son cuatro medidas
  * relativas: un `trim` escrito a mano en centímetros es perfectamente válido en
  * LaTeX, pero no es algo que este editor sepa mover, y mentir sobre dónde está
  * el rectángulo sería peor que no ofrecerlo.
+ *
+ * Las llaves de cada lado se quitan antes de partir: se escriben siempre (ver
+ * `formatCrop`), pero un `trim` de otra procedencia puede no llevarlas.
  */
 export function parseCrop(value: string): Crop | null {
-  const parts = value.trim().split(/\s+/)
+  const parts = value.replace(/[{}]/g, ' ').trim().split(/\s+/)
   if (parts.length !== 4) return null
   const nums: number[] = []
   for (const part of parts) {
@@ -168,10 +171,18 @@ function side(value: number, unit: 'width' | 'height'): string {
   return `${fixed || '0'}\\${unit}`
 }
 
-/** El valor que va dentro de `trim={…}`, en el orden izq-abajo-der-arriba. */
+/**
+ * El valor de `trim`, en el orden izquierda-abajo-derecha-arriba.
+ *
+ * **Una llave por lado**, y no las cuatro medidas dentro de una sola: con
+ * `trim={a b c d}` adjustbox lee `a`, lo aplica a los cuatro lados y se come el
+ * resto sin decir nada —la imagen sale recortada, pero no por donde se pidió—.
+ * Medido: `trim={0.12\width 0.05\height 0.2\width 0.25\height}` deja el 76 %
+ * del ancho (1 − 0.12 − 0.12) en vez del 68 % (1 − 0.12 − 0.2).
+ */
 export function formatCrop(crop: Crop): string {
-  return `${side(crop.l, 'width')} ${side(crop.b, 'height')} `
-    + `${side(crop.r, 'width')} ${side(crop.t, 'height')}`
+  return `{${side(crop.l, 'width')}} {${side(crop.b, 'height')}} `
+    + `{${side(crop.r, 'width')}} {${side(crop.t, 'height')}}`
 }
 
 /**
@@ -194,10 +205,10 @@ function splitOptions(options: string): string[] {
   return parts.map(p => p.trim()).filter(p => p.length > 0)
 }
 
-/** El `trim={…}` de una lista de opciones, ya leído. */
+/** El `trim` de una lista de opciones, ya leído. */
 export function cropOf(options: string): Crop | null {
   for (const part of splitOptions(options)) {
-    const match = /^trim\s*=\s*\{?([^}]*)\}?$/.exec(part)
+    const match = /^trim\s*=\s*(.*)$/.exec(part)
     if (match) return parseCrop(match[1]!)
   }
   return null
@@ -233,5 +244,5 @@ export function setGraphicsOptions(
   }
 
   if (!had && fallback.trim()) rest.push(fallback.trim())
-  return [`trim={${formatCrop(crop!)}}`, 'clip', ...rest].join(', ')
+  return [`trim=${formatCrop(crop!)}`, 'clip', ...rest].join(', ')
 }

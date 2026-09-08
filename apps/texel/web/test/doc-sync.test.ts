@@ -462,7 +462,7 @@ describe.skipIf(!hasRepo)('contenedores', () => {
 
 describe('applyGraphicsOptions', () => {
   const CAPTURA = 'Antes.\n\n\\captura{QRT-482.png}{Pie}\n'
-  const OPCIONES = 'trim={0.1\\width 0\\height 0\\width 0\\height}, clip, width=0.8\\linewidth'
+  const OPCIONES = 'trim={0.1\\width} {0\\height} {0\\width} {0\\height}, clip, width=0.8\\linewidth'
 
   it('abre los corchetes donde no los había', () => {
     const { ytext } = docWith(CAPTURA)

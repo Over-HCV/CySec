@@ -410,15 +410,21 @@ function widthSpan(text: string, options: Span): Span | null {
 }
 
 /**
- * Rango del interior del `trim={…}`, el recorte de la imagen. Solo el valor: el
- * `clip` que lo acompaña no se enseña porque no se puede decidir aparte —un
- * `trim` sin `clip` correría la imagen en vez de recortarla.
+ * Rango del valor de `trim`, el recorte de la imagen. Solo el valor: el `clip`
+ * que lo acompaña no se enseña porque no se puede decidir aparte —un `trim` sin
+ * `clip` correría la imagen en vez de recortarla.
+ *
+ * Son cuatro medidas, **cada una en su llave**, que es la única forma que
+ * adjustbox lee entera (ver `formatCrop` en `lib/crop.ts`). Se acepta también la
+ * variante sin llaves por si el `trim` viene escrito a mano; `parseCrop` decide
+ * después si son medidas que la interfaz sepa mover.
  */
 function cropSpan(text: string, options: Span): Span | null {
   const source = text.slice(options.from, options.to)
-  const match = /trim\s*=\s*\{([^}]*)\}/.exec(source)
+  const grupo = String.raw`(?:\{[^{}]*\}|[^\s,\]]+)`
+  const match = new RegExp(String.raw`trim\s*=\s*(${grupo}(?:\s+${grupo}){3})`).exec(source)
   if (!match) return null
-  const from = options.from + match.index + match[0].length - 1 - match[1]!.length
+  const from = options.from + match.index + match[0].length - match[1]!.length
   return { from, to: from + match[1]!.length }
 }
 

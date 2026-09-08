@@ -139,7 +139,7 @@ describe('el LaTeX que se escribe al poner una imagen', () => {
 describe('el recorte, que vive en el propio LaTeX', () => {
   const CROP: Crop = { l: 0.1, b: 0, r: 0.2, t: 0.05 }
   const CAPTURA = '\\captura{sqlmap-dbs.png}{Bases de datos encontradas}\n'
-  const RECORTADA = '\\captura[trim={0.1\\width 0\\height 0.2\\width 0.05\\height},clip,'
+  const RECORTADA = '\\captura[trim={0.1\\width} {0\\height} {0.2\\width} {0.05\\height},clip,'
     + 'width=0.8\\linewidth]{sqlmap-dbs.png}{Bases de datos encontradas}\n'
 
   it('una `\\captura` con opciones se sigue leyendo entera', () => {
@@ -156,7 +156,7 @@ describe('el recorte, que vive en el propio LaTeX', () => {
 
   it('un `figure` recortado también, y sigue siendo hoja', () => {
     const texto = FIGURA.replace('[width=0.8\\linewidth]',
-      '[trim={0.1\\width 0\\height 0.2\\width 0.05\\height},clip,width=0.8\\linewidth]')
+      '[trim={0.1\\width} {0\\height} {0.2\\width} {0.05\\height},clip,width=0.8\\linewidth]')
     const blocks = parseTex(texto)
     const figura = blocks.find(b => b.kind === 'figura')!
     expect(figura.items).toBeUndefined()
@@ -171,7 +171,7 @@ describe('el recorte, que vive en el propio LaTeX', () => {
     expect(applyGraphicsOptions(ytext, figura, opciones, CAPTURA)).toBeNull()
 
     const after = ytext.toString()
-    expect(after).toContain('\\captura[trim={0.1\\width 0\\height 0.2\\width 0.05\\height}, clip,'
+    expect(after).toContain('\\captura[trim={0.1\\width} {0\\height} {0.2\\width} {0.05\\height}, clip,'
       + ' width=0.8\\linewidth]{sqlmap-dbs.png}')
     expect(joined(after, parseDoc(after, 'tex'))).toBe(after)
   })

@@ -8,21 +8,25 @@ const CROP: Crop = { l: 0.1, b: 0.05, r: 0.2, t: 0.25 }
 
 describe('parseCrop / formatCrop', () => {
   it('lee las cuatro medidas en el orden de trim', () => {
+    expect(parseCrop('{0.1\\width} {0.05\\height} {0.2\\width} {0.25\\height}')).toEqual(CROP)
+    // Sin llaves también se lee: un `trim` escrito a mano puede no llevarlas.
     expect(parseCrop('0.1\\width 0.05\\height 0.2\\width 0.25\\height')).toEqual(CROP)
   })
 
   it('vuelve del texto al recorte y al revés sin perder nada', () => {
     const texto = formatCrop(CROP)
-    expect(texto).toBe('0.1\\width 0.05\\height 0.2\\width 0.25\\height')
+    expect(texto).toBe('{0.1\\width} {0.05\\height} {0.2\\width} {0.25\\height}')
     expect(parseCrop(texto)).toEqual(CROP)
   })
 
   it('escribe un cero pelado, no «0.0000»', () => {
-    expect(formatCrop({ l: 0, b: 0.5, r: 0, t: 0 })).toBe('0\\width 0.5\\height 0\\width 0\\height')
+    expect(formatCrop({ l: 0, b: 0.5, r: 0, t: 0 }))
+      .toBe('{0\\width} {0.5\\height} {0\\width} {0\\height}')
   })
 
   it('redondea a cuatro decimales', () => {
-    expect(formatCrop({ l: 1 / 3, b: 0, r: 0, t: 0 })).toBe('0.3333\\width 0\\height 0\\width 0\\height')
+    expect(formatCrop({ l: 1 / 3, b: 0, r: 0, t: 0 }))
+      .toBe('{0.3333\\width} {0\\height} {0\\width} {0\\height}')
   })
 
   it('no se inventa un rectángulo cuando el trim no es relativo', () => {
@@ -32,6 +36,20 @@ describe('parseCrop / formatCrop', () => {
     expect(parseCrop('0.1\\width 0.1\\height')).toBeNull()
     expect(parseCrop('0.6\\width 0\\height 0.6\\width 0\\height')).toBeNull()
     expect(parseCrop('-0.1\\width 0\\height 0\\width 0\\height')).toBeNull()
+  })
+})
+
+describe('la forma del trim (regresión)', () => {
+  it('escribe una llave por lado, no las cuatro medidas en una', () => {
+    // Con `trim={a b c d}` adjustbox lee `a`, lo aplica a los cuatro lados y se
+    // come el resto sin avisar: la imagen sale recortada, pero no por donde se
+    // pidió. Medido con xelatex sobre una imagen de 1084 pt de ancho:
+    //   trim={0.12\width 0.05\height 0.2\width 0.25\height} → 823.9 pt (=76 %,
+    //     o sea 1 − 0.12 − 0.12), cuando lo pedido era 68 % (1 − 0.12 − 0.2)
+    //   trim={0.12\width} {0.05\height} {0.2\width} {0.25\height} → correcto
+    const texto = formatCrop(CROP)
+    expect(texto.match(/\{/g)).toHaveLength(4)
+    expect(texto).not.toMatch(/^\{[^}]*\\height[^}]*\}$/)
   })
 })
 
@@ -106,24 +124,24 @@ describe('la ventana y la miniatura', () => {
 describe('setGraphicsOptions', () => {
   it('estrena los corchetes de una captura con el ancho que ponía la macro', () => {
     expect(setGraphicsOptions('', CROP, 'width=0.8\\linewidth'))
-      .toBe('trim={0.1\\width 0.05\\height 0.2\\width 0.25\\height}, clip, width=0.8\\linewidth')
+      .toBe('trim={0.1\\width} {0.05\\height} {0.2\\width} {0.25\\height}, clip, width=0.8\\linewidth')
   })
 
   it('un includegraphics sin corchetes no tiene ancho que rescatar', () => {
     expect(setGraphicsOptions('', CROP))
-      .toBe('trim={0.1\\width 0.05\\height 0.2\\width 0.25\\height}, clip')
+      .toBe('trim={0.1\\width} {0.05\\height} {0.2\\width} {0.25\\height}, clip')
   })
 
   it('respeta las opciones que ya había, incluso las que no enseña', () => {
     const salida = setGraphicsOptions('width=0.6\\linewidth, angle=90', CROP)
     expect(salida).toBe(
-      'trim={0.1\\width 0.05\\height 0.2\\width 0.25\\height}, clip, width=0.6\\linewidth, angle=90')
+      'trim={0.1\\width} {0.05\\height} {0.2\\width} {0.25\\height}, clip, width=0.6\\linewidth, angle=90')
   })
 
   it('cambiar el recorte no duplica el trim ni el clip', () => {
     const primero = setGraphicsOptions('width=0.8\\linewidth', CROP)
     const segundo = setGraphicsOptions(primero, { l: 0, b: 0, r: 0.5, t: 0 })
-    expect(segundo).toBe('trim={0\\width 0\\height 0.5\\width 0\\height}, clip, width=0.8\\linewidth')
+    expect(segundo).toBe('trim={0\\width} {0\\height} {0.5\\width} {0\\height}, clip, width=0.8\\linewidth')
   })
 
   it('quitar el recorte de una captura devuelve el LaTeX de antes, sin corchetes', () => {
@@ -142,9 +160,9 @@ describe('setGraphicsOptions', () => {
   })
 
   it('no parte por las comas que van dentro de una llave', () => {
-    expect(cropOf('trim={0.1\\width 0\\height 0\\width 0\\height}, clip')).toEqual(
+    expect(cropOf('trim={0.1\\width} {0\\height} {0\\width} {0\\height}, clip')).toEqual(
       { l: 0.1, b: 0, r: 0, t: 0 })
-    expect(setGraphicsOptions('trim={0.1\\width 0\\height 0\\width 0\\height}, clip, width=1\\linewidth',
+    expect(setGraphicsOptions('trim={0.1\\width} {0\\height} {0\\width} {0\\height}, clip, width=1\\linewidth',
       null)).toBe('width=1\\linewidth')
   })
 })
