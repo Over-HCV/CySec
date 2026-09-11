@@ -366,10 +366,18 @@ async function onPdfClick({ page, x, y }: { page: number, x: number, y: number }
  * Guardar el PDF en disco. El nombre sale del proyecto; se limpian los
  * caracteres que Windows no admite en un nombre de archivo, que si no llegan
  * tal cual a la cabecera `Content-Disposition`.
+ *
+ * Lo que se descarga siempre es la versión de resolución completa: `fast` y
+ * `normal` compilan con las imágenes ligeras (ver `image-proxy.ts`), así que si
+ * el último PDF salió de una de esas, primero se rehace en `full`.
  */
 async function onDownloadPdf() {
   const base = (project.value?.name ?? 'documento').replace(/[\\/:*?"<>|]+/g, '-').trim()
   try {
+    if (last.value?.mode !== 'full') {
+      toast.info('Preparando el PDF con las imágenes a resolución completa…')
+      await runCompile('full')
+    }
     await downloadPdf(`${base}.pdf`)
   } catch (e) {
     toast.error(`No se pudo descargar el PDF: ${(e as Error).message}`)
@@ -462,10 +470,22 @@ async function focusFile(path: string, line?: number) {
 
             <MacSeparator />
 
-            <AppMenuItem :checked="layout.compileMode === 'normal'" @select="layout.compileMode = 'normal'">
+            <!-- Los dos compilan con las imágenes ligeras: es lo que hace que
+                 mirar el documento mientras se escribe cueste segundos y no un
+                 minuto. La resolución completa sale en «Recompilar desde cero»
+                 y en la descarga. -->
+            <AppMenuItem
+              :checked="layout.compileMode === 'normal'"
+              hint="Con bibliografía; imágenes ligeras"
+              @select="layout.compileMode = 'normal'"
+            >
               Normal
             </AppMenuItem>
-            <AppMenuItem :checked="layout.compileMode === 'fast'" @select="layout.compileMode = 'fast'">
+            <AppMenuItem
+              :checked="layout.compileMode === 'fast'"
+              hint="Una pasada, sin bibliografía; imágenes ligeras"
+              @select="layout.compileMode = 'fast'"
+            >
               Rápido (borrador)
             </AppMenuItem>
 
@@ -476,7 +496,7 @@ async function focusFile(path: string, line?: number) {
                  lo de la compilación anterior. -->
             <AppMenuItem
               :disabled="compiling"
-              hint="Rehace la bibliografía y los índices ignorando la caché"
+              hint="Rehace la bibliografía, los índices y las imágenes a resolución completa, ignorando la caché"
               @select="runCompile('full')"
             >
               Recompilar desde cero

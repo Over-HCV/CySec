@@ -34,14 +34,19 @@ export type CompileMode = 'normal' | 'fast' | 'full'
 const MODE_RANK: Record<CompileMode, number> = { fast: 0, normal: 1, full: 2 }
 
 /**
- * Estado de `build/` que se guarda entre compilaciones. Además de los
- * auxiliares va la base de dependencias de latexmk (`.fdb_latexmk`, `.fls`) y
- * la salida (`.pdf`, `.xdv`, `.synctex.gz`): con ellos latexmk puede decidir
- * que no hay nada que rehacer, en vez de repetir la pasada a ciegas.
+ * Estado de `build/` que se guarda entre compilaciones: los auxiliares y la
+ * base de dependencias de latexmk (`.fdb_latexmk`, `.fls`, `.xdv`), con los que
+ * puede decidir que no hay nada que rehacer en vez de repetir la pasada a
+ * ciegas.
+ *
+ * El `.pdf` y el `.synctex.gz` **no** están: son la salida, ya se suben aparte y
+ * eran el 95 % del tarball (12,9 MB de los 13). Que falte el PDF solo significa
+ * que latexmk rehace la pasada en una instancia fría, y el caso «no ha cambiado
+ * nada» lo corta antes `lastMatching` por `source_hash`.
  */
 const CACHE_EXT = [
   'aux', 'bbl', 'bcf', 'toc', 'out', 'lof', 'lot', 'run.xml',
-  'fdb_latexmk', 'fls', 'xdv', 'pdf', 'synctex.gz'
+  'fdb_latexmk', 'fls', 'xdv'
 ]
 
 /**
@@ -68,7 +73,24 @@ interface ProjectFile {
   content: string | null
   storage_path: string | null
   size_bytes: number | null
+  /** Derivada ligera de la imagen, si la hay (ver 008_asset_proxy.sql). */
+  proxy_path?: string | null
+  proxy_bytes?: number | null
 }
+
+/**
+ * Con qué versión de las imágenes se compila.
+ *
+ * `proxy`: la derivada de 1400 px, sin perfil ICC ni canal alfa. Es lo que se
+ * mira mientras se escribe, y es la diferencia entre que xdvipdfmx copie el
+ * stream del PNG o lo descomprima y lo vuelva a comprimir imagen por imagen.
+ *
+ * `original`: el archivo tal como se subió. Es la salida buena, la de `full` y
+ * la que se descarga.
+ */
+type Variant = 'proxy' | 'original'
+
+const variantFor = (mode: CompileMode): Variant => (mode === 'full' ? 'original' : 'proxy')
 
 /**
  * Una compilación a la vez por proyecto: el directorio de trabajo es estable
@@ -77,6 +99,13 @@ interface ProjectFile {
  * auxiliares a media pasada.
  */
 const queues = new Map<string, Promise<unknown>>()
+
+/**
+ * Lo que una compilación deja hecho después de responder: guardar la caché de
+ * auxiliares. No lo espera el usuario, pero sí la cola: `tar` lee `build/` y la
+ * siguiente pasada lo reescribe.
+ */
+const background = new Map<string, Promise<unknown>>()
 
 export function compileProject(
   projectId: string,
@@ -87,7 +116,14 @@ export function compileProject(
   const prev = queues.get(projectId) ?? Promise.resolve()
   // `.then(start, start)`: una compilación que falla no puede cortar la cola.
   const next = prev.then(start, start)
-  const guard = next.catch(() => {})
+  const guard = next
+    .catch(() => {})
+    .then(() => {
+      const pending = background.get(projectId)
+      background.delete(projectId)
+      return pending
+    })
+    .catch(() => {})
   queues.set(projectId, guard)
   void guard.then(() => {
     if (queues.get(projectId) === guard) queues.delete(projectId)
@@ -116,15 +152,11 @@ async function compileNow(
     .single()
   if (projectError || !project) throw new HttpError(404, 'proyecto no encontrado')
 
-  const { data: files, error: filesError } = await admin
-    .from('files')
-    .select('path, kind, content, storage_path, size_bytes')
-    .eq('project_id', projectId)
-  if (filesError) throw new HttpError(500, filesError.message)
+  const sources = await loadFiles(projectId)
 
   const root = project.root_file as string
-  const sources = (files ?? []) as ProjectFile[]
-  const sourceHash = hashSources(root, project.engine as string, sources)
+  const variant = variantFor(mode)
+  const sourceHash = hashSources(root, project.engine as string, sources, variant)
 
   // Nada ha cambiado desde la última compilación al menos igual de profunda:
   // se devuelve aquella. Con la compilación automática (2,5 s tras la última
@@ -137,6 +169,13 @@ async function compileNow(
   // El id se genera antes de compilar: es el prefijo con el que se suben el PDF
   // y el SyncTeX al bucket.
   const compilationId = crypto.randomUUID()
+  // Reparto del tiempo por etapas: sin esto, «tarda mucho» no se puede repartir
+  // entre sincronizar, compilar y subir, y se optimiza a ciegas.
+  const timings: Record<string, number> = {}
+  const clock = <T>(name: string, work: PromiseLike<T>): Promise<T> => {
+    const from = Date.now()
+    return Promise.resolve(work).finally(() => { timings[name] = Date.now() - from })
+  }
   const workdir = workdirFor(projectId)
   await mkdir(workdir, { recursive: true })
   // La fecha del directorio es lo que mira la limpieza, y escribir *dentro* no
@@ -149,7 +188,7 @@ async function compileNow(
   const buildDir = path.join(workdir, outdir)
   const base = path.basename(root, path.extname(root))
 
-  await syncSources(workdir, sources)
+  await clock('sync', syncSources(workdir, sources, variant))
 
   // `full` empieza de cero: fuera el `build/` de esta instancia y fuera la
   // caché compartida. Es lo único que se borra, y todo es regenerable.
@@ -157,7 +196,7 @@ async function compileNow(
     await rm(buildDir, { recursive: true, force: true })
     await admin.storage.from('compiled').remove([cacheKey(projectId)]).catch(() => {})
   } else {
-    await restoreAuxCache(projectId, buildDir, base, mode)
+    await clock('restore_cache', restoreAuxCache(projectId, buildDir, base, mode))
   }
 
   const engineFlag = ENGINE_FLAG[project.engine as string] ?? '-pdfxe'
@@ -174,6 +213,7 @@ async function compileNow(
   // se escribe; los errores siguen saliendo en los diagnósticos.
   const modeArgs = mode === 'fast' ? ['-e', '$max_repeat=1', '-bibtex-', '-f'] : []
 
+  const latexFrom = Date.now()
   try {
     // -no-shell-escape mata \write18: es la vía obvia de ejecutar comandos
     // arbitrarios desde un .tex subido por cualquiera.
@@ -206,6 +246,7 @@ async function compileNow(
     failed = true
     if (err.killed) log += `\n\n[texel] Cancelado: superó ${TIMEOUT_MS / 1000}s.`
   }
+  timings.latexmk = Date.now() - latexFrom
 
   // Los dos, y en este orden: el .log de xelatex trae el detalle del documento,
   // pero los errores de biber (y el «Please (re)run Biber») solo salen por la
@@ -220,23 +261,29 @@ async function compileNow(
   const pdf = await readFile(path.join(buildDir, `${base}.pdf`)).catch(() => null)
   if (pdf) {
     pdfPath = `${prefix}/${base}.pdf`
-    const { error } = await admin.storage.from('compiled').upload(pdfPath, pdf, {
+    const { error } = await clock('upload_pdf', admin.storage.from('compiled').upload(pdfPath, pdf, {
       contentType: 'application/pdf',
       upsert: true
-    })
+    }))
     if (error) throw new HttpError(500, `subida del PDF: ${error.message}`)
     // Solo se guarda la caché de una compilación que llegó a PDF: los
     // auxiliares de una que reventó a media pasada no valen para la siguiente.
-    await saveAuxCache(projectId, buildDir)
+    //
+    // Y se guarda *después* de responder: nadie está esperando el tarball, y
+    // empaquetarlo y subirlo delante del usuario era tiempo de compilación que
+    // no compila nada. La cola por proyecto lo espera igual (ver
+    // `compileProject`), así que la siguiente pasada no le escribe el `build/`
+    // por debajo mientras `tar` lo lee.
+    background.set(projectId, saveAuxCache(projectId, buildDir))
   }
 
   const synctex = await readFile(path.join(buildDir, `${base}.synctex.gz`)).catch(() => null)
   if (synctex) {
     synctexPath = `${prefix}/${base}.synctex.gz`
-    await admin.storage.from('compiled').upload(synctexPath, synctex, {
+    await clock('upload_synctex', admin.storage.from('compiled').upload(synctexPath, synctex, {
       contentType: 'application/gzip',
       upsert: true
-    })
+    }))
   }
 
   // Hay PDF ⇒ 'success' aunque latexmk devolviera error: LaTeX produce salida
@@ -245,9 +292,10 @@ async function compileNow(
   const status = pdf ? 'success' : 'error'
   const finalLog = failed && !pdf ? `${fullLog}\n[texel] latexmk no produjo PDF.` : fullLog
 
-  const { data: row, error: insertError } = await admin
-    .from('compilations')
-    .insert({
+  timings.total = Date.now() - started
+  console.log(`[texel] ${mode} ${projectId} ${JSON.stringify(timings)}`)
+
+  const { data: row, error: insertError } = await insertCompilation({
       id: compilationId,
       project_id: projectId,
       status,
@@ -259,12 +307,11 @@ async function compileNow(
       diagnostics: parseLog(finalLog, workdir),
       pdf_path: pdfPath,
       synctex_path: synctexPath,
-      duration_ms: Date.now() - started,
+      duration_ms: timings.total,
+      timings,
       created_by: userId,
       finished_at: new Date().toISOString()
-    })
-    .select()
-    .single()
+  })
 
   if (insertError) throw new HttpError(500, insertError.message)
   return row as CompileResult
@@ -283,19 +330,67 @@ function texEnv(workdir: string): NodeJS.ProcessEnv {
   return { ...process.env, TEXINPUTS: paths, BIBINPUTS: paths }
 }
 
-/** Huella del proyecto: si no cambia, el PDF tampoco puede cambiar. */
-function hashSources(root: string, engine: string, files: ProjectFile[]): string {
-  const h = createHash('sha256').update(`${root} ${engine}`)
+/**
+ * Huella del proyecto: si no cambia, el PDF tampoco puede cambiar.
+ *
+ * La variante entra en la huella porque cambia el PDF: el de las derivadas no
+ * vale como respuesta a un `full`, ni al revés.
+ */
+function hashSources(root: string, engine: string, files: ProjectFile[], variant: Variant): string {
+  const h = createHash('sha256').update(`${root} ${engine} ${variant}`)
   for (const f of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
-    h.update(` ${f.path} ${signature(f)}`)
+    h.update(` ${f.path} ${signature(f, variant)}`)
   }
   return h.digest('hex')
 }
 
-/** Qué identifica el contenido de un archivo. Los binarios, por su objeto en Storage. */
-function signature(file: ProjectFile): string {
-  if (file.kind === 'binary') return `bin:${file.storage_path ?? ''}:${file.size_bytes ?? 0}`
-  return `txt:${createHash('sha1').update(file.content ?? '').digest('hex')}`
+/**
+ * Qué identifica el contenido de un archivo. Los binarios, por su objeto en
+ * Storage —y por cuál de los dos objetos, que el manifiesto de `syncSources`
+ * usa esto para saber si lo que hay en disco es lo que toca: al pasar de `fast`
+ * a `full` la firma cambia y la imagen se reescribe con el original.
+ */
+function signature(file: ProjectFile, variant: Variant): string {
+  if (file.kind !== 'binary') return `txt:${createHash('sha1').update(file.content ?? '').digest('hex')}`
+  const asset = pickAsset(file, variant)
+  return `bin:${asset.path}:${asset.bytes}`
+}
+
+/** El objeto que hay que bajar para este archivo: la derivada si toca y existe. */
+function pickAsset(file: ProjectFile, variant: Variant): { path: string, bytes: number } {
+  if (variant === 'proxy' && file.proxy_path) {
+    return { path: file.proxy_path, bytes: file.proxy_bytes ?? 0 }
+  }
+  return { path: file.storage_path ?? '', bytes: file.size_bytes ?? 0 }
+}
+
+/**
+ * Los archivos del proyecto.
+ *
+ * Las columnas de la derivada son de 008_asset_proxy.sql; contra una base que
+ * todavía no la tenga, el `select` falla entero, así que se vuelve a pedir sin
+ * ellas y se compila con los originales, como antes.
+ */
+async function loadFiles(projectId: string): Promise<ProjectFile[]> {
+  const BASE = 'path, kind, content, storage_path, size_bytes'
+  const { data, error } = await admin
+    .from('files')
+    .select(`${BASE}, proxy_path, proxy_bytes`)
+    .eq('project_id', projectId)
+  if (!error) return (data ?? []) as ProjectFile[]
+
+  const fallback = await admin.from('files').select(BASE).eq('project_id', projectId)
+  if (fallback.error) throw new HttpError(500, fallback.error.message)
+  console.warn('[texel] sin columnas de derivada (¿falta 008_asset_proxy.sql?):', error.message)
+  return (fallback.data ?? []) as ProjectFile[]
+}
+
+/** Igual que el `select`: `timings` es de 008 y una base vieja no lo acepta. */
+async function insertCompilation(row: Record<string, unknown>) {
+  const first = await admin.from('compilations').insert(row).select().single()
+  if (!first.error) return first
+  const { timings: _timings, ...rest } = row
+  return admin.from('compilations').insert(rest).select().single()
 }
 
 /** La última compilación con PDF de esta misma versión del proyecto, si la hay. */
@@ -337,31 +432,37 @@ const MANIFEST = '.texel-sources.json'
  * manifiesto de la vez anterior: así no hay que adivinar qué es fuente y qué es
  * producto de compilar.
  */
-async function syncSources(workdir: string, files: ProjectFile[]): Promise<void> {
+async function syncSources(workdir: string, files: ProjectFile[], variant: Variant): Promise<void> {
   const manifestPath = path.join(workdir, MANIFEST)
   const previous: Manifest = await readFile(manifestPath, 'utf8')
     .then(text => JSON.parse(text) as Manifest)
     .catch(() => ({}))
 
   const current: Manifest = {}
+  const pending: ProjectFile[] = []
 
   for (const file of files) {
-    const target = safeJoin(workdir, file.path)
-    const sig = signature(file)
+    const sig = signature(file, variant)
     current[file.path] = sig
+    if (previous[file.path] === sig && await exists(safeJoin(workdir, file.path))) continue
+    pending.push(file)
+  }
 
-    const unchanged = previous[file.path] === sig && await exists(target)
-    if (unchanged) continue
-
+  // En paralelo y no en fila: un directorio frío son decenas de descargas de
+  // Storage, y encadenarlas era esperar la latencia una vez por imagen.
+  await pool(pending, 8, async (file) => {
+    const target = safeJoin(workdir, file.path)
     await mkdir(path.dirname(target), { recursive: true })
-    if (file.kind === 'binary' && file.storage_path) {
-      const { data, error } = await admin.storage.from('project-assets').download(file.storage_path)
+    if (file.kind === 'binary') {
+      const { path: object } = pickAsset(file, variant)
+      if (!object) return
+      const { data, error } = await admin.storage.from('project-assets').download(object)
       if (error) throw new HttpError(500, `no se pudo bajar ${file.path}: ${error.message}`)
       await writeFile(target, Buffer.from(await data.arrayBuffer()))
     } else {
       await writeFile(target, file.content ?? '', 'utf8')
     }
-  }
+  })
 
   for (const stale of Object.keys(previous)) {
     if (stale in current) continue
@@ -372,6 +473,15 @@ async function syncSources(workdir: string, files: ProjectFile[]): Promise<void>
 }
 
 const exists = (p: string) => stat(p).then(() => true, () => false)
+
+/** Ejecuta `work` sobre todos los elementos, con como mucho `width` a la vez. */
+async function pool<T>(items: T[], width: number, work: (item: T) => Promise<void>): Promise<void> {
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) await work(items[next++]!)
+  }
+  await Promise.all(Array.from({ length: Math.min(width, items.length) }, worker))
+}
 
 /**
  * Borra los directorios de otros proyectos que lleven un rato sin usarse.
@@ -448,7 +558,9 @@ async function saveAuxCache(projectId: string, buildDir: string): Promise<void> 
     if (!names.length) return
 
     const tarball = path.join(buildDir, '.aux-cache.tgz')
-    await run('tar', ['-czf', tarball, '-C', buildDir, ...names])
+    // `gzip -1` y no el nivel 6 por defecto: aquí lo que manda es el `.xdv`, que
+    // ya viene medio comprimido, y el nivel alto solo gasta CPU.
+    await run('tar', ['-cf', tarball, '-I', 'gzip -1', '-C', buildDir, ...names])
     const bytes = await readFile(tarball)
     await rm(tarball, { force: true })
 

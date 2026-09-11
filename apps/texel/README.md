@@ -70,7 +70,17 @@ El botón partido de la cabecera compila; el chevron abre las opciones.
 |---|---|---|
 | **Normal** | las pasadas que hagan falta y biber; la bibliografía se rehace siempre | por defecto |
 | **Rápido (borrador)** | una pasada, sin bibliografía, reutilizando el `.bbl` anterior | mientras escribes |
-| **Recompilar desde cero** | tira la caché y rehace el documento entero | cuando algo se quedó atrás |
+| **Recompilar desde cero** | tira la caché y rehace el documento entero, con las imágenes a resolución completa | antes de entregar, o cuando algo se quedó atrás |
+
+**Las imágenes van en dos versiones.** Normal y rápido compilan con una derivada
+de 1400 px sin perfil ICC ni canal alfa (`app/shared/lib/image-proxy.ts`), y solo
+«Recompilar desde cero» y la descarga usan el archivo original. El motivo es que
+xdvipdfmx no puede copiar dentro del PDF un PNG con ICC o alfa —lo que trae
+cualquier captura de macOS—: lo descomprime y lo vuelve a comprimir **en cada
+pasada**. En un taller con 38 capturas de 3024 px eso eran ~25 s por compilación
+y un PDF de 13 MB que subir y volver a bajar; con las derivadas, 2 s y 4 MB. Las
+imágenes que ya estaban subidas se ponen al día una vez con
+`node --experimental-strip-types scripts/optimize-assets.ts [project_id]`.
 
 **Es incremental.** El compilador mantiene un directorio de trabajo por proyecto
 (`/tmp/texel-<id>`), escribe solo los archivos que cambiaron y conserva el
@@ -83,6 +93,22 @@ repetirlo todo. Medido sobre el taller 1 (xelatex + biber, 6 secciones):
 | una sección tocada | ~85 s | ~20 s (una pasada) |
 | `.bib` tocado | ~85 s | ~70 s (biber + las pasadas para que cuadren las citas) |
 | instancia fría | ~85 s | ~20 s (se restaura `build/` del bucket) |
+
+Medido después sobre el taller 2 (20 páginas, 38 capturas), que es donde se vio
+que «una pasada» no era lo mismo para todos los documentos:
+
+| | antes | ahora |
+|---|---|---|
+| rápido, una sección tocada | ~48 s | ~6 s |
+| de eso, la pasada de LaTeX | 28,7 s | 4,4 s (2,4 xelatex + 2,0 xdvipdfmx) |
+| PDF que se sube y se baja | 12,8 MB | 3,9 MB |
+| tarball de auxiliares | 12,9 MB | 164 KB |
+
+Tres cosas, por orden de tamaño: la prueba de «cuerpo vacío» de `boxes.tex`
+estaba hecha con `\StrSubstitute` de xstring sobre el cuerpo entero, y costaba
+~1,5 s por cada caja de `analisis` o `respuesta` (17 s de los 28); las capturas
+se recodificaban enteras en cada pasada; y el tarball de la caché llevaba dentro
+el PDF y lo gzipeaba. Ninguna de las tres era el diffing.
 
 Una pasada de LaTeX procesa **el documento entero**, siempre: no existe compilar
 media sección. Lo que se ahorra son las pasadas de más, biber cuando la

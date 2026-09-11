@@ -56,6 +56,13 @@ export type ProjectFile = {
   content: string | null
   storage_path: string | null
   size_bytes: number
+  /**
+   * Derivada ligera del binario, si la hay: con ella compilan `fast` y `normal`,
+   * y con el original `full`. Null en las imágenes anteriores a
+   * `008_asset_proxy.sql`, que compilan siempre con el original.
+   */
+  proxy_path: string | null
+  proxy_bytes: number | null
   updated_by: string | null
   created_at: string
   updated_at: string
@@ -84,6 +91,8 @@ export type Compilation = {
   pdf_path: string | null
   synctex_path: string | null
   duration_ms: number | null
+  /** Reparto de `duration_ms` por etapas: sync, latexmk, subidas, caché. */
+  timings: Record<string, number> | null
   created_by: string | null
   created_at: string
   finished_at: string | null

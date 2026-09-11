@@ -15,6 +15,7 @@ import {
   type ImportPlan, type PlannedFile
 } from '~/features/projects/lib/import-folder'
 import { TEMPLATE_FILES, TEMPLATE_ROOT } from '~/features/projects/lib/template.generated'
+import { makeProxy, proxyStoragePath } from '~/shared/lib/image-proxy'
 import type { ProjectFile, TexEngine } from '~/shared/types/database'
 
 /** Filas por lote. Ni una a una (lento) ni todas juntas (una carga enorme). */
@@ -175,7 +176,7 @@ export function useProjectImport() {
   async function duplicateProject(source: { id: string, name: string, root_file: string, engine: TexEngine }): Promise<string> {
     const { data: rows, error: readError } = await supabase
       .from('files')
-      .select('path, kind, content, storage_path, size_bytes')
+      .select('path, kind, content, storage_path, size_bytes, proxy_path, proxy_bytes')
       .eq('project_id', source.id)
     if (readError) throw readError
 
@@ -206,12 +207,18 @@ export function useProjectImport() {
           .from('project-assets').upload(storagePath, blob, { upsert: true })
         if (uploadError) throw uploadError
 
+        // La derivada se rehace en vez de copiarse: es un `Blob` que ya está
+        // en memoria y así la copia nunca se queda sin ella.
+        const proxy = await writeProxy(storagePath, blob)
+
         const { error: rowError } = await supabase.from('files').upsert({
           project_id: id,
           path: file.path,
           kind: 'binary' as const,
           storage_path: storagePath,
-          size_bytes: file.size_bytes
+          size_bytes: file.size_bytes,
+          proxy_path: proxy?.path ?? null,
+          proxy_bytes: proxy?.bytes ?? null
         }, { onConflict: 'project_id,path' })
         if (rowError) throw rowError
       }
@@ -230,6 +237,23 @@ export function useProjectImport() {
 
     progress.value = null
     return id
+  }
+
+  /** Igual que `useProjectAssets.uploadProxy`: si falla, se compila con el original. */
+  async function writeProxy(storagePath: string, file: File | Blob) {
+    try {
+      const blob = await makeProxy(file as File)
+      if (!blob) return null
+      const target = proxyStoragePath(storagePath)
+      const { error } = await supabase.storage
+        .from('project-assets')
+        .upload(target, blob, { contentType: 'image/png', upsert: true })
+      if (error) throw error
+      return { path: target, bytes: blob.size }
+    } catch (e) {
+      console.warn('[texel] no se pudo hacer la versión ligera:', e)
+      return null
+    }
   }
 
   async function writeTexts(projectId: string, texts: { path: string, content: string }[]) {
@@ -260,12 +284,18 @@ export function useProjectImport() {
         .upload(storagePath, item.file, { upsert: true, contentType: item.file.type || undefined })
       if (error) throw error
 
+      // Cada imagen importada estrena su versión ligera; es con la que se
+      // compila mientras se escribe (ver `image-proxy.ts`).
+      const proxy = await writeProxy(storagePath, item.file)
+
       const { error: rowError } = await supabase.from('files').upsert({
         project_id: projectId,
         path: item.path,
         kind: 'binary' as const,
         storage_path: storagePath,
-        size_bytes: item.file.size
+        size_bytes: item.file.size,
+        proxy_path: proxy?.path ?? null,
+        proxy_bytes: proxy?.bytes ?? null
       }, { onConflict: 'project_id,path' })
       if (rowError) throw rowError
     }

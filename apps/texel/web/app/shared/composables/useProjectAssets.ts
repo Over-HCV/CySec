@@ -13,6 +13,7 @@
  * editor del proyecto.
  */
 import { extensionDe, PICS_DIR, plate, slug } from '~/shared/lib/asset-name'
+import { makeProxy, proxyStoragePath } from '~/shared/lib/image-proxy'
 import { MAX_FILE_BYTES } from '~/features/projects/lib/import-folder'
 
 export interface AssetUpload {
@@ -71,17 +72,44 @@ export function useProjectAssets(projectId: MaybeRefOrGetter<string | null | und
       .upload(storagePath, file, { contentType: file.type })
     if (error) throw error
 
+    const proxy = await uploadProxy(storagePath, file)
+
     const { error: rowError } = await supabase.from('files').insert({
       project_id: project,
       path,
       kind: 'binary' as const,
       storage_path: storagePath,
       size_bytes: file.size,
+      proxy_path: proxy?.path ?? null,
+      proxy_bytes: proxy?.bytes ?? null,
       updated_by: user.value?.id
     })
     if (rowError) throw rowError
 
     return { path, name: base }
+  }
+
+  /**
+   * Sube la derivada ligera junto al original. Es con la que se compila mientras
+   * se escribe (ver `image-proxy.ts`); `full` sigue usando el original.
+   *
+   * Si algo falla no se corta la subida: sin derivada se compila con el
+   * original, que es lo que pasaba antes de que esto existiera.
+   */
+  async function uploadProxy(storagePath: string, file: File) {
+    try {
+      const blob = await makeProxy(file)
+      if (!blob) return null
+      const target = proxyStoragePath(storagePath)
+      const { error } = await supabase.storage
+        .from('project-assets')
+        .upload(target, blob, { contentType: 'image/png', upsert: true })
+      if (error) throw error
+      return { path: target, bytes: blob.size }
+    } catch (e) {
+      console.warn('[texel] no se pudo hacer la versión ligera:', e)
+      return null
+    }
   }
 
   /** Los nombres de archivo que ya viven en `pics/`. */

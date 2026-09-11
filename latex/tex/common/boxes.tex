@@ -31,6 +31,36 @@
   \end{itemize}\par\smallskip
 }
 
+% ===== ¿está vacío el cuerpo de un entorno? =====
+% Es lo que decide entre pintar la caja y dejar el aviso de «pendiente», y se
+% pregunta una vez por cada `respuesta` y cada `analisis` del documento.
+%
+% Estaba con \StrSubstitute de xstring sobre el cuerpo entero detokenizado.
+% xstring recorre la cadena carácter a carácter reconstruyéndola, así que el
+% coste crece con el cuadrado del tamaño del cuerpo: un análisis de un párrafo
+% largo costaba ~1,5 s **él solo**, y las once cajas del taller 2 eran 17 s de
+% los 27 que tardaba el documento entero. Con l3tl es una pasada, y encima no
+% hace falta ni empezarla cuando el cuerpo es largo: un cuerpo en blanco solo
+% puede tener espacios y \par, o sea que largo y en blanco no puede estar.
+\ExplSyntaxOn
+\tl_new:N \l__cysec_probe_tl
+% #1 cuerpo · #2 qué hacer si está en blanco · #3 si no
+% `+m` y no `m`: los tres argumentos llevan párrafos dentro —el cuerpo del
+% entorno y las dos ramas, que lo reimprimen—, y un argumento corto se planta
+% en el primer \par con «Paragraph ended before … was complete».
+\NewDocumentCommand \cysecIfBlankBody { +m +m +m }
+  {
+    \tl_set:Nx \l__cysec_probe_tl { \tl_to_str:n {#1} }
+    \int_compare:nNnTF { \tl_count:N \l__cysec_probe_tl } > { 400 }
+      { #3 }
+      {
+        \tl_remove_all:Nn \l__cysec_probe_tl { ~ }
+        \exp_args:NNx \tl_remove_all:Nn \l__cysec_probe_tl { \tl_to_str:n { \par } }
+        \tl_if_empty:NTF \l__cysec_probe_tl { #2 } { #3 }
+      }
+  }
+\ExplSyntaxOff
+
 % ===== pregunta / respuesta =====
 \newcounter{pregunta}
 \renewcommand{\thepregunta}{Q\arabic{pregunta}}
@@ -46,9 +76,7 @@
 % Cuerpo vacío ⇒ emite \todoans (caja en borrador + warning en el .log),
 % de modo que `make ws-01 FINAL=1` delate lo que falta antes de entregar.
 \NewEnviron{respuesta}{%
-  \StrSubstitute{\detokenize\expandafter{\BODY}}{ }{}[\cysec@ansprobe]%
-  \StrSubstitute{\cysec@ansprobe}{\detokenize{\par}}{}[\cysec@ansprobe]%
-  \ifdefempty{\cysec@ansprobe}{%
+  \cysecIfBlankBody{\BODY}{%
     \todoans
   }{%
     \par\smallskip
@@ -150,9 +178,7 @@
 }
 
 \NewEnviron{analisis}{%
-  \StrSubstitute{\detokenize\expandafter{\BODY}}{ }{}[\cysec@ansprobe]%
-  \StrSubstitute{\cysec@ansprobe}{\detokenize{\par}}{}[\cysec@ansprobe]%
-  \ifdefempty{\cysec@ansprobe}{%
+  \cysecIfBlankBody{\BODY}{%
     \todoanalisis
   }{%
     \par\smallskip
