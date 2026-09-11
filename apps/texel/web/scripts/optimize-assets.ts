@@ -1,7 +1,7 @@
 /**
  * Rellena las derivadas ligeras de las imágenes que ya estaban subidas.
  *
- *   node --experimental-strip-types scripts/optimize-assets.ts [project_id]
+ *   node --experimental-strip-types scripts/optimize-assets.ts [project_id] [--refresh]
  *
  * Desde `008_asset_proxy.sql`, cada binario puede tener una versión de 1400 px
  * sin perfil ICC ni canal alfa, y es con la que compilan `fast` y `normal`. Las
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
 
-const MAX_PX = 1400
+const MAX_PX = 1100
 /** Por debajo de esto el original ya es ligero y no hay nada que ganar. */
 const MIN_BYTES = 250 * 1024
 
@@ -30,20 +30,22 @@ const admin = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false }
 })
 
-const onlyProject = process.argv[2]
+const onlyProject = process.argv[2]?.startsWith('--') ? undefined : process.argv[2]
+/** Rehace también las que ya tienen derivada: para cuando cambia `MAX_PX`. */
+const refresh = process.argv.includes('--refresh')
 
 let query = admin
   .from('files')
   .select('id, project_id, path, storage_path, size_bytes, proxy_path')
   .eq('kind', 'binary')
-  .is('proxy_path', null)
+if (!refresh) query = query.is('proxy_path', null)
 if (onlyProject) query = query.eq('project_id', onlyProject)
 
 const { data, error } = await query
 if (error) throw error
 
 const rows = (data ?? []).filter(row => row.storage_path && (row.size_bytes ?? 0) >= MIN_BYTES)
-console.log(`▸ ${rows.length} imágenes sin versión ligera`)
+console.log(`▸ ${rows.length} imágenes ${refresh ? 'por rehacer' : 'sin versión ligera'}`)
 
 let antes = 0
 let despues = 0

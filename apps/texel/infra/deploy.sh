@@ -35,13 +35,20 @@ gcloud builds submit "${ROOT}/compiler" --tag "${IMAGE}:latest"
 #    real (xelatex + biber, tres pasadas) tarda 70-90 s medidos. Con los 60 s de
 #    antes, «Recompilar desde cero» moría a media pasada y devolvía el PDF
 #    viejo. Las incrementales siguen costando ~1 s, esto solo es el techo.
+#
+#    --cpu 2 y --concurrency 1: xelatex es de un solo hilo, así que la segunda
+#    CPU no acelera la pasada —la usan node, tar y las subidas, que antes se
+#    peleaban con ella—, pero cuatro compilaciones a la vez sobre una sola CPU
+#    sí se estorbaban entre sí. Una por instancia y que escale con instancias.
+#    --cpu-boost da CPU de sobra durante el arranque, que es cuando hay que
+#    levantar Node y rehidratar el directorio de trabajo desde Storage.
 gcloud run deploy "${SERVICE}" \
   --image "${IMAGE}:latest" \
   --region "${REGION}" \
   --platform managed \
   --allow-unauthenticated \
-  --cpu 1 --memory 2Gi \
-  --concurrency 4 \
+  --cpu 2 --memory 2Gi --cpu-boost \
+  --concurrency 1 \
   --timeout 300 \
   --min-instances "${MIN_INSTANCES:-0}" --max-instances 3 \
   --set-env-vars "ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*},COMPILE_TIMEOUT=${COMPILE_TIMEOUT:-240},WORKDIR_TTL=${WORKDIR_TTL:-1800}" \

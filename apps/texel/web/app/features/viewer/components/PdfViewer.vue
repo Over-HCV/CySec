@@ -189,11 +189,40 @@ async function goToDest(dest: string | unknown[]) {
   slots.get(await pdf.getPageIndex(ref) + 1)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+/**
+ * Dónde está mirando el usuario, en términos que sobreviven a rehacer el
+ * documento: la primera página visible y cuánto lleva recorrido de ella.
+ *
+ * Guardar `scrollTop` a secas no sirve: al vaciar el contenedor el navegador lo
+ * pone a cero, y si el documento cambió de alto el mismo número cae en otro
+ * sitio. Con página + desfase, una compilación mientras se escribe deja el PDF
+ * donde estaba en vez de mandarte a la primera página.
+ */
+function anchor(): { page: number, delta: number } | null {
+  if (!scroller.value || !slots.size) return null
+  const top = scroller.value.scrollTop
+  for (const n of [...slots.keys()].sort((a, b) => a - b)) {
+    const slot = slots.get(n)!
+    if (slot.offsetTop + slot.offsetHeight > top) return { page: n, delta: top - slot.offsetTop }
+  }
+  return null
+}
+
+/** Vuelve a donde estaba, corrigiendo el desfase si cambió el zoom. */
+function restore(at: { page: number, delta: number } | null, ratio: number) {
+  if (!at || !scroller.value || !slots.size) return
+  const slot = slots.get(Math.min(at.page, slots.size))
+  if (!slot) return
+  scroller.value.scrollTop = Math.max(0, slot.offsetTop + at.delta * ratio)
+}
+
 async function paint() {
   if (!props.src || !canvasHost.value || !scroller.value) return
   const token = ++renderToken
   rendering.value = true
   loadError.value = null
+  const at = anchor()
+  const previousScale = appliedScale.value
 
   try {
     const pdfjs = await loadPdfjs()
@@ -214,6 +243,7 @@ async function paint() {
     const natural = first.getViewport({ scale: 1 }).width
     const scale = fitWidth.value ? Math.max(available / natural, 0.25) : zoom.value
     appliedScale.value = scale
+    const ratio = previousScale > 0 ? scale / previousScale : 1
 
     for (const n of slots.keys()) releasePage(n)
     slots.clear()
@@ -248,6 +278,10 @@ async function paint() {
       slots.set(n, slot)
       visibility.observe(slot)
     }
+
+    // Con los huecos ya colocados: el alto del contenedor es el definitivo, así
+    // que el scroll cae donde tiene que caer y no lo recorta el navegador.
+    restore(at, ratio)
   } finally {
     // Sin condición: si un render queda superado por otro y solo el «último»
     // limpiara la bandera, un relevo a destiempo dejaba el panel en

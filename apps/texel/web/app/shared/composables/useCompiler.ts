@@ -60,11 +60,25 @@ export function useCompiler(projectId: MaybeRefOrGetter<string>) {
     }
   }
 
-  /** URL firmada del PDF: el bucket `compiled` es privado. */
+  /** Qué objeto está puesto en el visor y cuándo se firmó su URL. */
+  let shown: { path: string, at: number } | null = null
+  /** Se refirma antes de que caduque: pdf.js pide trozos del PDF según hace falta. */
+  const RESIGN_MS = 50 * 60 * 1000
+
+  /**
+   * URL firmada del PDF: el bucket `compiled` es privado.
+   *
+   * Si el objeto es el mismo que ya está puesto, no se vuelve a firmar: una URL
+   * nueva es un `src` nuevo, y el visor tira el documento y se baja los megas
+   * otra vez para enseñar exactamente lo mismo. Pasa en cuanto una compilación
+   * no cambia nada y el servidor devuelve la anterior.
+   */
   async function loadPdf(path: string) {
+    if (shown?.path === path && pdfUrl.value && Date.now() - shown.at < RESIGN_MS) return
     const { data, error } = await supabase.storage.from('compiled').createSignedUrl(path, 3600)
     if (error) throw error
     pdfUrl.value = data.signedUrl
+    shown = { path, at: Date.now() }
   }
 
   /**

@@ -16,8 +16,14 @@
  * para las imágenes que ya estaban subidas.
  */
 
-/** Ancho máximo de la derivada. Un ancho de texto son ~450 pt: 1400 px sobran. */
-export const PROXY_MAX_PX = 1400
+/**
+ * Ancho máximo de la derivada.
+ *
+ * Una captura se pinta a `0.8\linewidth`, o sea ~360 pt ≈ 5 pulgadas: 1100 px
+ * son 220 ppp, el doble de lo que distingue una pantalla. Bajar de 1400 a 1100
+ * quitó 1,5 MB del PDF de borrador y ~1 s entre xdvipdfmx y la subida.
+ */
+export const PROXY_MAX_PX = 1100
 
 /** Por debajo de esto no vale la pena: el original ya es ligero. */
 export const PROXY_MIN_BYTES = 250 * 1024
