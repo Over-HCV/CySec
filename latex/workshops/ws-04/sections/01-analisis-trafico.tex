@@ -1,0 +1,69 @@
+% sections/01-analisis-trafico.tex — punto 5.1 de la guía
+\section{Análisis de tráfico con Wireshark}
+
+\subsection{Puesta en marcha de la captura}
+
+Wireshark se encuentra disponible en Kali Linux dentro del menú de aplicaciones (categoría \emph{09 -- Sniffing \& Spoofing}) y también puede lanzarse desde la terminal, teniendo en cuenta que la captura requiere privilegios sobre la interfaz de red:
+
+\begin{lstlisting}[language=bash]
+sudo wireshark &
+\end{lstlisting}
+
+Una vez abierta la aplicación se ingresó al botón \emph{Capture Options}, desde el cual se seleccionó la interfaz sobre la que se realizaría la escucha (la interfaz cableada \texttt{eth0} o la inalámbrica \texttt{wlan0}, según el montaje), dejando activo el modo promiscuo para que la tarjeta entregue al sistema todas las tramas que observa y no solo las dirigidas a su propia dirección MAC:
+
+\captura{wireshark-capture-options.png}{Ventana \emph{Capture Options} de Wireshark con la interfaz de red seleccionada para la escucha.}
+
+\begin{analisis}
+\end{analisis}
+
+Posterior a esto Wireshark comenzó a capturar los paquetes que pasan por la interfaz seleccionada, mostrándolos en tiempo real en el panel de lista de paquetes:
+
+\captura{wireshark-captura-viva.png}{Captura en curso sobre la interfaz seleccionada.}
+
+\begin{analisis}
+\end{analisis}
+
+\subsection{Credenciales sobre HTTP}
+
+Se realizó la búsqueda de una página de inicio de sesión que hiciera uso de HTTP y se ingresaron unas credenciales de prueba en los campos de usuario y contraseña (nunca credenciales reales, dado que el tráfico queda registrado en el archivo de captura). Para aislar el envío del formulario dentro de todo el tráfico capturado se aplicaron los siguientes filtros de visualización:
+
+\begin{lstlisting}
+http.request.method == "POST"
+urlencoded-form
+\end{lstlisting}
+
+\captura{http-post-credenciales.png}{Paquete HTTP POST con los campos del formulario de autenticación en texto claro.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{Al analizar los paquetes HTTP capturados, ¿se evidencia la información de las credenciales? Justifique su respuesta.}
+\begin{respuesta}
+Sí se evidencia la información de las credenciales, y la justificación está en el propio diseño del protocolo: HTTP transporta la petición y su cuerpo en texto claro sobre TCP, sin ninguna capa de cifrado intermedia, de forma que cuando el formulario de autenticación se envía mediante el método POST los campos de usuario y contraseña viajan como pares nombre-valor codificados en \eng{url-encoding} dentro del cuerpo de la petición (\texttt{application/x-www-form-urlencoded}), y cualquier equipo que esté en la ruta del paquete o que comparta el medio puede leerlos sin realizar operación alguna de descifrado. En Wireshark esto se observa directamente en el árbol de disección del paquete, bajo el nodo \emph{HTML Form URL Encoded}, o de forma más cómoda siguiendo el flujo completo con \emph{Follow $\rightarrow$ HTTP Stream}, donde se reconstruye la conversación entre el navegador y el servidor tal como se transmitió. Cabe mencionar que la exposición no se limita a las credenciales: también quedan legibles las \eng{cookies} de sesión, los encabezados y el contenido devuelto por el servidor, de manera que un atacante podría suplantar la sesión incluso sin conocer la contraseña.
+\end{respuesta}
+
+\subsection{Credenciales sobre HTTPS}
+
+Progresivamente se repitió el mismo ejercicio sobre una página de inicio de sesión que hace uso de HTTPS, ingresando nuevamente un usuario y una contraseña de prueba y filtrando el tráfico correspondiente:
+
+\begin{lstlisting}
+tls
+tls.handshake.type == 1
+\end{lstlisting}
+
+\captura{https-tls-handshake.png}{Negociación TLS (\emph{Client Hello}) previa al envío de las credenciales.}
+
+\begin{analisis}
+\end{analisis}
+
+\captura{https-application-data.png}{Registros \emph{Application Data} de TLS: el contenido de la petición viaja cifrado.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{Al analizar los paquetes HTTPS capturados, ¿es posible ver la información de las credenciales? Justifique su respuesta.}
+\begin{respuesta}
+No es posible ver la información de las credenciales, porque HTTPS no es un protocolo distinto sino el mismo HTTP transportado dentro de un canal TLS: antes de que el navegador envíe un solo byte del formulario se ejecuta el \eng{handshake} (\emph{Client Hello}, \emph{Server Hello}, validación del certificado del servidor y acuerdo de las claves de sesión), y a partir de ese punto todo el intercambio viaja como registros de tipo \emph{Application Data}, que Wireshark muestra únicamente como un bloque de bytes cifrados cuya longitud es lo único observable. En consecuencia, el usuario y la contraseña solo existen en claro en los extremos de la comunicación (el navegador y el servidor), y quien captura en el medio no dispone de las claves de sesión para reconstruirlos.
+
+Ahora bien, cabe mencionar que el cifrado no vuelve invisible la conversación entera: siguen siendo legibles los metadatos de la conexión, esto es, las direcciones IP y los puertos de ambos extremos, la resolución DNS previa del nombre consultado, el certificado que presenta el servidor y, cuando no se usa \eng{Encrypted Client Hello}, la extensión SNI del \emph{Client Hello} con el nombre del sitio visitado, además del volumen y la temporización de los paquetes, que permiten inferir el tipo de actividad. Dicho de otra forma, HTTPS protege el \term{contenido} de la sesión pero no oculta \term{con quién} se habla, lo que en un análisis forense sigue siendo información aprovechable.
+\end{respuesta}

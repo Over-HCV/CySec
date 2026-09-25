@@ -1,0 +1,41 @@
+% sections/04-analisis-imagen.tex — tarea «Análisis Imagen Forense».
+% Igual que la sección anterior: el enunciado detallado no venía en la guía
+% transcrita, la estructura queda lista para rellenar con las evidencias.
+\section{Análisis de la imagen forense}
+
+Con la imagen ya verificada el análisis se realiza siempre sobre la copia y en modo de solo lectura, de forma que ninguna operación del examinador altere las marcas de tiempo ni el contenido de la evidencia; el montaje se hace con las opciones que impiden la escritura y la ejecución, y el examen posterior se apoya en una herramienta de análisis forense como Autopsy \cite{autopsy}, que se encarga de recorrer el sistema de archivos, recuperar los elementos eliminados y construir la línea de tiempo de la actividad.
+
+\subsection{Montaje en solo lectura}
+
+\begin{lstlisting}[language=bash]
+sudo mkdir -p /mnt/evidencia
+sudo mount -o ro,noexec,loop evidencia.dd /mnt/evidencia
+mmls evidencia.dd                  # tabla de particiones de la imagen
+fls -r -m / evidencia.dd           # inventario de archivos para la línea de tiempo
+\end{lstlisting}
+
+\captura{analisis-montaje-lectura.png}{Montaje de la imagen en modo de solo lectura.}
+
+\begin{analisis}
+\end{analisis}
+
+\subsection{Examinación y recuperación de artefactos}
+
+\captura{analisis-autopsy-caso.png}{Caso creado en Autopsy con la imagen forense cargada.}
+
+\begin{analisis}
+\end{analisis}
+
+\captura{analisis-archivos-recuperados.png}{Archivos eliminados recuperados desde el espacio no asignado.}
+
+\begin{analisis}
+\end{analisis}
+
+\captura{analisis-linea-tiempo.png}{Línea de tiempo de la actividad reconstruida a partir de las marcas temporales del sistema de archivos.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{¿Qué hallazgos de la imagen analizada resultan relevantes para el caso y qué valor probatorio tienen?}
+\begin{respuesta}
+\end{respuesta}

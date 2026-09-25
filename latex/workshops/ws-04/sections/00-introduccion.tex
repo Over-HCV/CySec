@@ -1,0 +1,15 @@
+% sections/00-introduccion.tex
+\section*{Introducción}
+
+El presente taller se orienta a la práctica de la informática forense entendida como la aplicación de prácticas científicas dentro del proceso legal, esto es, como el conjunto de procedimientos de recopilación, análisis y presentación de evidencia digital que permiten sostener una causa judicial, de forma que lo que se ejercita aquí no es únicamente el manejo de una herramienta sino el criterio para determinar el valor probatorio de la evidencia relacionada con una escena del crimen; en esa línea el laboratorio recorre dos frentes complementarios, primeramente la captura y el análisis de tráfico de red con Wireshark \cite{wireshark-guide} (tanto sobre tráfico propio como sobre una captura entregada por el oficial de seguridad de una corporación), y progresivamente la generación de una imagen forense de un medio de almacenamiento y su posterior análisis, siguiendo las recomendaciones de integración de técnicas forenses en la respuesta a incidentes \cite{nist80086}.
+
+En términos generales, las tareas del laboratorio se agrupan en cuatro frentes:
+
+\begin{itemize}
+  \item \term{Escucha de tráfico con Wireshark:} Captura de los paquetes que atraviesan la interfaz de red seleccionada (LAN o WLAN) sobre la máquina Kali Linux, junto con el reconocimiento de la ventana de opciones de captura y de los filtros de visualización.
+  \item \term{Análisis forense usando Wireshark:} Comparación del tratamiento que reciben unas mismas credenciales cuando viajan sobre HTTP y cuando viajan sobre HTTPS, con la justificación de por qué en un caso son legibles y en el otro no.
+  \item \term{Generación de imagen forense:} Adquisición de una copia bit a bit del medio de almacenamiento con su respectiva verificación por función \eng{hash}, que es lo que sostiene la cadena de custodia de la evidencia.
+  \item \term{Análisis de imagen forense:} Examinación de la imagen adquirida en modo de solo lectura, con la recuperación de los artefactos de interés y su interpretación dentro del caso investigado.
+\end{itemize}
+
+Como requisito previo se dispuso de una máquina virtual con la distribución Kali Linux, sobre la cual se ejecutan tanto Wireshark (versión disponible en los repositorios de la distribución) como las herramientas de adquisición y análisis de imágenes, además del archivo de captura \texttt{análisis.pcapng} entregado por el oficial de seguridad para el caso de estudio, de forma que las direcciones IP y los nombres de interfaz que aparecen a lo largo del documento corresponden a los del montaje del laboratorio y pueden variar en otro entorno.

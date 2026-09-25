@@ -1,0 +1,121 @@
+% sections/02-caso-estudio.tex — punto 5.2 de la guía (caso de estudio «pepe»)
+\section{Caso de estudio: análisis forense de la captura entregada}
+
+\begin{caso}{Intercambio de material ilegal en una corporación}
+El oficial de seguridad de una corporación sospecha que dos empleados dentro de la organización están haciendo uso de los sistemas de la organización para el intercambio de pornografía infantil. Por esta razón decide realizar un análisis de tráfico dentro del segmento de red donde se encuentran los equipos de las personas sobre las cuales se tienen sospecha, y una vez realizada la captura procede a entregarla para que, como especialista de seguridad, se realice un análisis forense a nivel de tráfico. Para el análisis se hace entrega de la captura \texttt{análisis.pcapng}, y se indica que una de las personas sobre las cuales se tiene sospecha se apoda \texttt{pepe}.
+\end{caso}
+
+\porque{Manejo de la evidencia}{Antes de abrir la captura conviene calcular su
+\eng{hash} y trabajar sobre una copia, de modo que el archivo entregado por el
+oficial de seguridad quede intacto: \texttt{sha256sum análisis.pcapng}. El valor
+obtenido se reporta en la cadena de custodia junto con la fecha de recepción.}
+
+\subsection{Identificación del servidor y del protocolo de transferencia}
+
+Primeramente se estableció una vista general de la captura mediante \emph{Statistics $\rightarrow$ Protocol Hierarchy} y \emph{Statistics $\rightarrow$ Conversations}, que resumen qué protocolos componen el tráfico y qué pares de direcciones concentran el volumen transferido, de forma que el servidor de archivos se identifica como el extremo que recibe las conexiones de control y sostiene el mayor intercambio de datos; seguidamente se acotó el tráfico al protocolo de transferencia con los siguientes filtros de visualización:
+
+\begin{lstlisting}
+ftp
+ftp || ftp-data
+tcp.port == 21
+\end{lstlisting}
+
+\captura{ftp-jerarquia-protocolos.png}{Jerarquía de protocolos y conversaciones de la captura \texttt{análisis.pcapng}.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{¿Cuál es la dirección IP del servidor de transferencia de archivos?}
+\begin{respuesta}
+\end{respuesta}
+
+\pregunta{Determine el protocolo a través del cual se realizó la transferencia de la información asociada.}
+\begin{respuesta}
+\end{respuesta}
+
+\subsection{Intentos de autenticación}
+
+El protocolo FTP \cite{rfc959} transporta sus comandos y respuestas en texto claro, de manera que tanto el usuario (\texttt{USER}) como la contraseña (\texttt{PASS}) y el código de respuesta del servidor quedan legibles en la captura; para separar los intentos de autenticación de los que efectivamente prosperaron se emplearon los filtros siguientes, teniendo en cuenta que el código \texttt{230} corresponde a \emph{User logged in, proceed} y el \texttt{530} a un inicio de sesión fallido:
+
+\begin{lstlisting}
+ftp.request.command == "USER" || ftp.request.command == "PASS"
+ftp.response.code == 230
+ftp.response.code == 530
+\end{lstlisting}
+
+\captura{ftp-intentos-login.png}{Comandos \texttt{USER} y \texttt{PASS} y respuestas del servidor a los intentos de autenticación.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{¿Cuántos intentos de logueo realizó y establezca si alguno fue exitoso? Determine los usuarios y contraseñas usados.}
+\begin{respuesta}
+\end{respuesta}
+
+\subsection{Recuperación de la conversación}
+
+Para recuperar el intercambio sostenido entre las dos personas se utilizó el operador \texttt{matches} de Wireshark, que aplica una expresión regular sobre los bytes de la trama completa y resulta apropiado cuando no se conoce de antemano el protocolo que transporta el texto buscado; a partir del apodo entregado por el oficial de seguridad se filtró la captura y, sobre el primer paquete coincidente, se reconstruyó la conversación completa con \emph{Follow $\rightarrow$ TCP Stream}:
+
+\begin{lstlisting}
+frame matches "pepe"
+frame contains "pepe"
+\end{lstlisting}
+
+\captura{frame-matches-pepe.png}{Resultado del filtro \texttt{frame matches "pepe"} sobre la captura.}
+
+\begin{analisis}
+\end{analisis}
+
+\captura{conversacion-follow-stream.png}{Conversación reconstruida con \emph{Follow TCP Stream}.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{Recupere la conversación que se haya realizado entre estas dos personas (usar el comando \texttt{frame matches}).}
+\begin{respuesta}
+\end{respuesta}
+
+\pregunta{¿Cuál es la clave a la que se refiere «pepe» en la conversación? (la clave está asociada al mecanismo de infección traducida al inglés).}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{Pista del enunciado}{La guía aclara que la clave corresponde al
+mecanismo de infección mencionado en la conversación, traducido al inglés
+(por ejemplo, gusano $\rightarrow$ \texttt{worm}, troyano $\rightarrow$
+\texttt{trojan}, virus $\rightarrow$ \texttt{virus}). Confirmar contra el texto
+literal del \emph{stream} antes de dar la respuesta por buena, y reportar la
+clave tal como se escribe en la captura.}
+
+\subsection{Archivos alojados en el servidor}
+
+Finalmente se identificaron los archivos transferidos, teniendo en cuenta que FTP separa el canal de control (puerto 21) del canal de datos, de modo que el contenido de cada archivo viaja en conexiones distintas que Wireshark diseca como \texttt{ftp-data} y asocia al comando (\texttt{STOR} para subida, \texttt{RETR} para descarga) que las originó:
+
+\begin{lstlisting}
+ftp-data
+ftp.request.command == "STOR" || ftp.request.command == "RETR"
+\end{lstlisting}
+
+\captura{ftp-data-archivos.png}{Transferencias del canal de datos con los archivos alojados en el servidor.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{¿Qué archivos alojó en el servidor? (comando \texttt{ftp-data}).}
+\begin{respuesta}
+\end{respuesta}
+
+Para la recuperación de los archivos se emplearon las dos vías que ofrece Wireshark: la exportación directa desde \emph{File $\rightarrow$ Export Objects $\rightarrow$ FTP-DATA}, que reconstruye cada objeto transferido y lo guarda con su nombre, y el guardado manual de la carga útil desde \emph{Follow $\rightarrow$ TCP Stream} seleccionando \emph{Show data as: Raw} y exportando el resultado, opción que resulta útil cuando la transferencia quedó incompleta dentro de la captura.
+
+\captura{export-objects-ftp-data.png}{Ventana \emph{Export Objects} con los archivos reconstruidos desde el canal de datos.}
+
+\begin{analisis}
+\end{analisis}
+
+\captura{archivos-recuperados.png}{Archivos recuperados y abiertos desde el sistema de archivos local.}
+
+\begin{analisis}
+\end{analisis}
+
+\pregunta{¿Es posible visualizar los archivos o recuperarlos? (recuperarlos y abrirlos).}
+\begin{respuesta}
+\end{respuesta}
