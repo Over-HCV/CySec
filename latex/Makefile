@@ -22,9 +22,21 @@ all: $(WORKSHOPS)
 # (Regla explícita y no de patrón: make ignora las reglas implícitas para targets .PHONY.)
 # -cd hace que latexmk entre a la carpeta del taller, así \input{sections/...}
 # resuelve relativo al taller y no a la raíz.
+# Si el modo (borrador/final) CAMBIA se borra el .fdb_latexmk: \IfFileExists con
+# un archivo inexistente no queda registrado en el .fls, así que latexmk no se
+# entera de que .final-mode apareció y saltaría la recompilación.
 $(WORKSHOPS):
-	@if [ -n "$(FINAL)" ]; then touch $(WSDIR)/$@/$(FINALFLAG); \
-	 else rm -f $(WSDIR)/$@/$(FINALFLAG); fi
+	@if [ -n "$(FINAL)" ]; then \
+	   if [ ! -f $(WSDIR)/$@/$(FINALFLAG) ]; then \
+	     touch $(WSDIR)/$@/$(FINALFLAG); \
+	     rm -f $(BUILDDIR)/$@/*.fdb_latexmk; \
+	   fi; \
+	 else \
+	   if [ -f $(WSDIR)/$@/$(FINALFLAG) ]; then \
+	     rm -f $(WSDIR)/$@/$(FINALFLAG); \
+	     rm -f $(BUILDDIR)/$@/*.fdb_latexmk; \
+	   fi; \
+	 fi
 	$(LATEXMK) -cd -outdir=../../$(BUILDDIR)/$@ $(WSDIR)/$@/main.tex
 	@echo "→ $(BUILDDIR)/$@/main.pdf"
 

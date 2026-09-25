@@ -1,0 +1,15 @@
+% sections/00-introduccion.tex
+\section*{Introducción}
+
+El presente taller se orienta a la ejecución de las actividades iniciales de reconocimiento de un objetivo en Internet, así como de las fases de escaneo y explotación que se derivan de este, recorriendo con herramientas de uso público la cadena completa de un ejercicio de \eng{ethical hacking}: primeramente la identificación de información del dominio mediante ping, traceroute, Whois y consultas DNS avanzadas (apoyados de herramientas en línea \cite{networktools,mxtoolbox}), progresivamente el escaneo de puertos con Nmap \cite{nmap-book} junto con el análisis de un escaneo de vulnerabilidades generado con Nessus \cite{nessus}, y finalmente la explotación de dos vulnerabilidades del servidor Metasploitable mediante el framework Metasploit \cite{metasploit-docs}.
+
+En términos generales, las tareas del laboratorio se agrupan en cuatro frentes:
+
+\begin{itemize}
+  \item \term{Resolución de problemas básicos de red:} análisis del dominio seleccionado con ping, traceroute y Whois desde herramientas en línea, además de consultas DNS avanzadas y revisión de listas negras sobre un segundo dominio.
+  \item \term{Escaneo de puertos:} ejecución de un escaneo sencillo con Nmap sobre Metasploitable, comparación de los métodos de escaneo disponibles en la herramienta y descripción de las opciones que permiten evadir un cortafuegos.
+  \item \term{Escaneo de vulnerabilidades:} estudio del funcionamiento de los escáneres de vulnerabilidades, de las bases de datos que los alimentan y del sistema de puntuación CVSS, con el análisis del reporte generado sobre el servidor de pruebas.
+  \item \term{Explotación:} ejecución remota de comandos sobre el servicio distccd (CVE-2004-2687) y uso de la puerta trasera del servicio VSFTPD (CVE-2011-2523), con las actividades de enumeración y de administración de usuarios y grupos que se realizan sobre cada sesión obtenida.
+\end{itemize}
+
+Como requisito previo se dispuso de una máquina virtual con la distribución Kali Linux (desde la cual se ejecutan todas las herramientas de la fase activa) y de una máquina virtual Metasploitable que hace las veces de servidor de pruebas, ambas dentro de la misma red local, de forma que las direcciones IP usadas a lo largo del documento (192.168.1.116 para el servidor y 192.168.1.118 para la máquina atacante) corresponden a las asignadas en el montaje del laboratorio y pueden variar en otro entorno.

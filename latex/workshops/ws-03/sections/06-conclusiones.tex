@@ -1,0 +1,79 @@
+% sections/06-conclusiones.tex
+% === Figuras/capturas FIJAS (no flotantes): se quedan donde se escriben, en orden. ===
+% Evitan el reordenamiento de figure[htbp]. Idempotente (\providecommand) y solo con
+% paquetes ya cargados por la clase. Firma igual que \captura: \capturafija[opts]{img}{pie}.
+\providecommand{\figurafija}[2]{%
+  \par\medskip
+  \begingroup\centering
+    #1\par\smallskip
+    \refstepcounter{figure}%
+    \begin{minipage}{0.86\linewidth}\centering\small
+      \textbf{\figurename~\thefigure:}\hspace{0.4em}#2\par
+    \end{minipage}\par
+  \endgroup
+  \par\medskip
+}
+\providecommand{\capturafija}[3][width=0.8\linewidth]{%
+  \figurafija{%
+    \IfFileExists{pics/#2}{\includegraphics[#1]{pics/#2}}{%
+      \fbox{\parbox{0.7\linewidth}{\centering\ttfamily\small pics/#2\\[3pt]%
+        \normalfont\footnotesize(captura pendiente)}}%
+    }%
+  }{#3}%
+}
+
+\section*{Conclusiones}
+
+El desarrollo del laboratorio permitió recorrer, sobre un objetivo real de Internet y sobre un servidor deliberadamente vulnerable, las tres fases iniciales de un ejercicio de \eng{ethical hacking} (reconocimiento, escaneo y explotación), evidenciando cómo la información que se expone de forma pasiva (registros DNS, datos de registro Whois y presencia en listas negras del dominio consultado) y la que se levanta de forma activa (los veintitrés puertos TCP y los servicios identificados con Nmap sobre el objetivo 10.38.90.255) se encadenan hasta habilitar la explotación de vulnerabilidades concretas con herramientas de uso público como Metasploit, sin requerir conocimientos profundos del interior de los sistemas comprometidos; de hecho, los servicios que el escaneo reportó abiertos (FTP en el puerto 21 y el resto de la superficie expuesta) fueron precisamente la puerta por la que se materializaron las dos explotaciones posteriores.
+
+Progresivamente, la comparación entre las dos explotaciones realizadas mostró que el impacto de una misma cadena de ataque no depende solo de la vulnerabilidad explotada, sino del privilegio con el que corre el servicio comprometido: distccd (CVE-2004-2687) entregó una consola con el usuario \texttt{daemon}, suficiente para enumerar el servidor pero incapaz de alterarlo, mientras que la puerta trasera de VSFTPD 2.3.4 (CVE-2011-2523) entregó una consola como \texttt{root} (\texttt{uid=0}), con la que se pudo leer \texttt{/etc/shadow} y crear el usuario \texttt{msfbro} y el grupo \texttt{msf\_group} sin restricción alguna, dejando claro que el privilegio de la sesión es lo que separa, en la práctica, un incidente contenido de una compromisión total del servidor.
+
+\figurafija{%
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+    >=latex, font=\footnotesize,
+    phase/.style={draw=accent, rounded corners, fill=accent!12, minimum width=3.5cm, minimum height=1cm, align=center},
+    piv/.style={draw=accent, rounded corners, fill=accent!75, text=white, align=center, font=\footnotesize\bfseries, minimum width=3cm, minimum height=0.95cm},
+    box/.style={draw, rounded corners, minimum width=4.6cm, minimum height=1.15cm, align=center},
+    neu/.style={box, draw=accent, fill=accent!7},
+    good/.style={box, draw=okgreen, fill=okgreen!12},
+    goodstrong/.style={box, draw=okgreen, fill=okgreen!25, font=\footnotesize\bfseries},
+    bad/.style={box, draw=oscrit, fill=oscrit!12},
+    badstrong/.style={box, draw=oscrit, fill=oscrit!22, font=\footnotesize\bfseries},
+    fl/.style={->, thick, draw=accent},
+  ]
+    \node[phase] (rec) at (3,9) {Reconocimiento\\{\scriptsize DNS · Whois · listas negras}};
+    \node[phase] (esc) at (7.5,9) {Escaneo\\{\scriptsize Nmap · 23 puertos · 10.38.90.255}};
+    \node[phase] (exp) at (12,9) {Explotación\\{\scriptsize Metasploit}};
+    \draw[fl] (rec) -- (esc);
+    \draw[fl] (esc) -- (exp);
+    \node[piv] (piv) at (7.5,7.3) {2 vulnerabilidades\\explotadas};
+    \draw[fl] (exp.south) |- (piv.east);
+    \node[neu] (lt) at (4,5.7) {distccd\\{\scriptsize CVE-2004-2687 · puerto 3632}};
+    \node[good] (ls) at (4,3.9) {Sesión \texttt{daemon}\\{\scriptsize sin privilegio · no escribe en /etc/passwd}};
+    \node[goodstrong] (lo) at (4,2.1) {Incidente contenido};
+    \draw[fl] (piv.south) -- (lt.north);
+    \draw[fl] (lt) -- (ls);
+    \draw[fl] (ls) -- (lo);
+    \node[neu] (rt) at (11,5.7) {VSFTPD 2.3.4\\{\scriptsize CVE-2011-2523 · puerto 21 -> 6200}};
+    \node[bad] (rs) at (11,3.9) {Sesión \texttt{root} (\texttt{uid=0})\\{\scriptsize lee /etc/shadow · crea usuarios y grupos}};
+    \node[badstrong] (ro) at (11,2.1) {Compromiso total};
+    \draw[fl] (piv.south) -- (rt.north);
+    \draw[fl] (rt) -- (rs);
+    \draw[fl] (rs) -- (ro);
+    \node[draw=gray!45, rounded corners, fill=gray!6, minimum width=13cm, align=center, font=\footnotesize\itshape] at (7.5,0.6) {El privilegio con el que corre el servicio comprometido decide el impacto: el principio de mínimo privilegio es el control que separa ambos desenlaces.};
+  \end{tikzpicture}%
+  }%
+}{Cadena de ataque del laboratorio y contraste de impacto entre las dos explotaciones según el privilegio de la sesión obtenida.}
+
+Asimismo, conviene subrayar que buena parte de la información levantada en la fase de reconocimiento y de escaneo terminó siendo el insumo directo de la explotación (la identificación de versiones habilita la búsqueda del \eng{exploit} correspondiente, y los servicios de administración remota abiertos —ssh y telnet— sostienen la persistencia obtenida al crear la cuenta de red), de forma que el reconocimiento no es un trámite previo sino la materia prima que hace viable todo lo que sigue en la cadena de ataque; el hecho de que un servidor exponga simultáneamente FTP, Telnet, VNC, r-services y bases de datos, muchos de ellos sin cifrado ni autenticación robusta, es en sí mismo el hallazgo de fondo, pues cada puerto abierto es una superficie de ataque adicional que solo se justifica si el servicio es realmente necesario.
+
+Finalmente, del ejercicio se desprenden varias medidas de mitigación que habrían contenido o impedido la cadena observada:
+
+\begin{itemize}
+  \item \term{Reducción de la superficie de ataque:} Deshabilitar y desinstalar todo servicio que no cumpla una función legítima (distccd, r-services, Telnet o VNC en un servidor de producción), pues cada puerto cerrado es un vector menos que un atacante puede sondear en la fase de escaneo.
+  \item \term{Gestión de parches y versiones:} Mantener actualizado el software expuesto y verificar la integridad de los binarios distribuidos, dado que ambas explotaciones se apoyaron en versiones con vulnerabilidad conocida (una de ellas, la puerta trasera de VSFTPD 2.3.4, introducida por una distribución comprometida).
+  \item \term{Principio de mínimo privilegio:} Ejecutar cada servicio con una cuenta acotada a lo estrictamente necesario, de modo que un servicio comprometido no entregue \texttt{root}, tal como se evidenció al contrastar la sesión \texttt{daemon} de distccd con la sesión \texttt{root} de VSFTPD.
+  \item \term{Segmentación y control perimetral:} Filtrar con cortafuegos e IDS/IPS el acceso a los servicios de administración y a los puertos internos, limitando tanto el escaneo externo como los movimientos laterales que la enumeración de la red interna (\texttt{ifconfig}) haría posibles.
+  \item \term{Monitoreo y respuesta:} Registrar y alertar sobre conexiones anómalas (por ejemplo, la consola reversa hacia el atacante o la apertura del \eng{bind listener} en el puerto 6200), ya que la detección temprana es lo que convierte un compromiso silencioso en un incidente atendible.
+\end{itemize}

@@ -1,0 +1,98 @@
+\newpage
+
+% === Figuras/capturas FIJAS (no flotantes): se quedan donde se escriben, en orden. ===
+% Evitan el reordenamiento de figure[htbp]. Idempotente (\providecommand) y solo con
+% paquetes ya cargados por la clase. Firma igual que \captura: \capturafija[opts]{img}{pie}.
+\providecommand{\figurafija}[2]{%
+  \par\medskip
+  \begingroup\centering
+    #1\par\smallskip
+    \refstepcounter{figure}%
+    \begin{minipage}{0.86\linewidth}\centering\small
+      \textbf{\figurename~\thefigure:}\hspace{0.4em}#2\par
+    \end{minipage}\par
+  \endgroup
+  \par\medskip
+}
+\providecommand{\capturafija}[3][width=0.8\linewidth]{%
+  \figurafija{%
+    \IfFileExists{pics/#2}{\includegraphics[#1]{pics/#2}}{%
+      \fbox{\parbox{0.7\linewidth}{\centering\ttfamily\small pics/#2\\[3pt]%
+        \normalfont\footnotesize(captura pendiente)}}%
+    }%
+  }{#3}%
+}
+
+% sections/05-explotacion-vsftpd.tex
+\section{Explotación de una vulnerabilidad con Metasploit: VSFTPD (CVE-2011-2523)}
+
+Para la segunda explotación se atacó el servicio FTP que corre en el puerto 21 del servidor de pruebas, aprovechando la puerta trasera que la versión vulnerable de VSFTPD trae incorporada \cite{nvd-vsftpd} (la 2.3.4 distribuida con Metasploitable, cuyo binario comprometido abre una consola en el propio servidor cuando el usuario del \eng{login} contiene el emoticón \texttt{:)}); desde la consola de Metasploit se cargó el módulo, se fijó el objetivo y se ejecutó el exploit para abrir la sesión:
+
+\begin{lstlisting}
+msf > use exploit/unix/ftp/vsftpd_234_backdoor
+msf exploit (unix/ftp/vsftpd_234_backdoor) > set RHOST 10.38.90.255
+msf exploit (unix/ftp/vsftpd_234_backdoor) > exploit
+\end{lstlisting}
+
+\capturafija{msf-backdoor.png}{Sesión abierta como \texttt{root} en el servidor remoto mediante la puerta trasera de VSFTPD 2.3.4: banner, disparo de la puerta trasera, \texttt{uid=0} y \texttt{whoami}.}
+
+\begin{analisis}
+La secuencia de la consola permite leer el ataque paso a paso: primeramente el módulo se conectó al puerto 21 y el \eng{banner} \texttt{220 (vsFTPd 2.3.4)} confirmó que la versión es la vulnerable; seguidamente se envió el usuario del \eng{login} (al que el módulo añade el emoticón \texttt{:)}), y el servidor respondió \texttt{331 Please specify the password}, punto en el que el binario comprometido dispara la puerta trasera (\texttt{Backdoor service has been spawned, handling}); progresivamente Metasploit se conectó a la consola que esa puerta trasera abre en el puerto 6200 del propio servidor y reportó \texttt{UID: uid=0(root) gid=0(root)} junto con \texttt{Found shell}, dejando la sesión establecida entre Kali (10.38.90.218) y el objetivo (10.38.90.255); finalmente el \texttt{whoami} devolvió \texttt{root}. A diferencia de la explotación de distccd (que entregó la cuenta \texttt{daemon}, sin privilegios), esta puerta trasera concede directamente la cuenta de administrador del sistema, por lo que la consola obtenida no tiene restricción alguna sobre los archivos del servidor. Cabe mencionar, además, que se prescinde por completo de credenciales válidas: la sesión no se logra adivinando una contraseña sino explotando el binario alterado, lo que la hace inmediata y silenciosa.
+\end{analisis}
+
+\subsection{Evidencia del privilegio obtenido}
+
+Antes de las tareas de administración, y para dimensionar el alcance de la sesión, se ejecutaron sobre la consola remota algunos comandos que en la explotación de distccd habrían sido rechazados, empezando por la lectura del archivo de contraseñas cifradas y el nombre del servidor:
+
+\begin{lstlisting}[language=bash]
+cat /etc/shadow
+hostname
+\end{lstlisting}
+
+\capturafija[width=0.62\linewidth]{msf-backdoor-cat-shadow.png}{Lectura de \texttt{/etc/shadow} desde la sesión root: se listan las cuentas del sistema con sus hashes de contraseña.}
+
+\begin{analisis}
+La lectura de \texttt{/etc/shadow} se completó sin error, lo que solo es posible como \texttt{root}, y expuso la lista de cuentas junto con sus hashes de contraseña (por ejemplo \texttt{root:\$1\$...}, \texttt{msfadmin:\$1\$XN10Zj2c...}); el prefijo \texttt{\$1\$} indica que el hash es MD5-crypt, un esquema hoy débil, de forma que estos hashes podrían llevarse a una herramienta de crackeo (John the Ripper, hashcat) e intentar recuperar las contraseñas en claro \textbf{fuera de línea}, sin volver a tocar el servidor ni arriesgar detección. Esto ilustra que el impacto de la sesión root no se limita a ejecutar comandos: también permite exfiltrar el material sensible del sistema; el mismo \texttt{cat /etc/shadow}, desde la sesión \texttt{daemon} de distccd, habría terminado en \eng{permission denied}.
+\end{analisis}
+
+\capturafija[width=0.75\linewidth]{hostname-msf.png}{Nombre del servidor remoto obtenido con \texttt{hostname}: \texttt{metasploitable}.}
+
+\begin{analisis}
+El \texttt{hostname} devolvió \texttt{metasploitable}, nombre que delata que se trata de un host de pruebas deliberadamente vulnerable e información que, en un escenario real, ayudaría a inferir la función del servidor dentro de la red. Cabe anotar un detalle observado al reintentar el exploit: la primera ejecución respondió \texttt{Exploit completed, but no session was created} y la segunda advirtió que \texttt{the port used by the backdoor bind listener is already open}; esto ocurre porque la consola de la puerta trasera sigue escuchando en el puerto 6200 de un intento previo, de modo que basta reconectarse a ese puerto ya abierto para recuperar la sesión root.
+\end{analisis}
+
+\subsection{Administración de usuarios y grupos}
+
+Con la sesión abierta como \texttt{root} se realizaron las actividades de administración que solicita la guía (crear un usuario de red, crear un grupo de red y asignar el usuario creado al grupo generado), apoyados de la referencia de comandos \cite{intef-usuarios}:
+
+\begin{lstlisting}[language=bash]
+useradd msfbro
+groupadd msf_group
+usermod -aG msf_group msfbro
+getent group
+\end{lstlisting}
+
+Primeramente se listaron los grupos existentes con \texttt{getent group} para partir de un estado conocido:
+
+\capturafija[width=0.42\linewidth]{getent-user.png}{Grupos del servidor remoto y usuarios asignados a cada grupo (salida de \texttt{getent group}).}
+
+\begin{analisis}
+La salida de \texttt{getent group} permite un reconocimiento interno útil: aparecen los grupos de privilegio del sistema (\texttt{sudo}, \texttt{admin}, \texttt{staff}) y se observa que la cuenta \texttt{msfadmin} figura como miembro de varios de ellos (\texttt{adm}, \texttt{admin}, \texttt{sudo}, \texttt{sambashare}\dots), lo que la delata como la cuenta administrativa real de la máquina; así mismo, las cuentas con grupo propio (GID igual al del usuario) suelen corresponder a personas o servicios concretos, información que, de cara a un ataque, orienta sobre qué cuentas convendría comprometer para escalar o persistir.
+\end{analisis}
+
+Progresivamente se ejecutaron los comandos de creación y asignación, cuyo efecto se verificó volviendo a consultar \texttt{getent group}:
+
+\capturafija[width=0.62\linewidth]{usergroup-creation.png}{Ejecución de \texttt{usermod -aG msf\_group msfbro} y nueva consulta de los grupos.}
+
+\capturafija[width=0.55\linewidth]{group-creation.png}{Al pie de la lista aparecen el usuario y el grupo recién creados: \texttt{msfbro} (GID 1003) y \texttt{msf\_group} (GID 1004).}
+
+\capturafija[width=0.62\linewidth]{user-addition.png}{Asignación efectiva del usuario al grupo generado: \texttt{msf\_group:x:1004:msfbro}.}
+
+\begin{analisis}
+A diferencia de la sesión sin privilegios de distccd, los tres comandos se ejecutaron sin error, pues crear cuentas y grupos exige escribir en \texttt{/etc/passwd}, \texttt{/etc/shadow} y \texttt{/etc/group}, algo reservado a \texttt{root} y que esta sesión sí permite. La verificación con \texttt{getent group} cierra el ciclo crear\,$\rightarrow$\,asignar\,$\rightarrow$\,comprobar: al pie de la lista aparece el grupo primario \texttt{msfbro} (GID 1003) creado junto con el usuario y el grupo \texttt{msf\_group} (GID 1004), que tras el \texttt{usermod -aG} queda como \texttt{msf\_group:x:1004:msfbro}, con el usuario incorporado como miembro. En términos de ataque, esto constituye una persistencia de acceso real sobre el servidor comprometido, ya que la cuenta creada sobrevive al cierre de la sesión de Metasploit y habilita un reingreso posterior por los servicios de administración remota que el escaneo de la fase anterior mostró abiertos (ssh, telnet).
+\end{analisis}
+
+\pregunta{¿Por qué en la explotación del punto 20 se logró crear usuarios y grupos sin problemas y en la explotación del punto 18 no se logró crear los usuarios y grupos?}
+\begin{respuesta}
+La diferencia está en el privilegio de la sesión que entrega cada vulnerabilidad, no en la herramienta ni en los comandos usados. La ejecución de comandos sobre distccd (punto 18) se obtiene con el usuario \texttt{daemon}, la cuenta sin privilegios con la que corre ese servicio, de forma que sus comandos no pueden escribir en \texttt{/etc/passwd}, \texttt{/etc/shadow} ni \texttt{/etc/group} y todo intento de \texttt{useradd}, \texttt{groupadd} o \texttt{usermod} termina en \eng{permission denied}; la puerta trasera de VSFTPD (punto 20), en cambio, entrega una consola como \texttt{root}, el administrador del sistema, para quien no existe restricción alguna sobre esos archivos, y por eso la creación y la asignación se completan sin problema (lo mismo que la lectura de \texttt{/etc/shadow} evidenciada arriba). La lección de seguridad es directa: el principio de mínimo privilegio (que cada servicio corra con una cuenta con los permisos justos para su función) es lo que contuvo el impacto de la primera explotación, que quedó reducida a enumerar el servidor sin poder alterarlo, mientras que un servicio comprometido que corre como \texttt{root} entrega el control total de la máquina.
+\end{respuesta}

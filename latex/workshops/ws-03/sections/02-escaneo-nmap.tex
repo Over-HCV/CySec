@@ -1,0 +1,149 @@
+% sections/02-escaneo-nmap.tex
+\section{Fase de escaneo}
+
+\subsection{Identificación del objetivo}
+
+Para la fase de escaneo se hizo uso de la máquina virtual Metasploitable, cuya dirección IP se identificó desde la propia máquina con el comando \texttt{ifconfig} (la interfaz \texttt{eth0} entrega la dirección de la red local sobre la que se ejecutan todos los escaneos de esta sección).
+
+\porque{IP de Metasploitable}{%
+  Anota en el texto la IP real de su Metasploitable y reemplaza
+  \texttt{192.168.1.116} en todos los comandos y capturas de las secciones 2
+  a 5 (y \texttt{192.168.1.118} por la IP de su Kali en la sección 4); la
+  guía advierte que las IPs pueden cambiar entre montajes. Si quieren
+  evidenciar este paso, añadan una captura adicional
+  (\texttt{pics/metasploitable-ifconfig.png}) con la salida del ifconfig.%
+}
+
+\subsection{Escaneo sencillo}
+
+Desde la máquina de Kali Linux se ejecutó un escaneo sencillo sobre el objetivo, reemplazando la IP mostrada por la de la máquina Metasploitable usada:
+
+\begin{lstlisting}[language=bash]
+nmap 192.168.1.116
+\end{lstlisting}
+
+\captura{nmap-sencillo.png}{Escaneo sencillo de Nmap sobre Metasploitable: puertos TCP abiertos y servicios asociados}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{qué debe verse en la captura y el análisis}{%
+  El escaneo por defecto (TCP connect hacia los mil puertos más comunes)
+  lista los puertos abiertos con su estado y el servicio asociado; para
+  Metasploitable se espera una lista larga (21/ftp, 22/ssh, 23/telnet,
+  25/smtp, 80/http, 139/445/samba, entre otros, con \texttt{mysql},
+  \texttt{postgresql}, \texttt{vnc} o \texttt{distccd} según el rango
+  escaneado). Base para el análisis: ``La salida evidencia un servidor con
+  una cantidad anormal de servicios expuestos, varios de ellos de
+  administraci\'on remota (telnet, ftp, vnc), lo que delata un entorno de
+  pruebas deliberadamente vulnerable; cada puerto abierto amplía la
+  superficie de ataque disponible para la siguiente fase.'' Verifica contra
+  tu salida qué puertos alcanzó a reportar el escaneo por defecto (solo son
+  los mil más conocidos) y coméntalo.%
+}
+
+\subsection{Métodos de escaneo}
+
+\pregunta{Complete el siguiente cuadro describiendo brevemente en qué consisten los métodos de escaneo de Nmap.}
+\begin{respuesta}
+  \begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{>{\ttfamily}l X}
+    \toprule
+    \normalfont\bfseries Opción & \bfseries Definición \\
+    \midrule
+    -sS & Sondeo TCP SYN (\eng{half-open}): se envía un paquete SYN a cada puerto y, de recibir SYN/ACK (puerto abierto), se responde con RST abortando el handshake antes de completarlo, de forma que muchos servicios no llegan a registrarlo; es rápido y relativamente discreto. \\
+    -sT & Sondeo TCP connect(): establece la conexión completa mediante la llamada al sistema \texttt{connect()}, con lo cual funciona sin privilegios especiales y es compatible con cualquier sistema, a costa de ser más lento y dejar rastro en los registros de auditoría de cada servicio. \\
+    -sU & Sondeo UDP: envía un datagrama (vacío por defecto) a cada puerto y clasifica según la respuesta (respuesta UDP = abierto, ICMP puerto inalcanzable = cerrado, sin respuesta = abierto o filtrado); es el más lento por la naturaleza del protocolo y la limitación del ICMP. \\
+    -sN / -sF / -sX & Sondeos TCP Null, FIN y Xmas: aprovechando el RFC 793, envían paquetes sin bandera alguna (Null), solo FIN, o FIN+PSH+URG (\eng{Xmas}), de forma que un puerto cerrado responde RST mientras que uno abierto ignora el paquete; al no establecerse conexión no generan registros, aunque los cortafuegos con estado los detectan y filtran. \\
+    -sA & Sondeo TCP ACK: envía paquetes con la bandera ACK (como si respondieran a una conexión existente) para sondear las reglas del cortafuegos; un RST indica el estado sin filtrar, mientras que la ausencia de respuesta o un ICMP inalcanzable delata el filtrado, sin distinguir puertos abiertos de cerrados. \\
+    -sW & Sondeo de ventana TCP: variante del sondeo ACK que examina el tamaño de la ventana TCP reportado en el RST recibido, pues ciertos sistemas devuelven ventanas positivas para los puertos abiertos y nulas para los cerrados, con lo que en esos casos llega a diferenciar el estado. \\
+    -sM & Sondeo TCP Maimon: envía paquetes FIN/ACK a cada puerto; muchos sistemas derivados de BSD devuelven RST para los puertos abiertos, de forma que en esos sistemas permite distinguirlos de los cerrados, compartiendo con Null/FIN/Xmas la ventaja de no generar conexiones registrables. \\
+    \bottomrule
+  \end{tabularx}
+  \end{center}
+
+  Los métodos marcados con asterisco en la guía (sS, sU, sN/sF/sX, sA, sW y
+  sM) requieren privilegios de root, pues construyen paquetes crudos
+  (\eng{raw packets}) en lugar de usar la pila TCP del sistema.
+\end{respuesta}
+
+\porque{antes de continuar con la tabla}{%
+  Definiciones tomadas de la guía de referencia de Nmap \cite{nmap-book}:
+  revíalas contra el \texttt{man nmap} de su Kali y quita o matiza lo que no
+  coincida con lo visto en clase. Ojo con el encoding: copia la tabla tal
+  cual, ya está escrita para no romper el ancho de columna.%
+}
+
+Sobre el mismo objetivo se ejecutaron escaneos con los métodos descritos, adjuntando los pantallazos y sus resultados:
+
+\captura{nmap-metodos.png}{Escaneos ejecutados con los distintos métodos de Nmap sobre Metasploitable y resultados obtenidos}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{evidencia de los escaneos}{%
+  La guía pide pantallazos de los escaneos ejecutados: si quieren evidenciar
+  cada método por separado, añadan una captura por ejecución con nombres
+  tipo \texttt{nmap-sS.png}, \texttt{nmap-sU.png}, \texttt{nmap-sX.png},
+  etc. (la sintaxis es \texttt{nmap -sS 192.168.1.116}).   Para el análisis
+  compara: los métodos SYN/NULL/FIN/Xmas requieren root y devuelven los
+  mismos abiertos, el ACK clasifica casi todo como sin filtrar (está mapeando
+  el cortafuegos, no los puertos) y el UDP es mucho más lento y deja casi
+  todo en abierto|filtrado al no haber respuesta.%
+}
+
+\pregunta{¿De qué forma podemos usar NMAP para evitar un Firewall (cortafuegos)? Describa brevemente las opciones que podemos configurar en la herramienta y cómo funcionaría.}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{opciones con las que armar la respuesta}{%
+  Lista con término en negrita + explicación, tu patrón usual, apoyada en
+  \cite{nmap-book}: \textbf{Fragmentación (-f):} parte el paquete sondeador
+  en fragmentos diminutos para que un cortafuegos simple no logre
+  reensamblar y comparar el paquete completo; \textbf{Señuelos (-D
+  RND:10):} intercala sondeos con direcciones IP falsas junto a la real,
+  de forma que los registros del objetivo no revelan cuál es el origen
+  verdadero; \textbf{Suplantación de origen (-S) y de MAC (--spoof-mac):}
+  usan una dirección distinta para los paquetes (útil en redes filtradas por
+  dirección o por fabricante); \textbf{Puerto de origen (--source-port 53):}
+  fija el puerto de origen de los sondeos en uno de confianza (DNS, 53),
+  pues muchos cortafuegos permiten el tráfico de regreso a servicios
+  conocidos; \textbf{Temporización (-T0/T1, --max-rtt-timeout):} espacia los
+  sondeos para no disparar la detección por tasa de paquetes de un
+  IDS/IPS; \textbf{Sondeo SYN (-sS) en lugar de connect():} al no completar
+  la conexión, los servicios no lo registran en sus auditorías; cierra con
+  la idea de que se trata de evadir \emph{detección}, no de atravesar
+  cualquier cortafuegos (los con estado modernos hacen mucho menos eficaz
+  la técnica).%
+}
+
+\pregunta{¿Qué importancia puede tener el reconocimiento de puertos dentro de la fase de Escaneo?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  El puerto abierto es la puerta concreta a la que un atacante puede
+  llamar: identificado el puerto y su servicio (y mejor aún su versión,
+  con \texttt{-sV}), se puede buscar el exploit específico de esa versión,
+  dirigir fuerza bruta contra servicios de autenticación o detectar
+  servicios de administración mal expuestos; en términos de la metodología,
+  el escaneo de puertos convierte la lista de hosts vivos del
+  reconocimiento en una superficie de ataque explotable en la fase
+  siguiente.%
+}
+
+\pregunta{Poniéndose en la situación de un atacante, ¿qué tipo de ataques considera que pueden llegarse a realizarse con la información levantada hasta el momento?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Con los servicios y versiones identificadas: explotación de
+  vulnerabilidades conocidas de cada versión (la que precisamente se hace
+  en las secciones 4 y 5 con distcc y vsftpd), fuerza bruta de credenciales
+  contra ssh/telnet/ftp/mysql, accesos con credenciales por defecto,
+  enumeración de usuarios y recursos compartidos (Samba, NFS) y uso del
+  servidor como punto de apoyo para movimientos laterales dentro de la red;
+  conecta la respuesta con lo que el reporte de la sección 3 confirma
+  después.%
+}

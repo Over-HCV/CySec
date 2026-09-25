@@ -1,0 +1,140 @@
+% sections/01-reconocimiento.tex
+\section{Fase de reconocimiento}
+
+\subsection{Selección del objetivo}
+
+Para el desarrollo de esta primera fase se seleccionó el dominio \texttt{urosario.edu.co}, sobre el cual se ejecutaron las herramientas en línea dispuestas por la guía, dejando para el final las consultas DNS avanzadas, que la guía pide explícitamente sobre un dominio diferente.
+
+\porque{dominio elegido}{%
+  Cambia \texttt{urosario.edu.co} por el dominio que hayan escogido realmente
+  y ajusta las descripciones de las capturas en consecuencia: lo importante es
+  que sea un dominio público, que el mismo aparezca en ping, traceroute y
+  Whois, y que el de la subsección de DNS (MxToolbox) sea uno diferente.%
+}
+
+\subsection{Ping en línea}
+
+Primeramente se accedió desde el navegador a la herramienta de red en línea \cite{networktools}, se ingresó a la opción de ping y, con el dominio seleccionado en el cuadro de texto, se inició la prueba:
+
+\captura{ping.png}{Resultado del ping en línea sobre el dominio seleccionado}
+
+\pregunta{¿Para qué sirve el comando Ping y qué ventajas cree que se tienen al realizar un ping desde Internet?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Sirve para verificar alcanzabilidad y latencia: envía paquetes ICMP echo
+  request y espera los echo reply, midiendo el tiempo de ida y vuelta. La
+  ventaja de hacerlo desde Internet (una herramienta externa) es que la prueba
+  sale desde fuera de la red interna, de forma que confirma que el dominio
+  resuelve y es alcanzable públicamente (algo relevante, por ejemplo, para
+  saber si un cortafuegos bloquea el ICMP), además de dar una vista externa
+  de la ruta y la latencia sin depender de la propia conexión. Mencionar
+  también la limitación: muchos servidores bloquean ICMP por seguridad.%
+}
+
+\subsection{Traceroute}
+
+Seguidamente se seleccionó la opción traceroute de la misma herramienta y, con el dominio seleccionado, se inició el trazado de la ruta:
+
+\captura{traceroute.png}{Resultado del traceroute sobre el dominio seleccionado}
+
+\pregunta{¿Para qué sirve el comando Tracert?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Muestra la ruta (saltos intermedios, routers) que siguen los paquetes hasta
+  el destino, con el tiempo de cada salto: se usa para diagnosticar dónde se
+  degrada o se corta una conexión. Con la vista externa que da la herramienta
+  en línea se evidencian además los puntos de intercambio y proveedores por
+  los que entra el tráfico al país o a la red del objetivo, información de
+  infraestructura útil en la fase de reconocimiento.%
+}
+
+\subsection{Búsqueda Whois}
+
+Con la opción de búsqueda Whois de la misma herramienta y el dominio seleccionado se obtuvieron los datos de registro del dominio.
+
+\pregunta{¿Para qué sirve el protocolo WhoIs?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Es el protocolo de consulta de las bases de datos de registro de dominios:
+  entrega información como registrante, organización, fechas de creación y
+  vencimiento, servidores de nombres y datos de contacto del administrador,
+  información que en la fase de reconocimiento permite perfilar a la
+  organización dueña del dominio (proveedores, rangos asociados, correos de
+  contacto que alimentan, por ejemplo, campañas de phishing dirigido).%
+}
+
+\subsection{Consultas DNS avanzadas (MxToolbox)}
+
+Para las consultas a nivel de DNS públicos se accedió a la herramienta MxToolbox \cite{mxtoolbox} y se seleccionó un dominio diferente al usado hasta el momento (\texttt{gmail.com}); la primera consulta, con el tipo por defecto (A), generó la siguiente respuesta:
+
+\captura{dns-consulta.png}{Consulta DNS por defecto (tipo A) sobre el segundo dominio seleccionado}
+
+\pregunta{¿Qué respuesta generó la consulta DNS al dominio que usted seleccionó?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Describe la salida: el registro A resuelve el dominio a una o varias
+  direcciones IP (para gmail.com se esperan las IPs de Google), mostrando
+  además el TTL de cada registro; esa dirección IP es la que un resolutor
+  entrega a cualquier cliente que quiera conectar con el dominio. Ajusta la
+  descripción al dominio que hayan usado.%
+}
+
+Usando el mismo dominio se cambió el tipo de consulta por MX:
+
+\captura{dns-mx.png}{Consulta DNS de tipo MX sobre el segundo dominio seleccionado}
+
+\pregunta{¿Qué registros se muestran ahora? Adjunte la respuesta.}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Los registros MX (mail exchanger) listan los servidores de correo
+  encargados de recibir el correo del dominio, cada uno con su prioridad
+  (para gmail.com se espera \texttt{gmail-smtp-in.l.google.com} y los
+  servidores alternativos con prioridades 5, 10, 20\dots{}): de cara al
+  reconocimiento, revelan el proveedor de correo y la infraestructura
+  asociada.%
+}
+
+\pregunta{Seleccione dos tipos de consulta (query type) que no se hayan visto hasta el momento y explíquelos brevemente.}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{sugerencia de tipos}{%
+  Dos que rinden bien en MxToolbox: \textbf{TXT:} registros de texto
+  arbitrarios, usados hoy sobre todo para las políticas de correo (SPF,
+  DKIM, DMARC) y verificaciones de dominio; \textbf{SOA:} el registro de
+  autoridad de la zona, con el servidor DNS maestro, el correo del
+  administrador y los temporizadores de replicación. Otras opciones: NS
+  (servidores de nombres de la zona), CNAME (alias de un nombre hacia otro),
+  PTR (resolución inversa, de IP a nombre), AAAA (direcciones IPv6).%
+}
+
+\subsection{Listas negras (BLACKLIST)}
+
+Finalmente, desde la página principal de MxToolbox se seleccionó la opción BLACKLIST y se consultó el mismo dominio:
+
+\captura{blacklist.png}{Resultado de la búsqueda del segundo dominio en listas negras}
+
+\pregunta{¿Qué son las listas negras? Dé ejemplos de otros sitios que puedan ser usados para hacer búsquedas de listas negras.}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Son bases de datos públicas (DNSBL, \eng{blocklists}) donde se registran
+  direcciones IP o dominios asociados a spam, malware o actividad maliciosa,
+  consultadas por servidores de correo y firewalls para rechazar tráfico.
+  Ejemplos de sitios para consultarlas: Spamhaus \cite{spamhaus}, Barracuda
+  \cite{barracuda}, SORBS, SpamCop y la propia MXToolbox; mencionar qué
+  significa para una organización terminar listada (correo rechazado) y que
+  la salida de la consulta muestra en cuántas listas aparece el dominio
+  (cero, si tiene buena reputación).%
+}

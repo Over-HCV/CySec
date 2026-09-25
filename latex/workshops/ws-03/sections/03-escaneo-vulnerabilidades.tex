@@ -1,0 +1,110 @@
+% sections/03-escaneo-vulnerabilidades.tex
+\section{Escaneo de vulnerabilidades}
+
+Para esta parte del laboratorio se analizó el reporte ``Escaneo de Vulnerabilidades.html'' generado con la herramienta Nessus \cite{nessus} sobre el servidor Metasploitable; previo al análisis del archivo, la guía plantea el marco conceptual de los escáneres de vulnerabilidades.
+
+\pregunta{¿Cómo funcionan los escáneres de vulnerabilidades?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  En fases: primeramente \textbf{descubrimiento} (se identifican hosts
+  vivos y puertos abiertos, igual que un escaneo de puertos),
+  progresivamente \textbf{fingerprinting} (se identifican servicios,
+  versiones y configuraciones, incluso autenticándose contra el sistema
+  cuando hay credenciales), seguidamente \textbf{evaluación} (la huella
+  obtenida se contrasta contra una base de datos de vulnerabilidades
+  conocidas, CVE/OVAL, mediante firmas o plugins que a veces prueban el
+  defecto de forma no destructiva) y finalmente \textbf{reporte} (se
+  priorizan los hallazgos con severidad, CVSS, y recomendación de
+  remediación).%
+}
+
+\pregunta{¿Qué tipos de escáneres se pueden encontrar?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Varias taxonomías válidas: \textbf{de red vs.\ locales} (los de red sondean
+  remotamente desde fuera, los locales o \eng{host-based} auditan el propio
+  equipo con acceso a su configuración y parches instalados);
+  \textbf{autenticados vs.\ no autenticados} (con o sin credenciales para
+  entrar a revisar el sistema desde adentro); \textbf{activos vs.\ pasivos}
+  (envían tráfico de prueba vs.\ solo escuchan o analizan configuraciones);
+  y por alcance: \textbf{de infraestructura, de aplicaciones web, de bases
+  de datos, de nube o de contenedores}.%
+}
+
+\pregunta{Mencione algunos ejemplos de escáneres de seguridad y describa brevemente su funcionalidad.}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{ejemplos con los que armar la respuesta}{%
+  Lista término en negrita + explicación: \textbf{Nessus} \cite{nessus}: el
+  de la práctica, escáner de red comercial de Tenable con miles de plugins
+  por vulnerabilidad; \textbf{OpenVAS/GVM:} su equivalente open source;
+  \textbf{Qualys:} plataforma en la nube de evaluación continua y
+  cumplimiento; \textbf{Nmap (NSE):} su motor de scripts incluye
+  detección de versiones y vulnerabilidades conocidas, más manual que un
+  escáner dedicado; \textbf{Acunetix/Burp Suite:} orientados a
+  vulnerabilidades de aplicaciones web (XSS, SQLi, las del taller
+  anterior); \textbf{Wireshark} no entraría aquí (es analizador de tráfico,
+  pasivo), mencionarlo como contraste puede sumar.%
+}
+
+\pregunta{¿Qué son las bases de datos de vulnerabilidades?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Repositorios públicos que documentan y normalizan las vulnerabilidades
+  conocidas para que fabricantes, escáneres y administradores hablen el
+  mismo idioma: \textbf{CVE} (identificador único por vulnerabilidad,
+  mantenido por MITRE), \textbf{NVD} (la base del NIST que enriquece cada
+  CVE con severidad CVSS y referencias), \textbf{OVAL} (lenguaje estándar
+  para expresar cómo probar una vulnerabilidad) y otras como SecurityFocus
+  BID o Exploit-DB (ya orientada a los exploits públicos); los escáneres de
+  la pregunta anterior consultan precisamente estas bases.%
+}
+
+\pregunta{¿Qué es el Common Vulnerability Scoring System (CVSS)?}
+\begin{respuesta}
+\end{respuesta}
+
+\porque{base para la respuesta}{%
+  Sistema de puntuación estándar mantenido por FIRST \cite{first-cvss} que
+  asigna a cada vulnerabilidad una nota entre 0 y 10 a partir de un vector
+  de métricas: las \textbf{base} (intrínsecas: forma de explotación,
+  complejidad, privilegios requeridos, impacto en confidencialidad,
+  integridad y disponibilidad), las \textbf{temporales} (explotabilidad
+  actual, existencia de remedio) y las \textbf{ambientales} (relevancia
+  según el entorno propio); la nota se traduce en bandas cualitativas
+  (baja, media, alta, crítica) que permiten priorizar la remediación, y es
+  la que ordena los hallazgos del reporte de Nessus que se analiza abajo.%
+}
+
+\subsection{Análisis del reporte}
+
+Sobre el archivo ``Escaneo de Vulnerabilidades.html'' se hizo un recorrido de su resumen y de los hallazgos de mayor severidad:
+
+\captura{nessus-resumen.png}{Resumen general del escaneo de vulnerabilidades: hallazgos agrupados por severidad}
+
+\captura{nessus-detalle.png}{Detalle de los hallazgos de severidad crítica del servidor analizado}
+
+\begin{analisis}
+\end{analisis}
+
+\porque{qué debe verse en las capturas y el análisis}{%
+  En el resumen, la torta o tabla de conteo por severidad (críticos, altos,
+  medios, bajos) y la lista de hosts; en el detalle, los plugin outputs de
+  los hallazgos críticos. Para el análisis, agrupa los hallazgos por tipo de
+  vulnerabilidad: \textbf{puertas traseras} (VSFTPD 2.3.4 con su backdoor,
+  \cite{nvd-vsftpd}, y el IRCd con backdoor), \textbf{ejecución remota de
+  comandos} (distcc \cite{nvd-distcc}, Samba username map script,
+  ingreso por rsh), \textbf{configuración débil} (credenciales por defecto
+  o vacías en bases de datos, VNC sin contraseña, bind con recursión
+  abierta) y \textbf{información expuesta} (banner grabbing); cierra con
+  que prácticamente todos los hallazgos críticos tienen exploit público en
+  Metasploit, que es justo lo que se hace en las secciones 4 y 5. Ajusta la
+  lista a lo que realmente contenga el reporte que les entregaron.%
+}

@@ -50,12 +50,21 @@
 % en el primer \par con «Paragraph ended before … was complete».
 \NewDocumentCommand \cysecIfBlankBody { +m +m +m }
   {
-    \tl_set:Nx \l__cysec_probe_tl { \tl_to_str:n {#1} }
+    % \exp_args:No imprescindible: #1 llega como \BODY y \tl_to_str:n NO
+    % expande su argumento, así que sin el o-expansión la sonda quedaba con
+    % el literal «\BODY» y ningún cuerpo se detectaba como vacío (la versión
+    % xstring lo hacía con \detokenize\expandafter{\BODY}; la traducción a
+    % l3tl perdió ese expandafter).
+    \tl_set:Nx \l__cysec_probe_tl { \exp_args:No \tl_to_str:n {#1} }
     \int_compare:nNnTF { \tl_count:N \l__cysec_probe_tl } > { 400 }
       { #3 }
       {
-        \tl_remove_all:Nn \l__cysec_probe_tl { ~ }
+        % Primero los \par y luego los espacios: \tl_to_str:n { \par }
+        % produce «\par » con espacio final (el que \detokenize añade tras
+        % toda palabra de control), así que la eliminación solo matchea si
+        % los espacios del cuerpo aún están presentes.
         \exp_args:NNx \tl_remove_all:Nn \l__cysec_probe_tl { \tl_to_str:n { \par } }
+        \tl_remove_all:Nn \l__cysec_probe_tl { ~ }
         \tl_if_empty:NTF \l__cysec_probe_tl { #2 } { #3 }
       }
   }
