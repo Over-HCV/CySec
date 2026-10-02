@@ -72,7 +72,7 @@ function submit() {
 
 <template>
   <div
-    class="fixed inset-0 bg-black/30 backdrop-blur-sm grid place-items-center p-5"
+    class="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm grid place-items-center p-5"
     @click.self="emit('close')"
   >
     <div class="glass-menu rounded-[var(--radius-lg)] p-5 w-full max-w-md">

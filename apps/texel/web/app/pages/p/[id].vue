@@ -3,7 +3,8 @@ import {
   MacButton, MacGlassPanel, MacSegment, MacSegmentedControl, MacSeparator, MacSpinner
 } from '@macvue/core'
 import {
-  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight, ChevronDown, Github
+  Play, Users, ArrowLeft, PanelLeft, PanelRight, WrapText, CornerDownRight, ChevronDown, Github,
+  Terminal, Eye
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { formatTex, minimalPatch } from '~/features/editor/lib/format-tex'
@@ -569,8 +570,14 @@ async function focusFile(path: string, line?: number) {
             size="small"
             @update:model-value="tab = $event as 'code' | 'visual'"
           >
-            <MacSegment value="code">Código</MacSegment>
-            <MacSegment value="visual">Visual</MacSegment>
+            <!-- Iconos en vez de texto: «Código»/«Visual» se montaban uno sobre
+                 otro cuando la barra se estrechaba. Terminal = código, ojo = vista. -->
+            <MacSegment value="code" title="Código" aria-label="Código">
+              <Terminal :size="13" class="inline align-[-2px]" />
+            </MacSegment>
+            <MacSegment value="visual" title="Visual" aria-label="Visual">
+              <Eye :size="13" class="inline align-[-2px]" />
+            </MacSegment>
           </MacSegmentedControl>
 
           <!-- Formato del modo visual: fija y siempre a la vista, porque quien
