@@ -1,0 +1,11 @@
+% sections/04-conclusiones.tex
+\section*{Conclusiones}
+
+El recorrido del laboratorio permite cerrar varios ejes que, leídos en conjunto, resumen tanto lo técnico como lo metodológico de un análisis forense de tráfico.
+
+\begin{itemize}
+  \item \term{HTTP frente a HTTPS:} El contraste experimental deja claro que el cifrado de TLS es lo único que separa unas credenciales legibles de unas credenciales inaccesibles, dado que sobre HTTP el formulario se lee directamente bajo el nodo \emph{HTML Form URL Encoded} mientras que sobre HTTPS solo se observan registros de \emph{Application Data} cifrados, con la salvedad de que el cifrado protege el contenido pero no los metadatos (direcciones, puertos, DNS previo y SNI), que en un análisis forense siguen siendo información aprovechable.
+  \item \term{Reconstrucción de la actividad en el caso «pepe»:} La sucesión encadenada de filtros (\texttt{tcp.port == 21} para situar el servidor, \texttt{ftp.response.code} para separar los intentos de login, \texttt{frame matches} para hallar la conversación y \texttt{ftp-data} para aislar los archivos) demuestra cómo a partir de un solo archivo de captura se reconstruye una actividad completa (quién se autenticó, con qué credenciales, qué se dijo y qué se transfirió), y todo ello es posible porque FTP viaja en texto claro, lo que convierte la captura en una fuente de evidencia extraordinariamente rica.
+  \item \term{El vínculo con el binario y la clave:} El análisis preliminar en VirusTotal no quedó como un ejercicio aislado, sino que cobró sentido al cerrar el caso, dado que la contraseña \texttt{infected} que protege las imágenes es precisamente el estándar de facto para compartir \emph{malware} y traduce el «mecanismo de infección» al inglés, de forma que los tres frentes del laboratorio terminan convergiendo en una sola narrativa.
+  \item \term{Valor probatorio y procedimiento:} Finalmente, la lectura de conjunto recuerda que el valor de la evidencia depende tanto del hallazgo como del procedimiento con que se obtuvo, de manera que el cálculo del \eng{hash} de la captura, el trabajo sobre una copia y la recuperación trazable con \emph{Export Objects} no son formalismos sino lo que sostiene la cadena de custodia y hace que lo encontrado sea admisible ante un tribunal.
+\end{itemize}

@@ -1,0 +1,168 @@
+% sections/02-caso-estudio.tex — punto 5.2 de la guía (caso de estudio «pepe»)
+\section{Caso de estudio: análisis forense de la captura entregada}
+
+\begin{caso}{Intercambio de material ilegal en una corporación}
+El oficial de seguridad de una corporación sospecha que dos empleados dentro de la organización están haciendo uso de los sistemas de la organización para el intercambio de pornografía infantil. Por esta razón decide realizar un análisis de tráfico dentro del segmento de red donde se encuentran los equipos de las personas sobre las cuales se tienen sospecha, y una vez realizada la captura procede a entregarla para que, como especialista de seguridad, se realice un análisis forense a nivel de tráfico. Para el análisis se hace entrega de la captura \texttt{análisis.pcapng}, y se indica que una de las personas sobre las cuales se tiene sospecha se apoda \texttt{pepe}.
+\end{caso}
+
+\porque{Manejo de la evidencia}{Antes de abrir la captura conviene calcular su
+\eng{hash} y trabajar sobre una copia, de modo que el archivo entregado por el
+oficial de seguridad quede intacto: \texttt{sha256sum análisis.pcapng}. El valor
+obtenido se reporta en la cadena de custodia junto con la fecha de recepción.}
+
+\subsection{Identificación del servidor y del protocolo de transferencia}
+
+Primeramente se estableció una vista general de la captura mediante \emph{Statistics $\rightarrow$ Protocol Hierarchy} y \emph{Statistics $\rightarrow$ Conversations}, que resumen qué protocolos componen el tráfico y qué pares de direcciones concentran el volumen transferido, de forma que el servidor de archivos se identifica como el extremo que recibe las conexiones de control y sostiene el mayor intercambio de datos; seguidamente se acotó el tráfico al protocolo de transferencia con los siguientes filtros de visualización:
+
+\begin{lstlisting}
+ftp
+ftp || ftp-data
+tcp.port == 21
+\end{lstlisting}
+
+\captura{ftp-jerarquia-protocolos.png}{Jerarquía de protocolos y conversaciones de la captura \texttt{análisis.pcapng}.}
+
+\captura{cbc-245.png}{Tráfico acotado con \texttt{tcp.port == 21}: el banner de bienvenida \emph{220 (vsFTPd 3.0.3)} y los comandos del canal de control.}
+
+\begin{analisis}
+Al acotar el tráfico al puerto 21 se hace visible el canal de control de FTP, cuyo primer paquete relevante es la respuesta \emph{220 (vsFTPd 3.0.3)} con que el servidor anuncia su software y versión, de forma que el extremo que emite ese banner y que recibe las conexiones de control se identifica sin ambigüedad como el servidor de archivos (\texttt{192.168.0.9}), mientras que el cliente que inicia las sesiones es \texttt{192.168.0.6}; cabe mencionar que el solo hecho de que el banner, los usuarios y las contraseñas aparezcan legibles en esta vista ya anticipa que la transferencia se realizó sobre un protocolo sin cifrado.
+\end{analisis}
+
+\pregunta{¿Cuál es la dirección IP del servidor de transferencia de archivos?}
+\begin{respuesta}
+La dirección IP del servidor de transferencia de archivos es \texttt{192.168.0.9}, que es el extremo que responde con el banner de bienvenida \emph{220 (vsFTPd 3.0.3)}, recibe las conexiones de control sobre el puerto 21 y concentra el mayor volumen de datos transferidos, en tanto que el cliente que se conecta contra él corresponde a la dirección \texttt{192.168.0.6}.
+\end{respuesta}
+
+\pregunta{Determine el protocolo a través del cual se realizó la transferencia de la información asociada.}
+\begin{respuesta}
+El protocolo empleado es FTP (\emph{File Transfer Protocol}), servido por una instancia de \texttt{vsFTPd 3.0.3} sobre el puerto de control 21, con el pequeño detalle de que FTP separa el canal de control del canal de datos, de manera que los comandos (\texttt{USER}, \texttt{PASS}, \texttt{STOR}, \texttt{RETR}) viajan por el puerto 21 y el contenido de cada archivo lo hace por una conexión de datos distinta negociada con \texttt{PORT}, y dado que todo ello circula en texto claro (sin la variante segura FTPS ni un túnel SFTP), tanto las credenciales como los archivos quedan expuestos a la captura.
+\end{respuesta}
+
+\subsection{Intentos de autenticación}
+
+El protocolo FTP \cite{rfc959} transporta sus comandos y respuestas en texto claro, de manera que tanto el usuario (\texttt{USER}) como la contraseña (\texttt{PASS}) y el código de respuesta del servidor quedan legibles en la captura; para separar los intentos de autenticación de los que efectivamente prosperaron se emplearon los filtros siguientes, teniendo en cuenta que el código \texttt{230} corresponde a \emph{User logged in, proceed} y el \texttt{530} a un inicio de sesión fallido:
+
+\begin{lstlisting}
+ftp.request.command == "USER" || ftp.request.command == "PASS"
+ftp.response.code == 230
+ftp.response.code == 530
+\end{lstlisting}
+
+\captura{ftp-intentos-login.png}{Comandos \texttt{USER} y \texttt{PASS} y respuestas del servidor a los intentos de autenticación.}
+
+\begin{analisis}
+Siguiendo la secuencia de comandos y respuestas se reconstruye con claridad la actividad de autenticación, dado que a cada \texttt{USER} le sigue un \texttt{PASS} y la respuesta del servidor delata el desenlace, de forma que los dos primeros intentos reciben un \emph{530 Login incorrect} (credenciales inválidas) y el tercero obtiene un \emph{230 Login successful}, momento en que la sesión queda establecida y a partir del cual tienen sentido los comandos de transferencia posteriores; cabe mencionar que el hecho de que la contraseña viaje legible en el propio \texttt{PASS} es lo que permite afirmar no solo cuántos intentos hubo sino exactamente qué usuario y contraseña funcionaron.
+\end{analisis}
+
+\pregunta{¿Cuántos intentos de logueo realizó y establezca si alguno fue exitoso? Determine los usuarios y contraseñas usados.}
+\begin{respuesta}
+Se realizaron tres intentos de inicio de sesión, de los cuales únicamente el último prosperó, y las credenciales empleadas (legibles en claro en los comandos \texttt{USER} y \texttt{PASS}) fueron las siguientes:
+\begin{itemize}
+  \item \term{admin / hola123:} Intento fallido, el servidor respondió \emph{530 Login incorrect}.
+  \item \term{demo / noselaclave:} Intento fallido, nuevamente con respuesta \emph{530 Login incorrect}.
+  \item \term{root / toor:} Intento exitoso, el servidor respondió \emph{230 Login successful} y la sesión quedó autenticada.
+\end{itemize}
+En consecuencia, el acceso efectivo al servidor se obtuvo con el usuario \texttt{root} y la contraseña \texttt{toor} (que no es más que la palabra \texttt{root} escrita al revés, un valor por defecto notoriamente débil), lo que explica cómo el sospechoso logró alojar y recuperar los archivos.
+\end{respuesta}
+
+\subsection{Recuperación de la conversación}
+
+Para recuperar el intercambio sostenido entre las dos personas se utilizó el operador \texttt{matches} de Wireshark, que aplica una expresión regular sobre los bytes de la trama completa y resulta apropiado cuando no se conoce de antemano el protocolo que transporta el texto buscado; a partir del apodo entregado por el oficial de seguridad se filtró la captura y, sobre el primer paquete coincidente, se reconstruyó la conversación completa con \emph{Follow $\rightarrow$ TCP Stream}:
+
+\begin{lstlisting}
+frame matches "pepe"
+frame contains "pepe"
+\end{lstlisting}
+
+\captura{frame-matches-pepe.png}{Resultado del filtro \texttt{frame matches "pepe"} sobre la captura.}
+
+\begin{analisis}
+El filtro \texttt{frame matches "pepe"} localiza las tramas cuyos bytes contienen el apodo buscado, y el primer paquete coincidente (la trama 143) revela que el intercambio no viaja sobre un protocolo estándar de mensajería sino sobre una conexión TCP directa hacia el puerto \texttt{2222} entre las direcciones \texttt{192.168.0.9} y \texttt{192.168.0.11}, de forma que son precisamente esos dos equipos los extremos de la conversación entre los sospechosos, dato que por sí mismo justifica el uso de \texttt{matches} frente a un filtro de protocolo, dado que de antemano no se conocía qué transportaba el texto.
+\end{analisis}
+
+\captura{conversacion-follow-stream.png}{Conversación reconstruida con \emph{Follow TCP Stream}.}
+
+\begin{analisis}
+Al reconstruir el flujo completo con \emph{Follow TCP Stream} se obtiene la conversación íntegra en orden cronológico y diferenciando cada extremo por color, de modo que queda en evidencia tanto el propósito del intercambio (coordinar la descarga de «nuevas fotos» desde «el servidor de archivo de siempre») como el dato de mayor valor probatorio, esto es, la mención explícita de que las imágenes están protegidas con una clave que corresponde al estándar para compartir \emph{malware}, lo que enlaza directamente con el binario analizado al inicio en VirusTotal.
+\end{analisis}
+
+\pregunta{Recupere la conversación que se haya realizado entre estas dos personas (usar el comando \texttt{frame matches}).}
+\begin{respuesta}
+La conversación, reconstruida con \emph{Follow TCP Stream} sobre la sesión TCP del puerto \texttt{2222} entre \texttt{192.168.0.9} y \texttt{192.168.0.11}, se transcribe a continuación tal como aparece en la captura (respetando los errores de escritura del original):
+\begin{quote}\ttfamily\small
+--- hola pepe como estas\\
+--- bien amigo\\
+--- Bien me llego informacion que estan investigando\\
+--- En serio parce ?? y que hacemos con esas nuevas fotos ?\\
+--- no tepreoucpes dime en que servidor estan y yo las descargo\\
+--- listos estan en el sevidor de archivo de siempre\\
+--- ok ya reviso\\
+--- haa .. las imagenes estan con calve por seguridad, recuerda es la clave para compartir Malware estandar!!! nos vemos amigo\\
+--- vale bye :)
+\end{quote}
+Del intercambio se desprende que ambos individuos son conscientes de estar siendo investigados, que coordinan la descarga de nuevas imágenes desde un servidor de archivos conocido entre ellos, y que dichas imágenes están protegidas con una contraseña, lo que constituye la línea que conduce a la siguiente pregunta.
+\end{respuesta}
+
+\pregunta{¿Cuál es la clave a la que se refiere «pepe» en la conversación? (la clave está asociada al mecanismo de infección traducida al inglés).}
+\begin{respuesta}
+La clave es \texttt{infected}, que es «infección» traducida al inglés y que corresponde a la contraseña estándar \emph{de facto} para compartir muestras de \emph{malware} a la que alude literalmente la conversación («la clave para compartir \emph{Malware} estándar»), convención ampliamente adoptada en los repositorios y archivos comprimidos de muestras maliciosas (como la colección theZoo de la que proviene el binario analizado al inicio) precisamente para que el contenido no se detone de forma accidental ni lo bloqueen los antivirus al transportarlo; de esta forma la pista del enunciado cierra sobre sí misma, dado que el «mecanismo de infección» no es un gusano, un troyano ni un virus concreto, sino la propia palabra que designa la infección.
+\end{respuesta}
+
+\porque{Pista del enunciado}{La guía aclara que la clave corresponde al
+mecanismo de infección mencionado en la conversación, traducido al inglés
+(por ejemplo, gusano $\rightarrow$ \texttt{worm}, troyano $\rightarrow$
+\texttt{trojan}, virus $\rightarrow$ \texttt{virus}). Confirmar contra el texto
+literal del \emph{stream} antes de dar la respuesta por buena, y reportar la
+clave tal como se escribe en la captura.}
+
+\subsection{Archivos alojados en el servidor}
+
+Finalmente se identificaron los archivos transferidos, teniendo en cuenta que FTP separa el canal de control (puerto 21) del canal de datos, de modo que el contenido de cada archivo viaja en conexiones distintas que Wireshark diseca como \texttt{ftp-data} y asocia al comando (\texttt{STOR} para subida, \texttt{RETR} para descarga) que las originó:
+
+\begin{lstlisting}
+ftp-data
+ftp.request.command == "STOR" || ftp.request.command == "RETR"
+\end{lstlisting}
+
+\captura{ftp-data-archivos.png}{Transferencias del canal de datos con los archivos alojados en el servidor.}
+
+\begin{analisis}
+Al observar el canal de datos se aprecian las transferencias asociadas a los comandos \texttt{RETR}, que es la descarga que el cliente solicita sobre los archivos alojados en el servidor, y en la propia disección se lee el directorio de trabajo (\texttt{Desktop/Fotos}) y el nombre de cada objeto transferido, de forma que el contenido no queda como un flujo anónimo sino plenamente atribuido a un archivo concreto, lo que es determinante para sostener qué se intercambió exactamente.
+\end{analisis}
+
+\pregunta{¿Qué archivos alojó en el servidor? (comando \texttt{ftp-data}).}
+\begin{respuesta}
+En el servidor se alojaron dos archivos, visibles en las transferencias del canal de datos sobre el directorio \texttt{Desktop/Fotos}:
+\begin{itemize}
+  \item \term{Paseo.zip:} Archivo comprimido (con cabecera \texttt{PK}) que agrupa las imágenes y que, de acuerdo con la conversación, está protegido con la contraseña \texttt{infected}.
+  \item \term{NiñaSex.jpg:} Imagen transferida directamente por el canal de datos, cuyo nombre ya resulta indicativo de la naturaleza del material investigado.
+\end{itemize}
+Cabe aclarar que, al tratarse de una captura de laboratorio con fines académicos, las imágenes recuperadas no contienen material real sino gráficos de concienciación contra la pornografía infantil, de modo que el ejercicio reproduce el procedimiento forense sin manipular contenido ilícito.
+\end{respuesta}
+
+Para la recuperación de los archivos se emplearon las dos vías que ofrece Wireshark: la exportación directa desde \emph{File $\rightarrow$ Export Objects $\rightarrow$ FTP-DATA}, que reconstruye cada objeto transferido y lo guarda con su nombre, y el guardado manual de la carga útil desde \emph{Follow $\rightarrow$ TCP Stream} seleccionando \emph{Show data as: Raw} y exportando el resultado, opción que resulta útil cuando la transferencia quedó incompleta dentro de la captura.
+
+\captura{export-objects-ftp-data.png}{Ventana \emph{Export Objects} con los archivos reconstruidos desde el canal de datos.}
+
+\begin{analisis}
+La ventana \emph{Export Objects} lista cada objeto que Wireshark logró reensamblar a partir del canal de datos y permite guardarlo con su nombre original, de forma que la recuperación no exige ninguna herramienta externa y queda documentada paso a paso dentro del propio analizador, lo que refuerza la trazabilidad del procedimiento de cara a la cadena de custodia.
+\end{analisis}
+
+\captura{girls-jpg.png}{Imagen \texttt{NiñaSex.jpg} reconstruida desde el canal de datos FTP (contenido de concienciación en esta captura de laboratorio).}
+
+\begin{analisis}
+La reconstrucción de \texttt{NiñaSex.jpg} mediante \emph{Follow TCP Stream} con la salida en modo \emph{Raw} confirma que la carga útil transferida es efectivamente un archivo de imagen válido, dado que al guardarla y abrirla se renderiza correctamente, lo que demuestra que el contenido no solo se identifica por su nombre sino que se recupera íntegro y visualizable a partir del tráfico capturado.
+\end{analisis}
+
+\captura{archivos-recuperados.png}{Archivos recuperados y abiertos desde el sistema de archivos local.}
+
+\begin{analisis}
+Finalmente, los archivos recuperados se abren desde el sistema de archivos local y se visualizan sin inconveniente, de modo que se cierra el ciclo que va desde la trama cruda hasta la evidencia presentable, con el pequeño detalle de que \texttt{Paseo.zip} exige la contraseña \texttt{infected} para descomprimirse, exactamente como anticipaba la conversación, lo que termina de vincular los tres frentes del laboratorio (el binario de VirusTotal, la conversación y los archivos).
+\end{analisis}
+
+\pregunta{¿Es posible visualizar los archivos o recuperarlos? (recuperarlos y abrirlos).}
+\begin{respuesta}
+Sí es posible, y de hecho se recuperaron por las dos vías descritas: la exportación directa con \emph{File $\rightarrow$ Export Objects $\rightarrow$ FTP-DATA}, que reensambla cada objeto y lo guarda con su nombre, y el guardado manual de la carga útil desde \emph{Follow $\rightarrow$ TCP Stream} con \emph{Show data as: Raw}; una vez en disco, la imagen \texttt{NiñaSex.jpg} se abre y se visualiza directamente, mientras que \texttt{Paseo.zip} se descomprime aplicando la contraseña \texttt{infected} obtenida de la conversación, lo que confirma que el tráfico FTP en claro no solo expone los nombres de los archivos sino que permite reconstruir su contenido completo.
+\end{respuesta}
+
+Conviene precisar, para evitar una confusión habitual de terminología, que lo realizado en este caso no es una \term{adquisición de imagen forense de disco} (la copia bit a bit de un medio de almacenamiento con herramientas como \texttt{dd} y su posterior examen en Autopsy, que persigue recuperar el espacio no asignado y los artefactos borrados), sino una \term{recuperación de la evidencia gráfica} directamente a partir del tráfico de red capturado, de forma que ambas técnicas comparten el objetivo de reconstruir evidencia visual pero operan sobre fuentes distintas (el medio físico en un caso, el flujo de paquetes en el otro), y es esta segunda —la reconstrucción de las imágenes enviadas por FTP— la que corresponde al alcance del presente laboratorio.

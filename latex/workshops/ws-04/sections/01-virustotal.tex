@@ -1,0 +1,26 @@
+% sections/01-virustotal.tex — análisis preliminar del binario con VirusTotal.
+\section{Análisis preliminar del binario con VirusTotal}
+
+Antes de abordar el análisis de tráfico se realizó una verificación preliminar sobre una muestra ejecutable obtenida de un repositorio público de \emph{malware} (la colección theZoo, concretamente el conjunto \texttt{All.ElectroRAT}), con el objetivo de confirmar su carácter malicioso antes de cualquier manipulación, de forma que la muestra se identificó primeramente en el sistema de archivos de Kali Linux (un ejecutable de Windows de aproximadamente 178,5\,KB) y se tomó nota de su tamaño sin ejecutarla, dado que la ejecución de una muestra viva sobre el equipo de análisis comprometería tanto la máquina como la validez de la evidencia:
+
+\captura{binary-selection.png}{Binario de muestra (colección theZoo / \texttt{All.ElectroRAT}) seleccionado en el sistema de archivos de Kali Linux.}
+
+\begin{analisis}
+El archivo se corresponde con un ejecutable de la plataforma Windows cuyo nombre es directamente su \eng{hash} (una práctica común en los repositorios de muestras, que evita colisiones de nombre y permite referirse a cada binario de forma inequívoca), de manera que a partir de este punto el trabajo se apoya en el valor \eng{hash} y no en el archivo en sí, lo que permite consultarlo en servicios externos sin necesidad de subir ni ejecutar la muestra.
+\end{analisis}
+
+Progresivamente se calculó el \eng{hash} SHA-256 del binario (\texttt{18fd6b19\dots fed54c0}) y se consultó dicho valor en VirusTotal, servicio que agrega el veredicto de decenas de motores antivirus y de herramientas de análisis, de modo que una consulta por \eng{hash} devuelve el resultado consolidado sin volver a exponer la muestra:
+
+\captura{sby-247.png}{Resumen de VirusTotal: 59 de 70 motores de seguridad marcan el binario como malicioso.}
+
+\begin{analisis}
+El veredicto es contundente, dado que 59 de los 70 motores consultados clasifican la muestra como maliciosa, proporción que por sí sola descarta un falso positivo aislado y confirma que el archivo es una amenaza real, con el pequeño detalle de que la propia ficha etiqueta el ejemplar con rasgos de comportamiento relevantes para un análisis forense (\texttt{direct-cpu-clock-access}, \texttt{detect-debug-environment}, \texttt{checks-network-adapters}), que delatan técnicas de evasión y de reconocimiento del entorno propias del \emph{malware} que intenta dificultar su estudio.
+\end{analisis}
+
+Finalmente se revisó el detalle de las detecciones por fabricante, que es donde VirusTotal consolida tanto la etiqueta de amenaza más frecuente como las familias atribuidas:
+
+\captura{vt-detecciones.png}{Detecciones por fabricante y etiqueta de amenaza \texttt{trojan.amadey/deyma}.}
+
+\begin{analisis}
+La etiqueta de amenaza más popular es \texttt{trojan.amadey/deyma} y las categorías asignadas son \eng{trojan} y \eng{downloader}, con familias reportadas como \eng{amadey}, \eng{deyma} y \eng{electrorat}, de forma que se trata de un troyano de tipo descargador, esto es, una pieza cuyo propósito no es solo persistir en el equipo infectado sino descargar y desplegar cargas adicionales, lo que lo vuelve un punto de entrada para comprometer progresivamente el sistema. Cabe mencionar que esta caracterización del binario cobra sentido más adelante en el caso de estudio, dado que la conversación recuperada entre los sospechosos alude a «la clave para compartir \emph{Malware} estándar», y ese estándar de facto para compartir muestras de \emph{malware} (como las de theZoo) es justamente la contraseña \texttt{infected}, que es el mecanismo de infección traducido al inglés.
+\end{analisis}
