@@ -1,14 +1,17 @@
 <script setup lang="ts">
 /**
- * Enlazar el proyecto con una carpeta de un repositorio, y sincronizar.
+ * Enlazar el proyecto con una carpeta de un repositorio, y sincronizar con
+ * lógica de control de versiones: se trae lo entrante, se preparan (stage) los
+ * cambios de aquí archivo a archivo, y se sube solo lo preparado en un commit.
  *
  * Dos estados: sin enlace se elige repositorio, rama y carpeta del taller; con
- * enlace se ve qué hay por subir, por bajar y en conflicto, y se actúa. La
+ * enlace se ve qué hay por traer, qué cambió aquí, y qué está preparado. La
  * comparación que se enseña es la misma que ejecutan los botones, así que lo
  * que se lee aquí es lo que va a pasar.
  */
 import {
-  X, GitBranch, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Unlink, Github, ExternalLink
+  X, GitBranch, ArrowDownToLine, ArrowUpFromLine, RefreshCw, Unlink, Github, ExternalLink,
+  Plus, Minus, RotateCcw
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Change } from '~/shared/types/database'
@@ -17,8 +20,9 @@ const props = defineProps<{ projectId: string, projectName: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const {
-  configured, canSignIn, identity, installUrl, installations, link, report, busy, error,
-  refresh, refreshStatus, loadInstallations, signIn, connect, disconnect, pull, push
+  configured, canSignIn, identity, installUrl, installations, link, report, busy, error, staged,
+  refresh, refreshStatus, loadInstallations, signIn, connect, disconnect, pull,
+  stage, unstage, stageAll, unstageAll, commit, restore
 } = useGithub(() => props.projectId)
 
 /** Dónde se explica cómo crear la App, para quien despliega Texel. */
@@ -30,19 +34,44 @@ const branch = ref('')
 const workshop = ref('')
 const message = ref('')
 
-/** Conflictos que el usuario decide resolver, y hacia dónde. */
-const resolution = ref<Record<string, 'mine' | 'theirs'>>({})
-
 const repos = computed(() => installations.value.flatMap(i =>
   i.repos.map(repo => ({ ...repo, installationId: i.id }))))
 
 const chosen = computed(() => repos.value.find(r => r.full_name === repoFullName.value) ?? null)
 
-const conflicts = computed(() => report.value?.status.conflicts ?? [])
-const mine = computed(() => conflicts.value.filter(c => resolution.value[c.path] === 'mine').map(c => c.path))
-const theirs = computed(() => conflicts.value.filter(c => resolution.value[c.path] === 'theirs').map(c => c.path))
-/** Sin resolver no se puede subir: subir con conflictos abiertos pisa el repo. */
-const blocked = computed(() => conflicts.value.length > mine.value.length + theirs.value.length)
+// ── Los tres grupos de la vista enlazada ─────────────────────────────────────
+// Entrantes: lo que cambió en el repo (se trae con «Traer»).
+// Cambios: lo que cambió aquí y no está preparado (ahead + conflictos).
+// Preparados: lo que entrará en el próximo commit.
+const incoming = computed(() => report.value?.status.behind ?? [])
+const outgoing = computed(() => [
+  ...(report.value?.status.ahead ?? []),
+  ...(report.value?.status.conflicts ?? [])
+])
+const changes = computed(() => outgoing.value.filter(c => !staged.value.has(c.path)))
+const stagedChanges = computed(() => outgoing.value.filter(c => staged.value.has(c.path)))
+/** Conflictos preparados: su commit resuelve a favor de aquí (pasa como `force`). */
+const stagedConflicts = computed(() =>
+  stagedChanges.value.filter(c => c.action === 'conflict').map(c => c.path))
+
+/** Letra tipo git para cada cambio: A(ñadido) · M(odificado) · D(borrado) · !(conflicto). */
+function statusLetter(change: Change): string {
+  if (change.action === 'conflict') return '!'
+  if (change.action.endsWith('delete')) return 'D'
+  if (change.base === null && change.remote === null) return 'A'
+  return 'M'
+}
+
+/** Explicación larga al pasar el ratón. */
+function label(change: Change): string {
+  return {
+    pull: 'llega del repo',
+    'pull-delete': 'borrado en el repo',
+    push: 'cambiado aquí',
+    'push-delete': 'borrado aquí',
+    conflict: 'cambiado en los dos sitios'
+  }[change.action]
+}
 
 watch(chosen, (repo) => {
   if (repo && !branch.value) branch.value = repo.default_branch
@@ -69,36 +98,29 @@ async function onConnect() {
 }
 
 async function onPull() {
-  const result = await pull(theirs.value)
+  const result = await pull()
   if (!result) return
   const total = result.applied.length + result.deleted.length
   toast.success(total ? `Traídos ${total} archivo(s)` : 'No había nada que traer')
-  if (result.conflicts.length) toast.warning(`Quedan ${result.conflicts.length} en conflicto`)
 }
 
-async function onPush() {
-  const result = await push(message.value, mine.value)
+async function onCommit() {
+  const result = await commit(message.value, stagedConflicts.value)
   if (!result) return
   toast.success(result.commit
     ? `Subido en ${result.commit.slice(0, 7)}`
-    : 'No había nada que subir')
+    : 'No había nada preparado que subir')
   message.value = ''
+}
+
+async function onRestore(change: Change) {
+  const result = await restore([change.path])
+  if (result) toast.success(`Restaurado ${change.path}`)
 }
 
 async function onDisconnect() {
   await disconnect()
   toast.success('Enlace deshecho')
-}
-
-/** Cómo se lee cada cambio en la lista. */
-function label(change: Change): string {
-  return {
-    pull: 'llega del repo',
-    'pull-delete': 'borrado en el repo',
-    push: 'cambiado aquí',
-    'push-delete': 'borrado aquí',
-    conflict: 'cambiado en los dos sitios'
-  }[change.action]
 }
 
 onMounted(refresh)
@@ -215,31 +237,67 @@ onMounted(refresh)
 
         <p class="text-xs text-muted mt-0 mb-3">{{ report?.summary ?? 'Comparando…' }}</p>
 
-        <ul v-if="report && (report.status.ahead.length || report.status.behind.length)"
-          class="list-none p-0 m-0 mb-3 grid gap-1">
-          <li v-for="change in [...report.status.ahead, ...report.status.behind]" :key="change.path"
-            class="flex items-center gap-2 text-xs">
-            <component :is="change.action.startsWith('push') ? ArrowUpFromLine : ArrowDownToLine"
-              :size="12" class="text-muted shrink-0" />
-            <span class="font-mono truncate flex-1">{{ change.path }}</span>
-            <span class="text-muted shrink-0">{{ label(change) }}</span>
-          </li>
-        </ul>
+        <!-- Entrantes: lo que cambió en el repo. Se trae todo con un botón. -->
+        <section v-if="incoming.length" class="mb-3">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-muted m-0 flex-1">
+              Entrantes ({{ incoming.length }})
+            </h3>
+            <button class="btn text-xs py-0.5" :disabled="!!busy" @click="onPull">
+              <ArrowDownToLine :size="12" class="inline align-[-2px] mr-1" />Traer
+            </button>
+          </div>
+          <ul class="list-none p-0 m-0 grid gap-1">
+            <li v-for="change in incoming" :key="change.path" class="flex items-center gap-2 text-xs">
+              <span class="status-letter" :data-k="statusLetter(change)">{{ statusLetter(change) }}</span>
+              <span class="font-mono truncate flex-1" :title="label(change)">{{ change.path }}</span>
+            </li>
+          </ul>
+        </section>
 
-        <!-- Un conflicto no se resuelve solo: se elige lado, archivo a archivo.
-             Mientras quede alguno sin elegir, subir queda bloqueado. -->
-        <section v-if="conflicts.length" class="mb-3">
-          <h3 class="text-xs font-semibold uppercase tracking-wide text-muted mb-2">
-            Cambiado en los dos sitios
-          </h3>
-          <ul class="list-none p-0 m-0 grid gap-1.5">
-            <li v-for="change in conflicts" :key="change.path" class="flex items-center gap-2 text-xs">
-              <span class="font-mono truncate flex-1">{{ change.path }}</span>
-              <select v-model="resolution[change.path]" class="input py-0.5 text-xs w-auto shrink-0">
-                <option :value="undefined">Sin decidir</option>
-                <option value="mine">Gana lo de aquí</option>
-                <option value="theirs">Gana lo del repo</option>
-              </select>
+        <!-- Cambios de aquí sin preparar: se preparan (+) o se descartan (↺). -->
+        <section v-if="changes.length" class="mb-3">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-muted m-0 flex-1">
+              Cambios ({{ changes.length }})
+            </h3>
+            <button class="btn text-xs py-0.5" :disabled="!!busy" @click="stageAll">Preparar todo</button>
+          </div>
+          <ul class="list-none p-0 m-0 grid gap-1">
+            <li v-for="change in changes" :key="change.path"
+              class="row group flex items-center gap-2 text-xs">
+              <span class="status-letter" :data-k="statusLetter(change)">{{ statusLetter(change) }}</span>
+              <span class="font-mono truncate flex-1" :title="label(change)">{{ change.path }}</span>
+              <button class="icon-btn w-6 h-6 opacity-0 group-hover:opacity-100 hover:text-[var(--danger)]"
+                title="Descartar el cambio local (volver a lo del repo)"
+                :disabled="!!busy" @click="onRestore(change)">
+                <RotateCcw :size="12" />
+              </button>
+              <button class="icon-btn w-6 h-6 opacity-0 group-hover:opacity-100"
+                title="Preparar" :disabled="!!busy" @click="stage(change.path)">
+                <Plus :size="13" />
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Preparados: lo que entra en el próximo commit. -->
+        <section v-if="stagedChanges.length" class="mb-3">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--accent)] m-0 flex-1">
+              Preparados ({{ stagedChanges.length }})
+            </h3>
+            <button class="btn text-xs py-0.5" :disabled="!!busy" @click="unstageAll">Quitar todo</button>
+          </div>
+          <ul class="list-none p-0 m-0 grid gap-1">
+            <li v-for="change in stagedChanges" :key="change.path"
+              class="row group flex items-center gap-2 text-xs">
+              <span class="status-letter" :data-k="statusLetter(change)">{{ statusLetter(change) }}</span>
+              <span class="font-mono truncate flex-1" :title="label(change)">{{ change.path }}</span>
+              <button class="icon-btn w-6 h-6 opacity-0 group-hover:opacity-100"
+                title="Quitar del stage" :disabled="!!busy" @click="unstage(change.path)">
+                <Minus :size="13" />
+              </button>
             </li>
           </ul>
         </section>
@@ -247,19 +305,13 @@ onMounted(refresh)
         <input v-model="message" class="input w-full mb-2 text-xs"
           :placeholder="`texel: ${projectName}`">
 
-        <div class="flex gap-2">
-          <button class="btn flex-1" :disabled="!!busy" @click="onPull">
-            <ArrowDownToLine :size="13" class="inline align-[-2px] mr-1" />
-            Traer
-          </button>
-          <button class="btn-primary flex-1" :disabled="!!busy || blocked" @click="onPush">
-            <ArrowUpFromLine :size="13" class="inline align-[-2px] mr-1" />
-            Subir
-          </button>
-        </div>
+        <button class="btn-primary w-full" :disabled="!!busy || !stagedChanges.length" @click="onCommit">
+          <ArrowUpFromLine :size="13" class="inline align-[-2px] mr-1" />
+          Confirmar y subir<span v-if="stagedChanges.length"> ({{ stagedChanges.length }})</span>
+        </button>
 
-        <p v-if="blocked" class="text-[11px] text-muted mt-2 mb-0">
-          Decide qué lado gana en cada conflicto antes de subir.
+        <p v-if="!incoming.length && !outgoing.length" class="text-[11px] text-muted mt-2 mb-0 text-center">
+          Todo al día con el repositorio.
         </p>
 
         <details v-if="report?.skipped.length" class="mt-3">
@@ -279,3 +331,20 @@ onMounted(refresh)
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Letra de estado tipo git, con el color según la acción. */
+.status-letter {
+  width: 1rem;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.status-letter[data-k='A'] { color: var(--ok, #1b7a3d); }
+.status-letter[data-k='M'] { color: var(--accent); }
+.status-letter[data-k='D'] { color: var(--danger); }
+.status-letter[data-k='!'] { color: var(--warning, #b8860b); }
+.row { min-height: 1.5rem; }
+</style>

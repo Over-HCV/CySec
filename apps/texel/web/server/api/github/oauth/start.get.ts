@@ -7,16 +7,19 @@
  */
 import { oauthConfig, requireAppConfig } from '../../../utils/gh/app'
 import { signState } from '../../../utils/gh/state'
-import { requireProject } from '../../../utils/gh/guard'
+import { requireProject, requireUser } from '../../../utils/gh/guard'
 
 /** Nombre de la cookie que guarda el nonce mientras dura el viaje. */
 export const STATE_COOKIE = 'texel_gh_state'
 
 export default defineEventHandler(async (event) => {
   const projectId = String(getQuery(event).projectId ?? '')
-  // Se exige ser dueño antes de salir: si no, cualquiera podría iniciar el
-  // baile con el id de un proyecto ajeno y volver enlazándolo.
-  await requireProject(event, projectId, 'owner')
+  // Con proyecto se exige ser dueño antes de salir: si no, cualquiera podría
+  // iniciar el baile con el id de un proyecto ajeno y volver enlazándolo. Sin
+  // proyecto (p. ej. «Cargar repositorio», que aún no ha creado ninguno) solo
+  // se pide estar autenticado: el baile es únicamente para probar la identidad.
+  if (projectId) await requireProject(event, projectId, 'owner')
+  else await requireUser(event)
 
   const config = requireAppConfig()
   const oauth = oauthConfig(config)

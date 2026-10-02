@@ -137,6 +137,65 @@ export function useProjectImport() {
   }
 
   /**
+   * Crea un proyecto nuevo trayéndolo de una carpeta de un repositorio.
+   *
+   * Reutiliza todo lo que ya existe: `create_project` para el proyecto vacío,
+   * `POST /api/github/link` para enlazarlo con la carpeta, y `POST
+   * /api/github/pull` —que con la base vacía clasifica *todo* lo del repo como
+   * «entrante» y lo escribe— para el clon inicial. Si algo falla a mitad, borra
+   * el proyecto: igual que `importFolder`, media importación es peor que ninguna.
+   */
+  async function importFromRepo(input: {
+    name: string
+    installationId: number
+    owner: string
+    repo: string
+    branch: string
+    workshop: string
+  }): Promise<string> {
+    progress.value = { done: 0, total: 1, label: `Creando desde ${input.owner}/${input.repo}…` }
+
+    const { data, error } = await supabase.rpc('create_project', {
+      p_name: input.name.slice(0, 120),
+      p_engine: 'xelatex' as TexEngine
+    })
+    if (error) { progress.value = null; throw error }
+    const id = data as string
+
+    try {
+      await $fetch('/api/github/link', {
+        method: 'POST',
+        body: {
+          projectId: id,
+          installationId: input.installationId,
+          owner: input.owner,
+          repo: input.repo,
+          branch: input.branch,
+          workshop: input.workshop
+        }
+      })
+
+      if (progress.value) progress.value = { ...progress.value, label: 'Trayendo del repositorio…' }
+      const result = await $fetch<{ applied: string[], deleted: string[] }>('/api/github/pull', {
+        method: 'POST',
+        body: { projectId: id }
+      })
+
+      // La RPC deja un `main.tex` de ejemplo; sobra si el repo no trajo el suyo.
+      if (!result.applied.includes('main.tex')) {
+        await supabase.from('files').delete().eq('project_id', id).eq('path', 'main.tex')
+      }
+    } catch (e) {
+      await supabase.from('projects').delete().eq('id', id)
+      progress.value = null
+      throw e
+    }
+
+    progress.value = null
+    return id
+  }
+
+  /**
    * Añade a un proyecto ya creado la capa compartida que le falte.
    *
    * Es la misma decisión que toma `importFolder`, pero para lo que se subió
@@ -310,7 +369,7 @@ export function useProjectImport() {
     }
   }
 
-  return { progress, importFolder, createFromTemplate, duplicateProject, addCourseLayer }
+  return { progress, importFolder, createFromTemplate, importFromRepo, duplicateProject, addCourseLayer }
 }
 
 /**

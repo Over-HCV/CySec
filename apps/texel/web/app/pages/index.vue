@@ -3,7 +3,7 @@ import {
   MacButton, MacGlassPanel, MacProgress, MacSegment, MacSegmentedControl, MacTextField
 } from '@macvue/core'
 import {
-  Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, Gauge, CopyPlus, Edit, ChevronDown, Github
+  Plus, Trash2, FileText, FolderUp, User, SunMoon, Palette, Gauge, CopyPlus, Edit, ChevronDown, Github, GitBranch
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
@@ -27,11 +27,15 @@ const wallpaperLabel = computed(() => wallpapers.find(o => o.id === wallpaper.va
 /** Proyecto cuyo enlace con GitHub se está mirando. */
 const githubFor = ref<Project | null>(null)
 
-// Vuelta de GitHub sin proyecto conocido (se instaló la App desde otro sitio):
-// se avisa y ya, que la lista no tiene ningún diálogo que reabrir.
+/** Diálogo de «Cargar repositorio» (crear proyecto desde un repo). */
+const showClone = ref(false)
+
+// Vuelta de GitHub sin proyecto conocido: es el «iniciar sesión» de «Cargar
+// repositorio», así que se reabre ese diálogo —ya con la identidad lista— en vez
+// de solo avisar.
 const route = useRoute()
 if (route.query.github === 'ok') {
-  onMounted(() => toast.success('GitHub conectado'))
+  onMounted(() => { toast.success('GitHub conectado'); showClone.value = true })
   void navigateTo({ query: {} }, { replace: true })
 }
 
@@ -273,6 +277,9 @@ onMounted(refresh)
         <MacButton size="regular" :disabled="!!progress" @click="picker?.click()">
           <FolderUp :size="15" class="inline align-[-3px] mr-1" /> Cargar proyecto
         </MacButton>
+        <MacButton size="regular" :disabled="!!progress" @click="showClone = true">
+          <GitBranch :size="15" class="inline align-[-3px] mr-1" /> Cargar repositorio
+        </MacButton>
         <MacButton size="regular" variant="prominent" @click="creating = true">
           <Plus :size="15" class="inline align-[-3px] mr-1" /> Nuevo proyecto
         </MacButton>
@@ -367,6 +374,8 @@ onMounted(refresh)
       :project-name="githubFor.name"
       @close="githubFor = null"
     />
+
+    <CloneRepoDialog v-if="showClone" @close="showClone = false; refresh()" />
 
     <!-- Sombra de destino mientras se arrastra: sin esto no se sabe si vale soltar. -->
     <div v-if="dragging"

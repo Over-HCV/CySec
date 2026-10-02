@@ -58,6 +58,8 @@ export function useGithub(projectId: MaybeRefOrGetter<string>) {
   const report = ref<StatusReport | null>(null)
   const busy = ref<string | null>(null)
   const error = ref('')
+  /** El «stage»: rutas de `ahead`/`conflict` elegidas para el próximo commit. */
+  const staged = ref<Set<string>>(new Set())
 
   /** Envuelve una llamada: un solo sitio donde poner «ocupado» y recoger el error. */
   async function run<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
@@ -114,8 +116,32 @@ export function useGithub(projectId: MaybeRefOrGetter<string>) {
       report.value = await $fetch<StatusReport>('/api/github/status', {
         query: { projectId: toValue(projectId) }
       })
+      pruneStaged()
     })
   }
+
+  /** Qué rutas pueden estar en el stage: lo que sale de aquí (ahead + conflicto). */
+  function stageablePaths(): Set<string> {
+    const s = report.value?.status
+    if (!s) return new Set()
+    return new Set([...s.ahead, ...s.conflicts].map(c => c.path))
+  }
+
+  /** Tras recomparar, lo que ya no es un cambio de aquí sale del stage solo. */
+  function pruneStaged(): void {
+    const valid = stageablePaths()
+    staged.value = new Set([...staged.value].filter(p => valid.has(p)))
+  }
+
+  function stage(path: string): void { staged.value = new Set(staged.value).add(path) }
+  function unstage(path: string): void {
+    const next = new Set(staged.value); next.delete(path); staged.value = next
+  }
+  function toggleStage(path: string): void {
+    staged.value.has(path) ? unstage(path) : stage(path)
+  }
+  function stageAll(): void { staged.value = stageablePaths() }
+  function unstageAll(): void { staged.value = new Set() }
 
   async function loadInstallations(): Promise<void> {
     await run('Buscando repositorios…', async () => {
@@ -163,11 +189,31 @@ export function useGithub(projectId: MaybeRefOrGetter<string>) {
     })
   }
 
-  async function push(message: string, force: string[] = []) {
+  async function push(message: string, opts: { only?: string[], force?: string[] } = {}) {
     return run('Subiendo…', async () => {
       const result = await $fetch<{ commit: string | null, pushed: string[], deleted: string[] }>(
         '/api/github/push',
-        { method: 'POST', body: { projectId: toValue(projectId), message, force } }
+        {
+          method: 'POST',
+          body: { projectId: toValue(projectId), message, force: opts.force ?? [], only: opts.only }
+        }
+      )
+      await refreshStatus()
+      return result
+    })
+  }
+
+  /** Commit de lo que hay en el stage (y de los conflictos resueltos a favor de aquí). */
+  async function commit(message: string, force: string[] = []) {
+    return push(message, { only: [...staged.value], force })
+  }
+
+  /** Descarta el cambio local de unas rutas: vuelven a lo que hay en el repo. */
+  async function restore(paths: string[]) {
+    return run('Restaurando…', async () => {
+      const result = await $fetch<{ restored: string[], removed: string[] }>(
+        '/api/github/restore',
+        { method: 'POST', body: { projectId: toValue(projectId), paths } }
       )
       await refreshStatus()
       return result
@@ -175,8 +221,9 @@ export function useGithub(projectId: MaybeRefOrGetter<string>) {
   }
 
   return {
-    configured, canSignIn, identity, installUrl, installations, link, report, busy, error,
-    refresh, refreshStatus, loadInstallations, signIn, connect, disconnect, pull, push
+    configured, canSignIn, identity, installUrl, installations, link, report, busy, error, staged,
+    refresh, refreshStatus, loadInstallations, signIn, connect, disconnect, pull, push,
+    stage, unstage, toggleStage, stageAll, unstageAll, commit, restore
   }
 }
 

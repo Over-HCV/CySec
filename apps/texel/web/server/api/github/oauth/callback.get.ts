@@ -107,5 +107,7 @@ export default defineEventHandler(async (event) => {
     : await stale
   if (cleanupError) throw createError({ statusCode: 500, statusMessage: cleanupError.message })
 
-  return sendRedirect(event, `/p/${state.projectId}?github=ok`)
+  // Con proyecto se vuelve a él con el diálogo reabierto; sin proyecto (el baile
+  // vino de «Cargar repositorio») se vuelve a la lista, ya con la identidad lista.
+  return sendRedirect(event, state.projectId ? `/p/${state.projectId}?github=ok` : '/?github=ok')
 })

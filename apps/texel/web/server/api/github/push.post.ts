@@ -7,6 +7,8 @@ interface Body {
   message?: string
   /** Rutas en conflicto que se resuelven a favor del proyecto. */
   force?: string[]
+  /** El «stage»: si viene, solo se commitean estas rutas. */
+  only?: string[]
 }
 
 export default defineEventHandler(async (event) => {
@@ -20,5 +22,5 @@ export default defineEventHandler(async (event) => {
     .from('projects').select('name').eq('id', body.projectId).maybeSingle()
   const message = body.message?.trim() || `texel: ${project?.name ?? 'sincronización'}`
 
-  return push(caller.admin, link, snapshots, message, body.force ?? [])
+  return push(caller.admin, link, snapshots, message, body.force ?? [], body.only)
 })

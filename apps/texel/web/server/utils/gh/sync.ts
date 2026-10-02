@@ -152,6 +152,43 @@ export interface PushResult {
 }
 
 /**
+ * Qué cambios de aquí entran en el commit: lo «ahead» más los conflictos
+ * resueltos a favor del proyecto (`forced`), y —si hay stage (`only`)— solo las
+ * rutas preparadas. Pura a propósito: es el corazón del «stage» y se prueba sin
+ * tocar ni la red ni la base.
+ */
+export function commitCandidates(
+  status: SyncStatus,
+  forced: Set<string>,
+  only?: Set<string>
+): Change[] {
+  const candidate = [
+    ...status.ahead,
+    ...status.conflicts.filter(change => forced.has(change.path))
+  ]
+  return only ? candidate.filter(change => only.has(change.path)) : candidate
+}
+
+/**
+ * Qué hace `restore` con cada ruta: si el repo la tiene se restaura (vuelve a
+ * su contenido), y si solo existía aquí se borra. Pura: separa la decisión del
+ * efecto para poder probarla.
+ */
+export function restorePlan(
+  paths: Iterable<string>,
+  remoteHas: (path: string) => boolean,
+  localHas: (path: string) => boolean
+): { restore: string[], remove: string[] } {
+  const restore: string[] = []
+  const remove: string[] = []
+  for (const path of new Set(paths)) {
+    if (remoteHas(path)) restore.push(path)
+    else if (localHas(path)) remove.push(path)
+  }
+  return { restore, remove }
+}
+
+/**
  * Sube al repositorio lo que cambió aquí, en un solo commit.
  *
  * Se rechaza si hay algo que traer: el commit se construye sobre el árbol
@@ -163,7 +200,8 @@ export async function push(
   link: Link,
   snapshots: Snapshots,
   message: string,
-  force: string[] = []
+  force: string[] = [],
+  only?: string[]
 ): Promise<PushResult> {
   const { octokit, local, remote, report } = snapshots
   const forced = new Set(force)
@@ -179,10 +217,10 @@ export async function push(
     })
   }
 
-  const changes = [
-    ...report.status.ahead,
-    ...report.status.conflicts.filter(change => forced.has(change.path))
-  ]
+  // `only` es el «stage»: cuando viene, solo se commitean esas rutas y el resto
+  // sigue apareciendo como «ahead» en la siguiente comparación. Sin él se suben
+  // todos los cambios de aquí, como hacía antes.
+  const changes = commitCandidates(report.status, forced, only ? new Set(only) : undefined)
   if (!changes.length) {
     return { commit: null, pushed: [], deleted: [], conflicts: [], summary: report.summary }
   }
@@ -207,6 +245,54 @@ export async function push(
   await commitBase(admin, link, snapshots, new Set([...pushed, ...deleted]), forced, 'local', commit)
 
   return { commit, pushed, deleted, conflicts: [], summary: report.summary }
+}
+
+export interface RestoreResult {
+  restored: string[]
+  removed: string[]
+}
+
+/**
+ * Descarta los cambios locales de unas rutas y las deja como están en el repo.
+ *
+ * Es el `git restore`/«discard changes» del lado del proyecto: lo que se tocó
+ * aquí (un «ahead» o un «conflict») vuelve al contenido del repositorio, y lo
+ * que solo existía en el proyecto (un archivo añadido en local) se borra. No
+ * hace commit: mueve la base al lado remoto, igual que un `pull` dirigido.
+ */
+export async function restore(
+  admin: SupabaseClient,
+  link: Link,
+  snapshots: Snapshots,
+  paths: string[]
+): Promise<RestoreResult> {
+  const { octokit, local, remote } = snapshots
+  const wanted = new Set(paths)
+
+  const { restore: toRestore, remove: toRemove } = restorePlan(
+    wanted, p => remote.files.has(p), p => local.files.has(p)
+  )
+
+  const restored: string[] = []
+  const removed: string[] = []
+
+  for (const path of toRestore) {
+    const remoteFile = remote.files.get(path)!
+    const content = await readBlob(octokit, refOf(link), remoteFile.sha)
+    await writeIncoming(admin, link.project_id, path, content, local.files.get(path))
+    restored.push(path)
+  }
+  for (const path of toRemove) {
+    await deleteLocal(admin, link.project_id, local.files.get(path)!)
+    removed.push(path)
+  }
+
+  // `forced = wanted`: las rutas restauradas que fueran conflicto no deben
+  // tratarse como «sin resolver» al reescribir la base, o conservarían la base
+  // vieja y volverían a salir en conflicto en la siguiente comparación.
+  await commitBase(admin, link, snapshots, new Set([...restored, ...removed]), wanted, 'remote')
+
+  return { restored, removed }
 }
 
 /**
