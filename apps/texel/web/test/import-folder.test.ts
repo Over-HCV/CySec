@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  guessEngine, MAX_FILE_BYTES, missingSharedLayer, pickRoot, planImport
+  guessEngine, isTextPath, MAX_FILE_BYTES, missingSharedLayer, pickRoot, planImport
 } from '../app/features/projects/lib/import-folder'
 import { TEMPLATE_FILES } from '../app/features/projects/lib/template.generated'
 
@@ -10,6 +10,24 @@ function entry(relativePath: string, content = 'x', size?: number) {
   if (size !== undefined) Object.defineProperty(file, 'size', { value: size })
   return { relativePath, file }
 }
+
+describe('isTextPath', () => {
+  it('los archivos sin extensión conocidos como texto se tratan como texto', () => {
+    // Regresión: `latexmkrc` no tiene extensión; tratándolo como binario, un
+    // pull que lo trae violaba el CHECK de `files` (kind=binary con content).
+    expect(isTextPath('latexmkrc')).toBe(true)
+    expect(isTextPath('.latexmkrc')).toBe(true)
+    expect(isTextPath('sub/dir/latexmkrc')).toBe(true)
+  })
+
+  it('por extensión sigue decidiendo igual', () => {
+    expect(isTextPath('main.tex')).toBe(true)
+    expect(isTextPath('refs.bib')).toBe(true)
+    expect(isTextPath('tex/cysec.cls')).toBe(true)
+    expect(isTextPath('pics/foto.png')).toBe(false)
+    expect(isTextPath('evidencia.pdf')).toBe(false)
+  })
+})
 
 describe('planImport', () => {
   it('conserva las subcarpetas y quita la carpeta elegida', () => {
@@ -54,10 +72,13 @@ describe('planImport', () => {
     expect(plan.skipped.map(s => s.path)).toContain('.git/config')
   })
 
-  it('conserva .latexmkrc, que sí afecta a la compilación', () => {
+  it('conserva .latexmkrc como texto, que sí afecta a la compilación', () => {
     const plan = planImport([entry('p/.latexmkrc')])
     expect(plan.skipped).toHaveLength(0)
-    expect(plan.binaries.map(b => b.path)).toEqual(['.latexmkrc'])
+    // Es un archivo de texto (sin extensión): va a `files.content`, no a Storage.
+    // Como binario, un pull que lo trajera violaba el CHECK de `files`.
+    expect(plan.texts.map(t => t.path)).toEqual(['.latexmkrc'])
+    expect(plan.binaries).toHaveLength(0)
   })
 
   it('descarta lo que la tabla `files` rechazaría', () => {

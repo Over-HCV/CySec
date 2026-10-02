@@ -81,7 +81,7 @@ export function planImport(entries: { relativePath: string, file: File }[]): Imp
     }
 
     const planned = { path, file: entry.file }
-    if (TEXT_EXT.has(extension(path))) texts.push(planned)
+    if (isTextPath(path)) texts.push(planned)
     else binaries.push(planned)
   }
 
@@ -158,9 +158,13 @@ export function skipReason(path: string, size = 0): string | null {
   return null
 }
 
+/** Archivos de texto sin extensión: su nombre entero es lo que los identifica. */
+const TEXT_NAMES = new Set(['latexmkrc', '.latexmkrc'])
+
 /** ¿Se guarda como texto en `files.content`? Lo demás va a Storage. */
 export function isTextPath(path: string): boolean {
-  return TEXT_EXT.has(extension(path))
+  const base = path.slice(path.lastIndexOf('/') + 1).toLowerCase()
+  return TEXT_NAMES.has(base) || TEXT_EXT.has(extension(path))
 }
 
 /** Extensión en minúsculas, con los dobles que importan (`synctex.gz`). */

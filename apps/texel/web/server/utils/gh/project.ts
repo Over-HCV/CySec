@@ -102,6 +102,9 @@ export async function writeIncoming(
       path,
       kind: 'text',
       content: text,
+      // Si la fila existía como binaria, hay que limpiar su puntero: una fila
+      // con kind='text' y storage_path no nulo viola el CHECK de `files`.
+      storage_path: null,
       size_bytes: Buffer.byteLength(text)
     }, { onConflict: 'project_id,path' })
     if (error) throw error
@@ -119,6 +122,9 @@ export async function writeIncoming(
     path,
     kind: 'binary',
     storage_path: storagePath,
+    // Si la fila existía como texto, hay que vaciar su contenido: una fila con
+    // kind='binary' y content no nulo viola el CHECK de `files`.
+    content: null,
     size_bytes: content.length
   }, { onConflict: 'project_id,path' })
   if (error) throw error
