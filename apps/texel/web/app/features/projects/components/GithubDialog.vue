@@ -53,6 +53,10 @@ const stagedChanges = computed(() => outgoing.value.filter(c => staged.value.has
 /** Conflictos preparados: su commit resuelve a favor de aquí (pasa como `force`). */
 const stagedConflicts = computed(() =>
   stagedChanges.value.filter(c => c.action === 'conflict').map(c => c.path))
+/** Todas las rutas en conflicto (para que «Traer» las resuelva a favor del repo). */
+const conflictPaths = computed(() => (report.value?.status.conflicts ?? []).map(c => c.path))
+/** Hay algo que bajar: entrantes, o conflictos que el repo puede resolver. */
+const canPull = computed(() => incoming.value.length > 0 || conflictPaths.value.length > 0)
 
 /** Letra tipo git para cada cambio: A(ñadido) · M(odificado) · D(borrado) · !(conflicto). */
 function statusLetter(change: Change): string {
@@ -98,10 +102,14 @@ async function onConnect() {
 }
 
 async function onPull() {
-  const result = await pull()
+  // «Traer del repo» trae lo entrante y, en los conflictos, hace ganar al
+  // repositorio (se fuerzan todos a «theirs»). Es el «bajar» de toda la vida:
+  // lo local que choca se reemplaza por lo del repo.
+  const result = await pull(conflictPaths.value)
   if (!result) return
   const total = result.applied.length + result.deleted.length
   toast.success(total ? `Traídos ${total} archivo(s)` : 'No había nada que traer')
+  if (result.conflicts.length) toast.warning(`Quedan ${result.conflicts.length} en conflicto`)
 }
 
 async function onCommit() {
@@ -237,18 +245,14 @@ onMounted(refresh)
 
         <p class="text-xs text-muted mt-0 mb-3">{{ report?.summary ?? 'Comparando…' }}</p>
 
-        <!-- Entrantes: lo que cambió en el repo. Se trae todo con un botón. -->
+        <!-- Entrantes: lo que cambió en el repo. Se trae con «Traer del repo». -->
         <section v-if="incoming.length" class="mb-3">
-          <div class="flex items-center gap-2 mb-2">
-            <h3 class="text-xs font-semibold uppercase tracking-wide text-muted m-0 flex-1">
-              Entrantes ({{ incoming.length }})
-            </h3>
-            <button class="btn text-xs py-0.5" :disabled="!!busy" @click="onPull">
-              <ArrowDownToLine :size="12" class="inline align-[-2px] mr-1" />Traer
-            </button>
-          </div>
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-muted m-0 mb-2">
+            Entrantes ({{ incoming.length }})
+          </h3>
           <ul class="list-none p-0 m-0 grid gap-1">
-            <li v-for="change in incoming" :key="change.path" class="flex items-center gap-2 text-xs">
+            <li v-for="change in incoming" :key="change.path"
+              class="row group flex items-center gap-2 text-xs">
               <span class="status-letter" :data-k="statusLetter(change)">{{ statusLetter(change) }}</span>
               <span class="font-mono truncate flex-1" :title="label(change)">{{ change.path }}</span>
             </li>
@@ -305,10 +309,20 @@ onMounted(refresh)
         <input v-model="message" class="input w-full mb-2 text-xs"
           :placeholder="`texel: ${projectName}`">
 
-        <button class="btn-primary w-full" :disabled="!!busy || !stagedChanges.length" @click="onCommit">
-          <ArrowUpFromLine :size="13" class="inline align-[-2px] mr-1" />
-          Confirmar y subir<span v-if="stagedChanges.length"> ({{ stagedChanges.length }})</span>
-        </button>
+        <!-- Las dos direcciones, siempre a la vista: bajar del repo y subir lo
+             preparado. «Traer del repo» resuelve los conflictos a favor del repo. -->
+        <div class="flex gap-2">
+          <button class="btn flex-1" :disabled="!!busy || !canPull" @click="onPull"
+            title="Trae lo del repositorio; en los conflictos gana la versión del repo">
+            <ArrowDownToLine :size="13" class="inline align-[-2px] mr-1" />
+            Traer del repo
+          </button>
+          <button class="btn-primary flex-1" :disabled="!!busy || !stagedChanges.length" @click="onCommit"
+            title="Sube al repositorio solo lo que esté preparado">
+            <ArrowUpFromLine :size="13" class="inline align-[-2px] mr-1" />
+            Subir<span v-if="stagedChanges.length"> ({{ stagedChanges.length }})</span>
+          </button>
+        </div>
 
         <p v-if="!incoming.length && !outgoing.length" class="text-[11px] text-muted mt-2 mb-0 text-center">
           Todo al día con el repositorio.
