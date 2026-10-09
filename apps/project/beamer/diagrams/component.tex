@@ -1,0 +1,38 @@
+% diagrams/component.tex — capa Component: pila de productos (de internet hacia adentro) y agenda.
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \tikzset{band/.style={draw=black, line width=0.5pt, minimum width=10.2cm, minimum height=0.62cm,
+             anchor=north west, inner sep=0pt},
+           lab/.style={terminal inv, text width=1.85cm, minimum height=0.62cm, anchor=north west,
+             font=\scriptsize\bfseries, inner sep=0pt, align=center},
+           prod/.style={terminal chip, text height=1.75ex, text depth=0.45ex}}
+  % \capa{fila}{rótulo}{primer chip}{resto de chips separados por coma}
+  \newcommand{\capa}[4]{%
+    \node[band] (b#1) at (0,-0.74*#1) {};
+    \node[lab] (l#1) at (b#1.north west) {#2};
+    \node[prod, anchor=west] (c#1-0) at ([xshift=6pt]l#1.east) {#3};
+    \foreach \t [count=\i from 1, remember=\i as \j (initially 0)] in {#4} {
+      \node[prod, anchor=west] (c#1-\i) at ([xshift=4pt]c#1-\j.east) {\t};
+    }}
+
+  \node[font=\tiny, anchor=south west] at (0,0.05) {↓ internet · app · comercios};
+  \capa{0}{PERÍMETRO}{Cloudflare: WAF · anti-DDoS · bots}{API Gateway}
+  \capa{1}{IDENTIDAD}{Auth0 / Keycloak}{Entra ID + YubiKey, CyberArk (PAM)}
+  \capa{2}{PLATAFORMA}{EKS 3 AZ + DR}{Istio (mTLS), Aurora, MSK (Kafka)}
+  \capa{3}{CRIPTO}{CloudHSM}{KMS, HashiCorp Vault}
+  \capa{4}{DETECCIÓN}{Feedzai (fraude)}{Sentinel (SIEM/SOAR), GuardDuty}
+  \capa{5}{PIPELINE}{GitHub Actions}{Semgrep, Snyk, Trivy, ZAP}
+
+  % HSM en acento: es la raíz de confianza criptográfica
+  \node[prod, terminal accent, line width=0.8pt, anchor=west] at (c3-0.west) {CloudHSM};
+
+  % agenda de operación
+  \node[terminal box, anchor=north west, text width=2.95cm, align=left, font=\scriptsize]
+    (ag) at (10.55,-0.28) {%
+      \textbf{>} pentest trimestral\\[2pt]
+      \textbf{>} escaneo semanal\\\phantom{>} y en cada build\\[2pt]
+      \textbf{>} DRP semestral\\[2pt]
+      \textbf{>} tabletop anual\\\phantom{>} de ransomware\\[2pt]
+      \textbf{>} Vault: rotación\\\phantom{>} diaria; certs 90 d\\[2pt]
+      \textbf{>} NTP en todo nodo};
+  \node[terminal inv, anchor=south west, text width=2.95cm, align=left] at (ag.north west) {agenda};
+\end{tikzpicture}

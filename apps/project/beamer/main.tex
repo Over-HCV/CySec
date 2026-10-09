@@ -12,7 +12,7 @@
 \institute{Seguridad para Arquitectura Empresarial -- U. del Rosario}
 \date{Noviembre 2026}
 
-\terminalwindow{sabsa-breb.tex}
+\terminalwindow{sabsa-breb.pdf}
 \terminalteamlabel{equipo}
 \terminallogo{\includegraphics[height=2.6ex]{pics/ur-logo-white}}
 \terminaltitlelogo{\includegraphics[height=1.25cm]{pics/ur-logo}}
@@ -134,39 +134,7 @@
 \begin{frame}{Conceptual \textmd{// estrategias de seguridad}}
   \prompt{sabsa --layer conceptual --view architect --owner "CISO"}
   \vskip4pt
-  \begin{sabsagrid}
-    \sabsacell{WHAT}{atributos}{\begin{cellitems}
-      \item Disponible, confidencial, íntegro.
-      \item Autenticado, no repudiable.
-      \item Resistente al fraude, cumplido.
-    \end{cellitems}}
-    \sabsacell{WHY}{control}{\begin{cellitems}
-      \item Sin MFA + dispositivo, no hay pago.
-      \item Todo pago pasa por scoring.
-      \item Cifrado con llaves en HSM.
-    \end{cellitems}}
-    \sabsacell{HOW}{estrategias}{\begin{cellitems}
-      \item \acc{Zero Trust}.
-      \item Defensa en profundidad.
-      \item Privacy by design, DevSecOps.
-    \end{cellitems}}
-    \sabsacell{WHO}{dueños}{\begin{cellitems}
-      \item Proceso: VP Pagos.
-      \item Riesgo ciber: CISO; fraude: Gte.
-      \item Custodios: Plataforma y Datos.
-    \end{cellitems}}
-    \sabsacell{WHERE}{dominios}{\begin{cellitems}
-      \item Cliente · Exposición (DMZ).
-      \item Core de pagos · Datos sensibles.
-      \item Interbancario · Gestión.
-    \end{cellitems}}
-    \sabsacell{WHEN}{riesgo}{\begin{cellitems}
-      \item NIST CSF 2.0 + SARO.
-      \item Revisión trimestral.
-      \item KRI: fraude, MTTD, MTTR.
-    \end{cellitems}}
-  \end{sabsagrid}
-  \src{ISO/IEC 27001:2022 · NIST CSF 2.0}
+  \input{diagrams/conceptual}
 \end{frame}
 
 % ------------------------------------------------------------------ 05
@@ -174,38 +142,7 @@
 \begin{frame}{Logical \textmd{// servicios de seguridad}}
   \prompt{sabsa --layer logical --view designer --owner "Arquitecto de Seguridad"}
   \vskip4pt
-  \begin{sabsagrid}
-    \sabsacell{WHAT}{información}{\begin{cellitems}
-      \item Cliente, KYC, biometría.
-      \item Llave $\leftrightarrow$ cuenta (DICE).
-      \item Transacciones, secretos, logs.
-    \end{cellitems}}
-    \sabsacell{WHY}{políticas}{\begin{cellitems}
-      \item MFA fuerte y límites por riesgo.
-      \item Bloqueo 24\,h tras cambio de SIM.
-      \item TLS 1.3, mTLS y AES-256.
-    \end{cellitems}}
-    \sabsacell{HOW}{servicios}{\begin{cellitems}
-      \item CIAM y autorización central.
-      \item Scoring de fraude en línea.
-      \item Cripto, monitoreo y auditoría.
-    \end{cellitems}}
-    \sabsacell{WHO}{confianza}{\begin{cellitems}
-      \item Cliente: solo sus llaves.
-      \item Agente: datos enmascarados.
-      \item Ingeniero: just-in-time.
-    \end{cellitems}}
-    \sabsacell{WHERE}{flujos}{\begin{cellitems}
-      \item Cliente $\to$ API GW + WAF.
-      \item Core $\to$ datos: solo servicio.
-      \item Core $\to$ BanRep: mTLS dedicado.
-    \end{cellitems}}
-    \sabsacell{WHEN}{vigencias}{\begin{cellitems}
-      \item Sesión 5\,min; token 10\,min.
-      \item Scoring $<$ 300\,ms.
-      \item Certificados cada 90 días.
-    \end{cellitems}}
-  \end{sabsagrid}
+  \input{diagrams/logical}
 \end{frame}
 
 % ------------------------------------------------------------------ 06
@@ -252,38 +189,7 @@
 \begin{frame}{Component \textmd{// productos y tecnologías}}
   \prompt{sabsa --layer component --view tradesman --owner "Líder SecOps"}
   \vskip4pt
-  \begin{sabsagrid}
-    \sabsacell{WHAT}{plataforma}{\begin{cellitems}
-      \item Amazon EKS, Aurora, MSK.
-      \item AWS CloudHSM y KMS.
-      \item HashiCorp Vault.
-    \end{cellitems}}
-    \sabsacell{WHY}{riesgo}{\begin{cellitems}
-      \item Feedzai (fraude, ML).
-      \item Microsoft Sentinel (SIEM/SOAR).
-      \item Tenable, Snyk, Security Hub.
-    \end{cellitems}}
-    \sabsacell{HOW}{protocolos}{\begin{cellitems}
-      \item ISO 20022, OIDC, WebAuthn.
-      \item Cloudflare, Istio (mTLS).
-      \item CI: Semgrep, Trivy, ZAP.
-    \end{cellitems}}
-    \sabsacell{WHO}{identidades}{\begin{cellitems}
-      \item Clientes: Auth0 / Keycloak.
-      \item Empleados: Entra ID + YubiKey.
-      \item PAM: CyberArk / Teleport.
-    \end{cellitems}}
-    \sabsacell{WHERE}{nodos}{\begin{cellitems}
-      \item EKS prod (3 AZ) + DR.
-      \item Sin IP pública en core/datos.
-      \item Direct Connect a BanRep.
-    \end{cellitems}}
-    \sabsacell{WHEN}{agenda}{\begin{cellitems}
-      \item Pentest trimestral.
-      \item Escaneo semanal y por build.
-      \item DRP semestral; NTP en todo.
-    \end{cellitems}}
-  \end{sabsagrid}
+  \input{diagrams/component}
 \end{frame}
 
 % ------------------------------------------------------------------ 08

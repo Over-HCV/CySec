@@ -1,0 +1,45 @@
+% diagrams/conceptual.tex — capa Conceptual: atributos, dominios de seguridad y estrategias.
+\begin{tikzpicture}[x=1cm, y=1cm]
+  % perfil de atributos SABSA
+  \node[font=\scriptsize\bfseries, anchor=west] (lbl) at (0,0.32) {atributos};
+  \node[terminal tag, right=6pt of lbl] (a1) {DISPONIBLE};
+  \node[terminal tag, right=3pt of a1] (a2) {CONFIDENCIAL};
+  \node[terminal tag, right=3pt of a2] (a3) {ÍNTEGRO};
+  \node[terminal tag, right=3pt of a3] (a4) {AUTENTICADO};
+  \node[terminal tag, right=3pt of a4] (a5) {NO REPUDIABLE};
+  \node[terminal tag, right=3pt of a5, fill=terminalaccent] (a6) {ANTIFRAUDE};
+
+  % dominios de seguridad
+  \begin{scope}[every node/.style={terminal box, text width=2.4cm, minimum height=1.15cm}]
+    \node (cli) at (1.45,-1.45) {\textbf{CLIENTE}\\app · dispositivo\\passkey};
+    \node (dmz) at (5.0,-1.45) {\textbf{EXPOSICIÓN}\\API gateway\\WAF · anti-DDoS};
+    \node (core) at (8.55,-1.45) {\textbf{CORE DE PAGOS}\\llaves · envío\\recepción · QR};
+    \node (dat) at (12.1,-1.45) {\textbf{DATOS SENSIBLES}\\clientes · pagos\\HSM / KMS};
+    \node[minimum height=0.95cm] (ges) at (3.3,-3.6) {\textbf{GESTIÓN}\\SOC · bastión · JIT};
+    \node[terminal accent, line width=1pt, minimum height=0.95cm] (ibk) at (10.3,-3.6) {\textbf{INTERBANCARIO}\\DICE · MOL (BanRep)};
+  \end{scope}
+
+  \draw[terminal arrow] (cli) -- node[above, font=\tiny] {HTTPS} (dmz);
+  \draw[terminal arrow] (dmz) -- node[above, font=\tiny] {authz} (core);
+  \draw[terminal arrow] (core) -- node[above, font=\tiny] {svc} (dat);
+  \draw[terminal arrow, draw=terminalaccent] (core.south) |- node[pos=0.3, left, font=\tiny\bfseries, text=terminalaccent] {mTLS dedicado} (ibk.west);
+  % Gestión entra por un bus propio a media altura, lejos de las sombras de arriba
+  \coordinate (bus) at ($(ges.north) + (0,0.5)$);
+  \draw[dashed, line width=0.8pt] (ges.north) -- (bus);
+  \draw[terminal arrow, dashed] (bus) -| (dmz.south);
+  \draw[terminal arrow, dashed] (bus) -| (cli.south);
+  \node[font=\tiny, anchor=west] at ([xshift=3pt]$(ges.north)!0.5!(bus)$) {solo vía bastión};
+
+  % marco Zero Trust
+  \node[draw, dashed, line width=0.6pt, inner sep=7pt, fit=(cli)(dat)(ges)(ibk)] (zt) {};
+  \node[terminal tag, anchor=west, fill=terminalaccent] at ([xshift=8pt]zt.north west)
+    {ZERO TRUST + DEFENSA EN PROFUNDIDAD};
+  \node[terminal chip, anchor=east] at ([xshift=-8pt]zt.north east)
+    {+ privacy by design · DevSecOps · multi-región};
+
+  % dueños, estrategias y riesgo
+  \node[terminal chip, anchor=north west, align=left] (own) at ([yshift=-8pt]zt.south west)
+    {\textbf{dueños}\ \ VP Pagos (proceso) · CISO (riesgo ciber) · Gte. Fraude};
+  \node[terminal chip, anchor=north west, align=left] at ([yshift=-4pt]own.south west)
+    {\textbf{riesgo}\ \ NIST CSF 2.0 + SARO · revisión trimestral · KRI: fraude (pb), MTTD, MTTR};
+\end{tikzpicture}

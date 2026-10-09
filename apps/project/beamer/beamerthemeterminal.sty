@@ -246,6 +246,25 @@
 % \src{citation}: tiny source line at the bottom right of a frame
 \newcommand{\src}[1]{\par\vfill\hfill{\tiny[#1]}}
 
+% ---------- TikZ styles for diagrams in the same look ----------
+% terminal box    white window with hard shadow     terminal inv   black, white bold text
+% terminal tag    small inverse label               terminal chip  thin outline, no shadow
+% terminal arrow  solid arrow                       terminal accent  recolour any of the above
+\usetikzlibrary{positioning,shadows,fit,arrows.meta,decorations.pathreplacing}
+\tikzset{
+  terminal box/.style={draw=black, line width=0.8pt, fill=white, align=center,
+    font=\scriptsize, inner sep=3pt,
+    drop shadow={shadow xshift=2pt, shadow yshift=-2pt, fill=black, opacity=1}},
+  terminal inv/.style={fill=black, text=white, font=\scriptsize\bfseries,
+    inner sep=3pt, align=center},
+  terminal tag/.style={fill=black, text=white, font=\scriptsize\bfseries,
+    inner xsep=4pt, inner ysep=2.5pt, text height=1.75ex, text depth=0.45ex},
+  terminal chip/.style={draw=black, line width=0.5pt, fill=white, font=\scriptsize,
+    inner xsep=4pt, inner ysep=2.5pt},
+  terminal arrow/.style={-{Stealth[length=4pt]}, line width=0.8pt},
+  terminal accent/.style={draw=terminalaccent, text=terminalaccent},
+}
+
 % ---------- sabsagrid: 6 window cells (What/Why/How/Who/Where/When) ----------
 % \begin{sabsagrid}
 %   \sabsacell{WHAT}{assets}{...} \sabsacell{WHY}{motivation}{...} ...
