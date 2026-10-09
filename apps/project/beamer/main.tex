@@ -1,0 +1,315 @@
+% main.tex — Proyecto final: matriz SABSA para pagos inmediatos Bre-B.
+% Compilar con XeLaTeX:  latexmk main.tex   (ver latexmkrc)
+\documentclass[aspectratio=169,10pt]{beamer}
+\usetheme[nosectionpages,accent=DA0921]{terminal}  % rojo oficial UR
+\usepackage[spanish,es-noshorthands]{babel}
+
+\input{caso}
+
+\title{Arquitectura de seguridad SABSA para pagos inmediatos Bre-B}
+\subtitle{\empresa{} // \area}
+\author[\autorescorto]{\autores}
+\institute{Seguridad para Arquitectura Empresarial -- U. del Rosario}
+\date{Noviembre 2026}
+
+\terminalwindow{sabsa-breb.tex}
+\terminalteamlabel{equipo}
+\terminallogo{\includegraphics[height=2.6ex]{pics/ur-logo-white}}
+\terminaltitlelogo{\includegraphics[height=1.25cm]{pics/ur-logo}}
+\terminalfootprefix{sabsa}
+\terminalsectionprompt{cd capa\_}
+\terminalshell{\texttt{\$ ./sabsa -{}-empresa \empresaslug{} -{}-area bre-b\\
+  > capas contextual..component ...... ok\\
+  > matriz SABSA (xlsx) .............. ok}}
+
+\begin{document}
+
+\begin{frame}[plain,noframenumbering]
+  \titlepage
+\end{frame}
+
+% ------------------------------------------------------------------ 01
+\section{Misión}
+\begin{frame}{Misión de la empresa}
+  \prompt{cat /etc/\empresaslug/mision}
+  \vskip8pt
+  \begin{tbox}{> mision.txt}
+    \large Facilitar que personas y comercios en Colombia muevan su dinero de
+    forma \acc{inmediata}, \acc{segura} y \acc{sin costo} desde el celular,
+    protegiendo la \acc{confianza} de los clientes como el activo principal de
+    la compañía.
+  \end{tbox}
+  \vskip12pt
+  \begin{columns}[T]
+    \begin{column}{0.31\textwidth}
+      \begin{pbox}\small\textbf{Quiénes:} \empresa, \empresatipo.\end{pbox}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{pbox}\small\textbf{Qué:} Cuentas digitales, transferencias y pagos QR por Bre-B.\end{pbox}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{pbox}\small\textbf{Por qué:} Bre-B es interoperable, 24/7 y gratuito, una oportunidad para captar a quienes usan efectivo.\end{pbox}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------ 02
+\section{Área}
+\begin{frame}{Objetivo del área: Pagos Inmediatos Bre-B}
+  \begin{tbox}{\texttt{> objetivo -{}-area bre-b}}
+    Operar las transferencias y pagos inmediatos de \empresa{} sobre Bre-B
+    (\acc{24/7}, liquidación en \acc{menos de 20 s}), administrando las llaves
+    de los clientes ante el Directorio Centralizado (DICE) y la liquidación en
+    el MOL del Banco de la República, con fraude y disponibilidad dentro de los
+    umbrales de la Junta.
+  \end{tbox}
+  \vskip10pt
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{tbox}{alcance}
+        \footnotesize
+        \begin{cellitems}
+          \item Inscripción y portabilidad de llaves (celular, cédula, correo, alfanumérica).
+          \item Envío, recepción y pagos QR a comercios.
+          \item Conciliación con el MOL, disputas y fraude.
+        \end{cellitems}
+      \end{tbox}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{tbox}{metas (KPI)}
+        \footnotesize
+        \begin{cellitems}
+          \item Disponibilidad $\geq$ 99,95\,\% mensual.
+          \item Transacción extremo a extremo $<$ 20\,s.
+          \item Fraude $<$ 5 pb del valor transado.
+          \item Cero incidentes de fuga de datos personales.
+        \end{cellitems}
+      \end{tbox}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ------------------------------------------------------------------ 03
+\section{Contextual}
+\begin{frame}{Contextual \textmd{// requisitos de negocio}}
+  \prompt{sabsa --layer contextual --view business --owner "Junta, CEO, VP Pagos, CISO"}
+  \vskip4pt
+  \begin{sabsagrid}
+    \sabsacell{WHAT}{activos}{\begin{cellitems}
+      \item Servicio 24/7 y $<$ 20\,s.
+      \item Fondos y datos de clientes.
+      \item Reputación y confianza.
+    \end{cellitems}}
+    \sabsacell{WHY}{amenazas}{\begin{cellitems}
+      \item Fraude APP, ATO (SIM swap, phishing), mulas.
+      \item DDoS y caída de nube o enlace.
+      \item Insiders, supply chain, ransomware.
+    \end{cellitems}}
+    \sabsacell{HOW}{procesos}{\begin{cellitems}
+      \item Onboarding / KYC.
+      \item Gestión de llaves ante el DICE.
+      \item Envío, recepción, QR, conciliación.
+    \end{cellitems}}
+    \sabsacell{WHO}{organización}{\begin{cellitems}
+      \item Junta, CEO, VP Pagos, CISO.
+      \item Fraude, Riesgos (SARO), Datos.
+      \item BanRep, nube, biometría, telcos.
+    \end{cellitems}}
+    \sabsacell{WHERE}{sitios}{\begin{cellitems}
+      \item Bogotá: operación y SOC.
+      \item Nube: región principal + alterna.
+      \item Enlace dedicado a BanRep.
+    \end{cellitems}}
+    \sabsacell{WHEN}{tiempo}{\begin{cellitems}
+      \item Sin ventana de cierre.
+      \item Picos 5$\times$ en quincena y primas.
+      \item Reporte de incidentes a la SFC.
+    \end{cellitems}}
+  \end{sabsagrid}
+  \src{SFC CE 007/2018 (hoy en la CBJ, CE 006/2025) · BanRep CRE DSP-465/2025}
+\end{frame}
+
+% ------------------------------------------------------------------ 04
+\section{Conceptual}
+\begin{frame}{Conceptual \textmd{// estrategias de seguridad}}
+  \prompt{sabsa --layer conceptual --view architect --owner "CISO"}
+  \vskip4pt
+  \begin{sabsagrid}
+    \sabsacell{WHAT}{atributos}{\begin{cellitems}
+      \item Disponible, confidencial, íntegro.
+      \item Autenticado, no repudiable.
+      \item Resistente al fraude, cumplido.
+    \end{cellitems}}
+    \sabsacell{WHY}{control}{\begin{cellitems}
+      \item Sin MFA + dispositivo, no hay pago.
+      \item Todo pago pasa por scoring.
+      \item Cifrado con llaves en HSM.
+    \end{cellitems}}
+    \sabsacell{HOW}{estrategias}{\begin{cellitems}
+      \item \acc{Zero Trust}.
+      \item Defensa en profundidad.
+      \item Privacy by design, DevSecOps.
+    \end{cellitems}}
+    \sabsacell{WHO}{dueños}{\begin{cellitems}
+      \item Proceso: VP Pagos.
+      \item Riesgo ciber: CISO; fraude: Gte.
+      \item Custodios: Plataforma y Datos.
+    \end{cellitems}}
+    \sabsacell{WHERE}{dominios}{\begin{cellitems}
+      \item Cliente · Exposición (DMZ).
+      \item Core de pagos · Datos sensibles.
+      \item Interbancario · Gestión.
+    \end{cellitems}}
+    \sabsacell{WHEN}{riesgo}{\begin{cellitems}
+      \item NIST CSF 2.0 + SARO.
+      \item Revisión trimestral.
+      \item KRI: fraude, MTTD, MTTR.
+    \end{cellitems}}
+  \end{sabsagrid}
+  \src{ISO/IEC 27001:2022 · NIST CSF 2.0}
+\end{frame}
+
+% ------------------------------------------------------------------ 05
+\section{Logical}
+\begin{frame}{Logical \textmd{// servicios de seguridad}}
+  \prompt{sabsa --layer logical --view designer --owner "Arquitecto de Seguridad"}
+  \vskip4pt
+  \begin{sabsagrid}
+    \sabsacell{WHAT}{información}{\begin{cellitems}
+      \item Cliente, KYC, biometría.
+      \item Llave $\leftrightarrow$ cuenta (DICE).
+      \item Transacciones, secretos, logs.
+    \end{cellitems}}
+    \sabsacell{WHY}{políticas}{\begin{cellitems}
+      \item MFA fuerte y límites por riesgo.
+      \item Bloqueo 24\,h tras cambio de SIM.
+      \item TLS 1.3, mTLS y AES-256.
+    \end{cellitems}}
+    \sabsacell{HOW}{servicios}{\begin{cellitems}
+      \item CIAM y autorización central.
+      \item Scoring de fraude en línea.
+      \item Cripto, monitoreo y auditoría.
+    \end{cellitems}}
+    \sabsacell{WHO}{confianza}{\begin{cellitems}
+      \item Cliente: solo sus llaves.
+      \item Agente: datos enmascarados.
+      \item Ingeniero: just-in-time.
+    \end{cellitems}}
+    \sabsacell{WHERE}{flujos}{\begin{cellitems}
+      \item Cliente $\to$ API GW + WAF.
+      \item Core $\to$ datos: solo servicio.
+      \item Core $\to$ BanRep: mTLS dedicado.
+    \end{cellitems}}
+    \sabsacell{WHEN}{vigencias}{\begin{cellitems}
+      \item Sesión 5\,min; token 10\,min.
+      \item Scoring $<$ 300\,ms.
+      \item Certificados cada 90 días.
+    \end{cellitems}}
+  \end{sabsagrid}
+\end{frame}
+
+% ------------------------------------------------------------------ 06
+\section{Physical}
+\begin{frame}{Physical \textmd{// mecanismos de seguridad}}
+  \prompt{sabsa --layer physical --view builder --owner "Dir. Plataforma Cloud"}
+  \vskip4pt
+  \begin{sabsagrid}
+    \sabsacell{WHAT}{datos}{\begin{cellitems}
+      \item Restringido: tokenizado.
+      \item Confidencial: cifrado.
+      \item Catálogo con dueño y retención.
+    \end{cellitems}}
+    \sabsacell{WHY}{reglas}{\begin{cellitems}
+      \item Reglas de fraude (velocidad, mula).
+      \item Playbooks ATO, DDoS, ransomware.
+      \item Parches críticos en 7 días.
+    \end{cellitems}}
+    \sabsacell{HOW}{mecanismos}{\begin{cellitems}
+      \item Passkeys FIDO2 + device binding.
+      \item WAF, anti-DDoS, service mesh.
+      \item HSM/KMS, tokenización, SIEM.
+    \end{cellitems}}
+    \sabsacell{WHO}{acceso}{\begin{cellitems}
+      \item SSO + llave FIDO2 interna.
+      \item RBAC + ABAC (monto, horario).
+      \item PAM con sesiones grabadas.
+    \end{cellitems}}
+    \sabsacell{WHERE}{red}{\begin{cellitems}
+      \item VPC por ambiente.
+      \item Subred por dominio.
+      \item 3 zonas + región alterna.
+    \end{cellitems}}
+    \sabsacell{WHEN}{tiempos}{\begin{cellitems}
+      \item \acc{RTO 15\,min, RPO 0}.
+      \item Failover de zona $<$ 1\,min.
+      \item Backups inmutables diarios.
+    \end{cellitems}}
+  \end{sabsagrid}
+\end{frame}
+
+% ------------------------------------------------------------------ 07
+\section{Component}
+\begin{frame}{Component \textmd{// productos y tecnologías}}
+  \prompt{sabsa --layer component --view tradesman --owner "Líder SecOps"}
+  \vskip4pt
+  \begin{sabsagrid}
+    \sabsacell{WHAT}{plataforma}{\begin{cellitems}
+      \item Amazon EKS, Aurora, MSK.
+      \item AWS CloudHSM y KMS.
+      \item HashiCorp Vault.
+    \end{cellitems}}
+    \sabsacell{WHY}{riesgo}{\begin{cellitems}
+      \item Feedzai (fraude, ML).
+      \item Microsoft Sentinel (SIEM/SOAR).
+      \item Tenable, Snyk, Security Hub.
+    \end{cellitems}}
+    \sabsacell{HOW}{protocolos}{\begin{cellitems}
+      \item ISO 20022, OIDC, WebAuthn.
+      \item Cloudflare, Istio (mTLS).
+      \item CI: Semgrep, Trivy, ZAP.
+    \end{cellitems}}
+    \sabsacell{WHO}{identidades}{\begin{cellitems}
+      \item Clientes: Auth0 / Keycloak.
+      \item Empleados: Entra ID + YubiKey.
+      \item PAM: CyberArk / Teleport.
+    \end{cellitems}}
+    \sabsacell{WHERE}{nodos}{\begin{cellitems}
+      \item EKS prod (3 AZ) + DR.
+      \item Sin IP pública en core/datos.
+      \item Direct Connect a BanRep.
+    \end{cellitems}}
+    \sabsacell{WHEN}{agenda}{\begin{cellitems}
+      \item Pentest trimestral.
+      \item Escaneo semanal y por build.
+      \item DRP semestral; NTP en todo.
+    \end{cellitems}}
+  \end{sabsagrid}
+\end{frame}
+
+% ------------------------------------------------------------------ 08
+\section{Conclusiones}
+\begin{frame}{Conclusiones}
+  \begin{cellitems}\small
+    \item \textbf{Trazabilidad:} Cada producto de la capa Component se justifica
+      hacia arriba hasta un requisito de negocio de Bre-B, de forma que ningún
+      control queda sin dueño ni sin motivo.
+    \vskip4pt
+    \item \textbf{Fraude antes que intrusión:} En pagos inmediatos el dinero no
+      se puede reversar, por lo cual la autenticación fuerte, el device binding
+      y el scoring en línea pesan tanto como el perímetro.
+    \vskip4pt
+    \item \textbf{Disponibilidad como requisito de seguridad:} Un servicio 24/7
+      sin ventana de cierre obliga a diseñar la resiliencia (RTO 15\,min,
+      RPO 0) desde la capa conceptual y no como un añadido.
+    \vskip4pt
+    \item \textbf{Cumplimiento integrado:} La SFC, el Banco de la República y la
+      Ley 1581 se tratan como atributos de negocio y no como un checklist al
+      final del proyecto.
+  \end{cellitems}
+  \vskip8pt
+  \begin{ibox}SABSA = seguridad derivada del negocio, no agregada a la tecnología\end{ibox}
+\end{frame}
+
+\terminalscreen{\texttt{\$ sabsa -{}-preguntas}}{¿PREGUNTAS?}{\empresa{} \quad//\quad \area}
+
+\end{document}

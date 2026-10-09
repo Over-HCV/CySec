@@ -14,7 +14,11 @@ Una vez abierta la aplicación se ingresó al botón \emph{Capture Options}, des
 \captura{QWE-535.png}{Ventana \emph{Capture Options} de Wireshark con la interfaz de red seleccionada para la escucha.}
 
 \begin{analisis}
-En la ventana \emph{Capture Options} se observa el listado de interfaces disponibles junto con la columna de tráfico que adelanta cuáles están activas, de forma que se eligió la interfaz sobre la que circula el tráfico de interés y se mantuvo marcada la casilla \emph{Enable promiscuous mode on all interfaces}, decisión que no es menor en un contexto forense, dado que el modo promiscuo es lo que permite a la tarjeta entregar al sistema todas las tramas que observa en el medio y no únicamente las dirigidas a su propia dirección MAC, que es justamente lo que se necesita para escuchar una conversación entre terceros.
+
+
+
+
+En la ventana Capture Options se listan las interfaces disponibles; se seleccionó eth0, por donde circula el tráfico de interés, y se mantuvo activa la casilla Enable promiscuous mode on all interfaces. El modo promiscuo hace que la tarjeta entregue al sistema todas las tramas que llegan al medio y no solo las dirigidas a su dirección MAC; sin embargo, es una condición necesaria pero no suficiente, dado que en una red conmutada el switch solo reenvía al puerto el tráfico propio y el de difusión, por lo que capturar conversaciones de terceros exige además un puerto espejo (SPAN) o una posición intermedia en la ruta. En redes inalámbricas el equivalente es el modo monitor, que aparece como opción independiente en la misma ventana. La imagen se tomó al reabrir la ventana con la captura ya en curso, para documentar la interfaz utilizada.
 \end{analisis}
 
 Posterior a esto Wireshark comenzó a capturar los paquetes que pasan por la interfaz seleccionada, mostrándolos en tiempo real en el panel de lista de paquetes:
@@ -22,7 +26,9 @@ Posterior a esto Wireshark comenzó a capturar los paquetes que pasan por la int
 \captura{wireshark-captura-viva.png}{Captura en curso sobre la interfaz seleccionada.}
 
 \begin{analisis}
-La lista de paquetes se va poblando en tiempo real con el tráfico que atraviesa la interfaz, y ya en esta vista preliminar se aprecia la heterogeneidad de protocolos que conviven en un segmento de red (resolución de nombres por DNS, descubrimiento por mDNS, y conexiones TCP cifradas con TLS hacia servicios externos), de modo que entre ese ruido se alcanza a distinguir un \emph{Client Hello} con su extensión SNI y los registros posteriores de \emph{Application Data}, lo que anticipa la diferencia de visibilidad que se analiza a continuación entre el tráfico en claro y el tráfico cifrado.
+
+
+La lista de paquetes se puebla en tiempo real con el tráfico de la interfaz. En la figura, filtrada con ip.addr == 10.38.90.239 para conservar solo el tráfico del equipo de pruebas, conviven consultas DNS (como la resolución de www.gstatic.com), el establecimiento de conexiones TCP y sesiones TLS 1.3 hacia servicios externos. En el paquete 404 se distingue un Client Hello cuya extensión SNI revela el nombre del sitio, seguido de registros Application Data cifrados, lo que anticipa la diferencia de visibilidad entre el tráfico en claro y el cifrado que se analiza a continuación.
 \end{analisis}
 
 \subsection{Credenciales sobre HTTP}
@@ -37,38 +43,44 @@ urlencoded-form
 \captura{http-post-credenciales.png}{Paquete HTTP POST con los campos del formulario de autenticación en texto claro.}
 
 \begin{analisis}
-Tras aplicar los filtros el paquete queda aislado y, al desplegar su árbol de disección bajo el nodo \emph{HTML Form URL Encoded}, se leen directamente los pares nombre-valor del formulario (el campo de usuario y el de contraseña tal como se escribieron), de forma que no se requiere ninguna operación de descifrado ni herramienta adicional para obtener las credenciales, lo que evidencia que HTTP no ofrece garantía alguna de confidencialidad y que cualquier autenticación que viaje sobre él queda expuesta ante quien comparta el medio o se ubique en la ruta del paquete.
+
+
+Tras aplicar el filtro queda aislada la petición POST /submit/ enviada al sitio de pruebas http-login.badssl.com. Al desplegar en su árbol de disección el nodo HTML Form URL Encoded se leen directamente los pares nombre-valor del formulario (usuario y contraseña tal como se escribieron), sin ninguna operación de descifrado ni herramienta adicional, lo que evidencia que HTTP no ofrece garantía alguna de confidencialidad.
 \end{analisis}
 
 \pregunta{Al analizar los paquetes HTTP capturados, ¿se evidencia la información de las credenciales? Justifique su respuesta.}
 \begin{respuesta}
-Sí se evidencia la información de las credenciales, y la justificación está en el propio diseño del protocolo: HTTP transporta la petición y su cuerpo en texto claro sobre TCP, sin ninguna capa de cifrado intermedia, de forma que cuando el formulario de autenticación se envía mediante el método POST los campos de usuario y contraseña viajan como pares nombre-valor codificados en \eng{url-encoding} dentro del cuerpo de la petición (\texttt{application/x-www-form-urlencoded}), y cualquier equipo que esté en la ruta del paquete o que comparta el medio puede leerlos sin realizar operación alguna de descifrado. En Wireshark esto se observa directamente en el árbol de disección del paquete, bajo el nodo \emph{HTML Form URL Encoded}, o de forma más cómoda siguiendo el flujo completo con \emph{Follow $\rightarrow$ HTTP Stream}, donde se reconstruye la conversación entre el navegador y el servidor tal como se transmitió. Cabe mencionar que la exposición no se limita a las credenciales: también quedan legibles las \eng{cookies} de sesión, los encabezados y el contenido devuelto por el servidor, de manera que un atacante podría suplantar la sesión incluso sin conocer la contraseña.
+Sí se evidencia la información de las credenciales, y la justificación está en el propio diseño del protocolo: HTTP transporta la petición y su cuerpo en texto claro sobre TCP, sin ninguna capa de cifrado intermedia, de forma que cuando el formulario de autenticación se envía mediante el método POST los campos de usuario y contraseña viajan como pares nombre-valor codificados en \eng{url-encoding} dentro del cuerpo de la petición (\texttt{application/x-www-form-urlencoded}), y cualquier equipo ubicado en la ruta del paquete, o con acceso al mismo segmento mediante un puerto espejo o un ataque de intermediario, puede leerlos sin realizar operación alguna de descifrado. En Wireshark esto se observa directamente en el árbol de disección del paquete, bajo el nodo \emph{HTML Form URL Encoded}, o de forma más cómoda siguiendo el flujo completo con \emph{Follow $\rightarrow$ HTTP Stream}, donde se reconstruye la conversación entre el navegador y el servidor tal como se transmitió. Cabe mencionar que la exposición no se limita a las credenciales: también quedan legibles las \eng{cookies} de sesión, los encabezados y el contenido devuelto por el servidor, de manera que un atacante podría suplantar la sesión incluso sin conocer la contraseña.
 \end{respuesta}
 
 \subsection{Credenciales sobre HTTPS}
 
-Progresivamente se repitió el mismo ejercicio sobre una página de inicio de sesión que hace uso de HTTPS, ingresando nuevamente un usuario y una contraseña de prueba y filtrando el tráfico correspondiente:
+Posteriormente se repitió el mismo ejercicio sobre una página de inicio de sesión que hace uso de HTTPS (login.gov), ingresando el usuario de prueba PROBANDO y una contraseña ficticia, con el fin de verificar si esas mismas credenciales podían localizarse en la captura como ocurrió con HTTP.
 
 \begin{lstlisting}
 tls
 tls.handshake.type == 1
 \end{lstlisting}
 
-\captura{https-tls-handshake.png}{Negociación TLS (\emph{Client Hello}) previa al envío de las credenciales.}
+\captura{https-tls-handshake.png}{Credenciales de prueba ingresadas en el formulario de login.gov, servido sobre HTTPS.}
 
 \begin{analisis}
-El filtro \texttt{tls.handshake.type == 1} aísla el \emph{Client Hello}, que es el primer mensaje del \eng{handshake} y el punto donde el navegador y el servidor empiezan a negociar los parámetros de la sesión segura (versiones, suites de cifrado y extensiones), de forma que todo lo que ocurre en esta fase sucede antes de que exista una clave de sesión y, por tanto, antes de que viaje un solo byte del formulario, lo que marca la frontera a partir de la cual el contenido deja de ser observable; cabe mencionar que lo único que aquí queda legible son metadatos de la conexión, entre ellos la extensión SNI con el nombre del sitio consultado cuando no se emplea \eng{Encrypted Client Hello}.
+En la figura se observa el formulario de inicio de sesión con el usuario PROBANDO y una contraseña de prueba, justo antes de enviarlo. A diferencia del caso HTTP, el navegador no envía estos datos directamente: primero establece un canal TLS con el servidor (el handshake, que inicia con el Client Hello), y solo cuando el canal cifrado está listo transmite el formulario, de modo que lo que se escribe en pantalla no es lo que viaja por la red.
 \end{analisis}
 
-\captura{https-application-data.png}{Registros \emph{Application Data} de TLS: el contenido de la petición viaja cifrado.}
+\captura{https-application-data.png}{Captura del tráfico durante el inicio de sesión sobre HTTPS: las credenciales no aparecen en ningún paquete.}
 
 \begin{analisis}
-Una vez completado el \eng{handshake}, el intercambio pasa a registros de tipo \emph{Application Data}, que es donde viajarían las credenciales, con el pequeño detalle de que Wireshark solo puede mostrarlos como un bloque de bytes cifrados cuya única propiedad observable es la longitud, de manera que el contraste con el caso HTTP es directo e inmediato, dado que allí el formulario se leía en claro y aquí no hay forma de reconstruir ni el usuario ni la contraseña sin disponer de las claves de sesión, que nunca abandonan los extremos de la comunicación.
+Al revisar la captura realizada durante el envío del formulario, ordenada por protocolo, solo se observan protocolos de servicio de la red local (ARP, NetBIOS, DHCPv6, DNS, LLMNR y mDNS) y ningún paquete expone el usuario PROBANDO ni la contraseña. El contraste con el caso HTTP es directo: allí bastaba un filtro para aislar el POST y leer el formulario en claro, mientras que aquí las credenciales viajan dentro de registros TLS Application Data, de los que Wireshark solo puede mostrar la cabecera y la longitud del contenido cifrado, sin forma de reconstruirlas sin las claves de sesión.extremos de la comunicación.
 \end{analisis}
 
 \pregunta{Al analizar los paquetes HTTPS capturados, ¿es posible ver la información de las credenciales? Justifique su respuesta.}
 \begin{respuesta}
-No es posible ver la información de las credenciales, porque HTTPS no es un protocolo distinto sino el mismo HTTP transportado dentro de un canal TLS: antes de que el navegador envíe un solo byte del formulario se ejecuta el \eng{handshake} (\emph{Client Hello}, \emph{Server Hello}, validación del certificado del servidor y acuerdo de las claves de sesión), y a partir de ese punto todo el intercambio viaja como registros de tipo \emph{Application Data}, que Wireshark muestra únicamente como un bloque de bytes cifrados cuya longitud es lo único observable. En consecuencia, el usuario y la contraseña solo existen en claro en los extremos de la comunicación (el navegador y el servidor), y quien captura en el medio no dispone de las claves de sesión para reconstruirlos.
+No es posible ver las credenciales desde una posición pasiva en la red, porque HTTPS es el mismo HTTP transportado dentro de un canal TLS. Antes de que el navegador envíe un solo byte del formulario se ejecuta el handshake: en el Client Hello y el Server Hello se negocian los parámetros y se acuerdan las claves de sesión, y luego el servidor presenta su certificado. A partir de ese punto todo el intercambio viaja como registros Application Data, de los que Wireshark solo puede mostrar la cabecera y la longitud del contenido cifrado. El usuario y la contraseña solo existen en claro en los extremos (navegador y servidor); la única forma de leerlos sería tener acceso a uno de ellos y exportar las claves de sesión (por ejemplo, con la variable SSLKEYLOGFILE del navegador), que Wireshark puede usar para descifrar la sesión desde Preferences → Protocols → TLS.
 
-Ahora bien, cabe mencionar que el cifrado no vuelve invisible la conversación entera: siguen siendo legibles los metadatos de la conexión, esto es, las direcciones IP y los puertos de ambos extremos, la resolución DNS previa del nombre consultado, el certificado que presenta el servidor y, cuando no se usa \eng{Encrypted Client Hello}, la extensión SNI del \emph{Client Hello} con el nombre del sitio visitado, además del volumen y la temporización de los paquetes, que permiten inferir el tipo de actividad. Dicho de otra forma, HTTPS protege el \term{contenido} de la sesión pero no oculta \term{con quién} se habla, lo que en un análisis forense sigue siendo información aprovechable.
+
+El cifrado, sin embargo, no oculta toda la conversación: siguen siendo visibles las direcciones IP y los puertos, la consulta DNS previa, la extensión SNI del Client Hello (salvo que se use Encrypted Client Hello), el certificado del servidor en TLS 1.2 (en TLS 1.3 viaja cifrado) y el volumen y la temporización de los paquetes. Dicho de otra forma, HTTPS protege el contenido de la sesión pero no oculta con quién se habla, lo que en un análisis forense sigue siendo información aprovechable.
+
+
+
 \end{respuesta}

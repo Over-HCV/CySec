@@ -1,0 +1,268 @@
+% ============================================================
+%  beamerthemeterminal.sty
+%  A retro, monospaced, black-and-white Beamer theme.
+%
+%  Version 1.1 (2026/10/09)  + accent=, section prompt, sabsagrid
+%  Copyright (c) 2026 [Your Name]
+%  Released under the MIT License (see LICENSE).
+%
+%  Requires XeLaTeX or LuaLaTeX (fontspec).
+%  Usage:   \usetheme{terminal}
+%           \usetheme[nosectionpages,noprogressbar]{terminal}
+%           \usetheme[accent=A6192E]{terminal}   % HTML colour for cursor & highlights
+% ============================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemeterminal}[2026/10/09 v1.1 Retro terminal Beamer theme]
+
+\RequirePackage{iftex}
+\ifTUTeX\else
+  \PackageError{beamerthemeterminal}
+    {This theme needs XeLaTeX or LuaLaTeX}
+    {On Overleaf: Menu > Settings > Compiler > XeLaTeX.\MessageBreak
+     Locally: run xelatex instead of pdflatex.}
+\fi
+
+% ---------- options ----------
+\newif\ifterminal@sectionpages \terminal@sectionpagestrue
+\newif\ifterminal@progressbar  \terminal@progressbartrue
+\DeclareOptionBeamer{nosectionpages}{\terminal@sectionpagesfalse}
+\DeclareOptionBeamer{noprogressbar}{\terminal@progressbarfalse}
+% accent=<HTML>: one colour on top of black & white (cursor, \acc, \inv*, progress bar)
+\def\terminal@accent{000000}
+\DeclareOptionBeamer{accent}{\def\terminal@accent{#1}}
+\ProcessOptionsBeamer
+
+\mode<presentation>
+
+\RequirePackage{fontspec}
+\RequirePackage{tikz}
+\usetikzlibrary{calc}
+\RequirePackage{tcolorbox}
+\tcbuselibrary{skins,raster}
+
+% ---------- fonts: IBM Plex Mono, falling back to Latin Modern Mono ----------
+\usefonttheme{professionalfonts}  % keep Computer Modern for math
+\IfFontExistsTF{IBM Plex Mono}{%
+  \setsansfont{IBM Plex Mono}[Scale=0.9]
+  \setmonofont{IBM Plex Mono}[Scale=0.9]
+}{%
+  % \IfFileExists only searches TeX input paths, not fonts/opentype; ask fontspec instead
+  \IfFontExistsTF{IBMPlexMono-Regular.otf}{%
+    \setsansfont{IBMPlexMono}[Extension=.otf,UprightFont=*-Regular,BoldFont=*-Bold,
+      ItalicFont=*-Italic,BoldItalicFont=*-BoldItalic,Scale=0.9]
+    \setmonofont{IBMPlexMono}[Extension=.otf,UprightFont=*-Regular,BoldFont=*-Bold,
+      ItalicFont=*-Italic,BoldItalicFont=*-BoldItalic,Scale=0.9]
+  }{%
+    \PackageWarningNoLine{beamerthemeterminal}
+      {IBM Plex Mono not found, falling back to Latin Modern Mono}%
+    \setsansfont{lmmono10-regular.otf}[BoldFont=lmmonolt10-bold.otf,
+      ItalicFont=lmmono10-italic.otf]
+    \setmonofont{lmmono10-regular.otf}[BoldFont=lmmonolt10-bold.otf,
+      ItalicFont=lmmono10-italic.otf]
+  }%
+}
+
+% ---------- user-facing settings ----------
+% text before the short title in the footline, e.g. \terminalfootprefix{mytool}
+\def\terminal@footprefix{}
+\newcommand{\terminalfootprefix}[1]{\def\terminal@footprefix{#1}}
+% label in the title-page window bar
+\def\terminal@window{talk.tex}
+\newcommand{\terminalwindow}[1]{\def\terminal@window{#1}}
+% fake shell lines on the title page (any content; use \\ between lines)
+\long\def\terminal@shell{}
+\newcommand{\terminalshell}[1]{\long\def\terminal@shell{#1}}
+
+% logo in the frame-title bar, replacing the [NN] section number
+% (white artwork works best on the black bar), e.g. \terminallogo{\includegraphics[height=2.4ex]{logo-white}}
+\def\terminal@logo{}
+\newcommand{\terminallogo}[1]{\def\terminal@logo{#1}}
+% logo at the bottom right of the title page, e.g. \terminaltitlelogo{\includegraphics[height=1.3cm]{logo}}
+\def\terminal@titlelogo{}
+\newcommand{\terminaltitlelogo}[1]{\def\terminal@titlelogo{#1}}
+
+% label above the authors on the title page, e.g. \terminalteamlabel{equipo}
+\def\terminal@teamlabel{authors}
+\newcommand{\terminalteamlabel}[1]{\def\terminal@teamlabel{#1}}
+
+% prompt on the section screens, e.g. \terminalsectionprompt{cd seccion\_}
+\def\terminal@secprompt{cd section\_}
+\newcommand{\terminalsectionprompt}[1]{\def\terminal@secprompt{#1}}
+
+% ---------- small helpers ----------
+\definecolor{terminalaccent}{HTML}{\terminal@accent}
+\providecommand{\twod}[1]{\ifnum#1<10 0\fi\number#1}
+\newcommand{\terminalcursor}{{\color{terminalaccent}\rule[-0.2ex]{0.55em}{1.05em}}}
+\providecommand{\cursor}{\terminalcursor}
+
+% ---------- black & white colours ----------
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=black,bg=white}
+\setbeamercolor{structure}{fg=black}
+\setbeamercolor{alerted text}{fg=black}
+\setbeamerfont{alerted text}{series=\bfseries}
+\setbeamercolor{frametitle}{fg=white,bg=black}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamercolor{block title}{fg=white,bg=black}
+\setbeamercolor{block body}{fg=black,bg=white}
+
+% ---------- lists ----------
+\setbeamertemplate{itemize item}{\textbf{>}}
+\setbeamertemplate{itemize subitem}{\textbf{-}}
+\setbeamertemplate{itemize subsubitem}{\textbf{.}}
+\setbeamertemplate{enumerate item}{[\insertenumlabel]}
+\setbeamertemplate{enumerate subitem}{[\insertsubenumlabel]}
+\setlength{\leftmargini}{1.4em}
+
+% ---------- frame title: inverse bar with cursor and section number ----------
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \begin{beamercolorbox}[wd=\paperwidth,ht=3.1ex,dp=1.3ex,leftskip=1.2em,rightskip=1.2em]{frametitle}%
+    \usebeamerfont{frametitle}\MakeUppercase{\insertframetitle}\,\terminalcursor
+    \hfill
+    \ifx\terminal@logo\@empty{\normalfont\footnotesize [\,\twod{\value{section}}\,]}%
+    \else\raisebox{-0.45ex}{\terminal@logo}\fi
+  \end{beamercolorbox}%
+  \vskip1.5pt\hrule height 0.6pt\vskip6pt
+}
+
+% ---------- footline: label, block progress bar, frame counter ----------
+\newcommand{\terminalprogressbar}{%
+  \begin{tikzpicture}[baseline=-0.6ex]
+    \pgfmathsetmacro{\terminal@pr}{\insertframenumber/max(\inserttotalframenumber,1)}
+    \foreach \i in {0,...,29}{%
+      \pgfmathparse{((\i+0.5)/30 < \terminal@pr) ? 1 : 0}
+      \ifnum\pgfmathresult=1
+        \fill[terminalaccent] (\i*0.11,-0.06) rectangle ++(0.08,0.12);
+      \else
+        \draw[line width=0.3pt] (\i*0.11,-0.06) rectangle ++(0.08,0.12);
+      \fi}
+  \end{tikzpicture}}
+
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox to\paperwidth{%
+    \hskip1.2em{\tiny\ifx\terminal@footprefix\@empty\else\terminal@footprefix\ ::\ \fi\insertshorttitle}\hfill
+    \ifterminal@progressbar\terminalprogressbar\hskip0.8em\fi
+    {\tiny[\,\twod{\insertframenumber}/\twod{\inserttotalframenumber}\,]}\hskip1.2em}%
+  \vskip5pt}
+
+% ---------- title page: a retro window ----------
+\setbeamertemplate{title page}{%
+  \vfill
+  \begin{tcolorbox}[enhanced, sharp corners, colback=white, colframe=black, boxrule=1pt,
+    shadow={3pt}{-3pt}{0pt}{fill=black}, left=12pt, right=12pt, top=10pt, bottom=10pt,
+    title={\hspace{-4pt}\rule{0.6em}{0.6em}\ \rule{0.6em}{0.6em}\ \rule{0.6em}{0.6em}%
+           \hfill\terminal@window\hfill\phantom{\rule{2.6em}{0.6em}}},
+    coltitle=white, colbacktitle=black, fonttitle=\footnotesize\bfseries,
+    toptitle=2pt, bottomtitle=2pt, before upper=\raggedright]
+    {\Large\bfseries\MakeUppercase{\inserttitle}\par}%
+    \ifx\beamer@subtitle\@empty\else\vskip8pt{\small\insertsubtitle\par}\fi
+    \ifx\terminal@shell\@empty\else
+      \vskip14pt{\footnotesize\terminal@shell\ \terminalcursor\par}%
+    \fi
+  \end{tcolorbox}
+  \vskip14pt
+  % authors stacked like shell output (separate them with \\ in \author),
+  % optional logo on the right, institute and date on a quieter line below
+  \begin{minipage}[b]{0.68\linewidth}\raggedright
+    {\footnotesize\acc{>}\ \textbf{\terminal@teamlabel}\par}\vskip2pt
+    {\small\leftskip1.4em\insertauthor\par}%
+  \end{minipage}\hfill
+  \ifx\terminal@titlelogo\@empty\else
+    \begin{minipage}[b]{0.3\linewidth}\raggedleft\terminal@titlelogo\end{minipage}%
+  \fi\par
+  \vskip8pt
+  {\scriptsize\raggedright\color{black!60}%
+    \ifx\beamer@institute\@empty\else\insertinstitute\fi
+    \ifx\beamer@date\@empty\else\ \ $\cdot$\ \ \insertdate\fi\par}%
+  \vfill
+}
+
+% ---------- full-screen inverse "terminal screen" frames ----------
+% \terminalscreen{prompt line}{big text}{small line below}
+\newcommand{\terminalscreen}[3]{%
+  {\setbeamercolor{background canvas}{bg=black}
+   \begin{frame}[plain,noframenumbering]
+     \vfill
+     \color{white}
+     {\small #1}\par\vskip10pt
+     {\fontsize{34}{40}\selectfont\bfseries #2\,\terminalcursor}\par\vskip14pt
+     {\small #3}
+     \vfill
+   \end{frame}}}
+
+% section screens: white on black
+\ifterminal@sectionpages
+\AtBeginSection[]{%
+  {\setbeamercolor{background canvas}{bg=black}
+   \begin{frame}[plain,noframenumbering]
+     \vfill
+     \color{white}
+     {\small > \terminal@secprompt\twod{\value{section}}}\par\vskip10pt
+     {\fontsize{40}{44}\selectfont\bfseries \twod{\value{section}}}\par\vskip6pt
+     {\LARGE\bfseries \insertsectionhead\,\terminalcursor}\par
+     \vfill
+   \end{frame}}}
+\fi
+
+% ---------- boxes ----------
+% \begin{tbox}[tcolorbox options]{window title} ... \end{tbox}
+\newtcolorbox{tbox}[2][]{enhanced, sharp corners, colback=white, colframe=black,
+  boxrule=0.8pt, coltitle=white, colbacktitle=black, fonttitle=\bfseries\small,
+  title={#2}, left=5pt, right=5pt, top=4pt, bottom=4pt, boxsep=0pt,
+  toptitle=1pt, bottomtitle=1pt,
+  shadow={2.2pt}{-2.2pt}{0pt}{fill=black}, before upper=\raggedright, #1}
+% \begin{pbox}[options] ... \end{pbox}: untitled panel
+\newtcolorbox{pbox}[1][]{enhanced, sharp corners, colback=white, colframe=black,
+  boxrule=0.8pt, left=5pt, right=5pt, top=4pt, bottom=4pt, boxsep=0pt,
+  shadow={2.2pt}{-2.2pt}{0pt}{fill=black}, before upper=\raggedright, #1}
+% \begin{ibox}[options] ... \end{ibox}: inverse-video banner
+\newtcolorbox{ibox}[1][]{enhanced, sharp corners, colback=black, colframe=black,
+  coltext=white, boxrule=0.8pt, left=6pt, right=6pt, top=4pt, bottom=4pt, boxsep=0pt,
+  fontupper=\bfseries, halign=center, #1}
+
+% Beamer's own block environments in the same style
+\setbeamertemplate{blocks}[default]
+\setbeamertemplate{block begin}{%
+  \par\vskip\medskipamount
+  \begin{tcolorbox}[enhanced, sharp corners, colback=white, colframe=black,
+    boxrule=0.8pt, coltitle=white, colbacktitle=black, fonttitle=\bfseries\small,
+    title={\insertblocktitle}, left=5pt, right=5pt, top=4pt, bottom=4pt, boxsep=0pt,
+    toptitle=1pt, bottomtitle=1pt, shadow={2.2pt}{-2.2pt}{0pt}{fill=black},
+    before upper=\raggedright]}
+\setbeamertemplate{block end}{\end{tcolorbox}\par\vskip\smallskipamount}
+
+% ---------- inline helpers ----------
+% \inv{text}: inverse video
+\newcommand{\inv}[1]{\tikz[baseline=(X.base)]\node[fill=black,text=white,inner sep=1.6pt,font=\bfseries](X){\strut #1};}
+% \inv*{text}: inverse video on the accent colour
+\newcommand{\terminal@invacc}[1]{\tikz[baseline=(X.base)]\node[fill=terminalaccent,text=white,inner sep=1.6pt,font=\bfseries](X){\strut #1};}
+\let\terminal@invbw\inv
+\renewcommand{\inv}{\@ifstar\terminal@invacc\terminal@invbw}
+% \acc{text}: bold text in the accent colour
+\newcommand{\acc}[1]{\textcolor{terminalaccent}{\textbf{#1}}}
+% \prompt{command}: a fake shell line, e.g. \prompt{sabsa --layer contextual}
+\newcommand{\prompt}[1]{{\small\bfseries\acc{\$}\ \texttt{#1}\par}\vskip2pt}
+% \src{citation}: tiny source line at the bottom right of a frame
+\newcommand{\src}[1]{\par\vfill\hfill{\tiny[#1]}}
+
+% ---------- sabsagrid: 6 window cells (What/Why/How/Who/Where/When) ----------
+% \begin{sabsagrid}
+%   \sabsacell{WHAT}{assets}{...} \sabsacell{WHY}{motivation}{...} ...
+% \end{sabsagrid}
+% Three columns by two rows; every cell in a row has the same height.
+\newenvironment{sabsagrid}[1][]{%
+  \begin{tcbraster}[raster columns=3, raster equal height=rows,
+    raster column skip=7pt, raster row skip=7pt, #1]}{\end{tcbraster}}
+\newcommand{\sabsacell}[3]{%
+  \begin{tbox}[fontupper=\footnotesize, before upper={\raggedright\setlength{\leftmargini}{1em}}]%
+    {#1\hfill{\mdseries\scriptsize #2}}
+    #3
+  \end{tbox}}
+% compact list for cells: \begin{cellitems} \item ... \end{cellitems}
+\newenvironment{cellitems}{%
+  \begin{itemize}\setlength{\itemsep}{1pt}\setlength{\topsep}{0pt}%
+    \setlength{\parskip}{0pt}}{\end{itemize}}
+
+\mode<all>
+\endinput

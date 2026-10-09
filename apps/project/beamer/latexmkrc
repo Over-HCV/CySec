@@ -1,0 +1,2 @@
+$pdf_mode = 5;  # xelatex (el tema usa fontspec)
+$out_dir = 'build';
