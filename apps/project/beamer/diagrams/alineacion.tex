@@ -1,0 +1,27 @@
+% diagrams/alineacion.tex — por qué existe el proyecto: de la misión a la arquitectura, y sus hitos.
+\begin{tikzpicture}[x=1cm, y=1cm]
+  % cadena de alineación (la arquitectura alinea el objetivo de negocio con TI)
+  \begin{scope}[every node/.style={terminal box, text width=2.3cm, minimum height=1.05cm}]
+    \node (mis) at (1.45,0) {\textbf{MISIÓN}\\pagos inmediatos,\\seguros y gratis};
+    \node (obj) at (5.15,0) {\textbf{OBJETIVO 2027}\\×2 clientes\\sin más fraude};
+    \node (pro) at (8.85,0) {\textbf{PROYECTO}\\entrar a Bre-B\\llaves + QR};
+    \node[terminal accent, line width=1pt] (arq) at (12.55,0)
+      {\textbf{ARQUITECTURA}\\SABSA: 5 capas\\negocio → producto};
+  \end{scope}
+  \draw[terminal arrow] (mis) -- node[above, font=\tiny] {orienta} (obj);
+  \draw[terminal arrow] (obj) -- node[above, font=\tiny] {justifica} (pro);
+  \draw[terminal arrow, draw=terminalaccent] (pro) -- node[above, font=\tiny, text=terminalaccent] {se protege} (arq);
+
+  % hitos del proyecto (tiempos de la capa contextual)
+  \draw[line width=0.8pt] (0.2,-1.55) -- (13.8,-1.55);
+  \foreach \x/\q/\txt in {1.45/Q1 2027/vinculación con BanRep,
+                          5.15/Q2 2027/desarrollo + certificación,
+                          8.85/Q3 2027/marcha blanca} {
+    \fill (\x,-1.55) circle (2.2pt);
+    \node[terminal tag, font=\tiny\bfseries, above=4pt] at (\x,-1.55) {\q};
+    \node[font=\tiny, below=4pt] at (\x,-1.55) {\txt};
+  }
+  \fill[terminalaccent] (12.55,-1.55) circle (2.6pt);
+  \node[terminal tag, font=\tiny\bfseries, fill=terminalaccent, above=4pt] at (12.55,-1.55) {Q4 2027};
+  \node[font=\tiny\bfseries, text=terminalaccent, below=4pt] at (12.55,-1.55) {lanzamiento al público};
+\end{tikzpicture}

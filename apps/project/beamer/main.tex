@@ -7,9 +7,9 @@
 \input{caso}
 
 \title{Arquitectura de seguridad SABSA para pagos inmediatos Bre-B}
-\subtitle{\empresa{} // \area}
+\subtitle{\empresa{} // Proyecto: \proyecto}
 \author[\autorescorto]{\autores}
-\institute{Seguridad para Arquitectura Empresarial -- U. del Rosario}
+\institute{Seguridad para Arquitectura Empresarial -- Universidad del Rosario}
 \date{Noviembre 2026}
 
 \terminalwindow{sabsa-breb.pdf}
@@ -18,7 +18,7 @@
 \terminaltitlelogo{\includegraphics[height=1.25cm]{pics/ur-logo}}
 \terminalfootprefix{sabsa}
 \terminalsectionprompt{cd capa\_}
-\terminalshell{\texttt{\$ ./sabsa -{}-empresa \empresaslug{} -{}-area bre-b\\
+\terminalshell{\texttt{\$ ./sabsa -{}-empresa \empresaslug{} -{}-proyecto bre-b\\
   > capas contextual..component ...... ok\\
   > matriz SABSA (xlsx) .............. ok}}
 
@@ -30,109 +30,90 @@
 
 % ------------------------------------------------------------------ 01
 \section{Misión}
-\begin{frame}{Misión de la empresa}
-  \prompt{cat /etc/\empresaslug/mision}
-  \vskip8pt
-  \begin{tbox}{> mision.txt}
-    \large Facilitar que personas y comercios en Colombia muevan su dinero de
-    forma \acc{inmediata}, \acc{segura} y \acc{sin costo} desde el celular,
-    protegiendo la \acc{confianza} de los clientes como el activo principal de
-    la compañía.
-  \end{tbox}
-  \vskip12pt
+\begin{frame}{Misión y visión de la empresa}
+  \prompt{cat /etc/\empresaslug/\{mision,vision\}}
+  \vskip6pt
   \begin{columns}[T]
-    \begin{column}{0.31\textwidth}
-      \begin{pbox}\small\textbf{Quiénes:} \empresa, \empresatipo.\end{pbox}
+    \begin{column}{0.56\textwidth}
+      \begin{tbox}{> mision.txt}
+        Facilitar que personas y comercios en Colombia muevan su dinero de
+        forma \acc{inmediata}, \acc{segura} y \acc{sin costo} desde el celular,
+        protegiendo la \acc{confianza} de los clientes.
+      \end{tbox}
     \end{column}
-    \begin{column}{0.31\textwidth}
-      \begin{pbox}\small\textbf{Qué:} Cuentas digitales, transferencias y pagos QR por Bre-B.\end{pbox}
-    \end{column}
-    \begin{column}{0.31\textwidth}
-      \begin{pbox}\small\textbf{Por qué:} Bre-B es interoperable, 24/7 y gratuito, una oportunidad para captar a quienes usan efectivo.\end{pbox}
+    \begin{column}{0.4\textwidth}
+      \begin{tbox}{> vision.txt}
+        Ser en 2030 la billetera digital preferida por quienes hoy usan
+        efectivo, reconocida por la seguridad de sus pagos.
+      \end{tbox}
     \end{column}
   \end{columns}
+  \vskip14pt
+  \begin{tbox}[colframe=terminalaccent, colbacktitle=terminalaccent]{> objetivo\_estrategico\_2027}
+    \large Duplicar los clientes activos en 2027 \acc{sin aumentar el fraude}.
+  \end{tbox}
+  \vskip10pt
+  {\footnotesize\textbf{\empresa}: \empresatipo.\par}
 \end{frame}
 
 % ------------------------------------------------------------------ 02
-\section{Área}
-\begin{frame}{Objetivo del área: Pagos Inmediatos Bre-B}
-  \begin{tbox}{\texttt{> objetivo -{}-area bre-b}}
-    Operar las transferencias y pagos inmediatos de \empresa{} sobre Bre-B
-    (\acc{24/7}, liquidación en \acc{menos de 20 s}), administrando las llaves
-    de los clientes ante el Directorio Centralizado (DICE) y la liquidación en
-    el MOL del Banco de la República, con fraude y disponibilidad dentro de los
-    umbrales de la Junta.
+\section{Proyecto}
+\begin{frame}{Objetivo del proyecto}
+  \prompt{sabsa init -{}-proyecto bre-b -{}-dueño "\area"}
+  \vskip4pt
+  \begin{tbox}{\texttt{> objetivo.txt}}
+    Vincular a \empresa{} a \acc{Bre-B} como participante (vía un sistema de pago certificado) y lanzar en la
+    app las transferencias por llaves y los pagos QR (\acc{24/7}, \acc{< 20 s}),
+    con la seguridad incluida desde el diseño.
   \end{tbox}
-  \vskip10pt
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{tbox}{alcance}
-        \footnotesize
-        \begin{cellitems}
-          \item Inscripción y portabilidad de llaves (celular, cédula, correo, alfanumérica).
-          \item Envío, recepción y pagos QR a comercios.
-          \item Conciliación con el MOL, disputas y fraude.
-        \end{cellitems}
-      \end{tbox}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \begin{tbox}{metas (KPI)}
-        \footnotesize
-        \begin{cellitems}
-          \item Disponibilidad $\geq$ 99,95\,\% mensual.
-          \item Transacción extremo a extremo $<$ 20\,s.
-          \item Fraude $<$ 5 pb del valor transado.
-          \item Cero incidentes de fuga de datos personales.
-        \end{cellitems}
-      \end{tbox}
-    \end{column}
-  \end{columns}
+  \vskip8pt
+  \input{diagrams/alineacion}
 \end{frame}
 
 % ------------------------------------------------------------------ 03
 \section{Contextual}
 \begin{frame}{Contextual \textmd{// requisitos de negocio}}
-  \prompt{sabsa --layer contextual --view business --owner "Junta, CEO, VP Pagos, CISO"}
+  \prompt{sabsa --layer contextual --view business --owner "Junta + Presidencia"}
   \vskip4pt
   \begin{sabsagrid}
-    \sabsacell{WHAT}{activos}{\begin{cellitems}
-      \item Servicio 24/7 y $<$ 20\,s.
-      \item Fondos y datos de clientes.
-      \item Reputación y confianza.
+    \sabsacell{WHAT}{objetivos}{\begin{cellitems}
+      \item Transferencias y QR en la app.
+      \item Captar a quien usa efectivo.
+      \item Fondos y datos protegidos.
     \end{cellitems}}
-    \sabsacell{WHY}{amenazas}{\begin{cellitems}
-      \item Fraude APP, ATO (SIM swap, phishing), mulas.
-      \item DDoS y caída de nube o enlace.
-      \item Insiders, supply chain, ransomware.
+    \sabsacell{WHY}{oport. / amenazas}{\begin{cellitems}
+      \item \acc{+} Crecer: 110\,M de llaves en Bre-B.
+      \item \acc{+} Comercios QR y marca segura.
+      \item $-$ Fraude, caídas y sanciones.
     \end{cellitems}}
     \sabsacell{HOW}{procesos}{\begin{cellitems}
-      \item Onboarding / KYC.
-      \item Gestión de llaves ante el DICE.
-      \item Envío, recepción, QR, conciliación.
+      \item Vinculación con BanRep.
+      \item Desarrollo, pruebas y aceptación.
+      \item Fraude, conciliación, servicio al cliente.
     \end{cellitems}}
-    \sabsacell{WHO}{organización}{\begin{cellitems}
-      \item Junta, CEO, VP Pagos, CISO.
-      \item Fraude, Riesgos (SARO), Datos.
-      \item BanRep, nube, biometría, telcos.
+    \sabsacell{WHO}{sponsors}{\begin{cellitems}
+      \item Junta, Presidencia, VP Comercial.
+      \item Dueño: \area.
+      \item \acc{CISO transversal} (reporta a Presidencia).
     \end{cellitems}}
     \sabsacell{WHERE}{sitios}{\begin{cellitems}
-      \item Bogotá: operación y SOC.
-      \item Nube: región principal + alterna.
-      \item Enlace dedicado a BanRep.
+      \item Sede en Bogotá.
+      \item Centro de datos principal + alterno.
+      \item Banco de la República (contraparte).
     \end{cellitems}}
-    \sabsacell{WHEN}{tiempo}{\begin{cellitems}
-      \item Sin ventana de cierre.
-      \item Picos 5$\times$ en quincena y primas.
-      \item Reporte de incidentes a la SFC.
+    \sabsacell{WHEN}{tiempos objetivo}{\begin{cellitems}
+      \item \acc{Lanzamiento: Q4 2027}.
+      \item ×2 clientes a dic-2027.
+      \item 24/7 y < 20\,s desde el día 1.
     \end{cellitems}}
   \end{sabsagrid}
-  \src{SFC CE 007/2018 (hoy en la CBJ, CE 006/2025) · BanRep CRE DSP-465/2025}
+  \src{BanRep CRE DSP-465 (v. 31-mar-2026) · SFC CBJ (CE 006/2025)}
 \end{frame}
 
 % ------------------------------------------------------------------ 04
 \section{Conceptual}
 \begin{frame}{Conceptual \textmd{// estrategias de seguridad}}
-  \prompt{sabsa --layer conceptual --view architect --owner "CISO"}
+  \prompt{sabsa --layer conceptual --view architect --owner "CISO + directores de área"}
   \vskip4pt
   \input{diagrams/conceptual}
 \end{frame}
@@ -140,7 +121,7 @@
 % ------------------------------------------------------------------ 05
 \section{Logical}
 \begin{frame}{Logical \textmd{// servicios de seguridad}}
-  \prompt{sabsa --layer logical --view designer --owner "Arquitecto de Seguridad"}
+  \prompt{sabsa --layer logical --view designer --owner "CISO + Arquitecto de Seguridad"}
   \vskip4pt
   \input{diagrams/logical}
 \end{frame}
@@ -148,40 +129,9 @@
 % ------------------------------------------------------------------ 06
 \section{Physical}
 \begin{frame}{Physical \textmd{// mecanismos de seguridad}}
-  \prompt{sabsa --layer physical --view builder --owner "Dir. Plataforma Cloud"}
+  \prompt{sabsa --layer physical --view builder --owner "Dir. Infraestructura"}
   \vskip4pt
-  \begin{sabsagrid}
-    \sabsacell{WHAT}{datos}{\begin{cellitems}
-      \item Restringido: tokenizado.
-      \item Confidencial: cifrado.
-      \item Catálogo con dueño y retención.
-    \end{cellitems}}
-    \sabsacell{WHY}{reglas}{\begin{cellitems}
-      \item Reglas de fraude (velocidad, mula).
-      \item Playbooks ATO, DDoS, ransomware.
-      \item Parches críticos en 7 días.
-    \end{cellitems}}
-    \sabsacell{HOW}{mecanismos}{\begin{cellitems}
-      \item Passkeys FIDO2 + device binding.
-      \item WAF, anti-DDoS, service mesh.
-      \item HSM/KMS, tokenización, SIEM.
-    \end{cellitems}}
-    \sabsacell{WHO}{acceso}{\begin{cellitems}
-      \item SSO + llave FIDO2 interna.
-      \item RBAC + ABAC (monto, horario).
-      \item PAM con sesiones grabadas.
-    \end{cellitems}}
-    \sabsacell{WHERE}{red}{\begin{cellitems}
-      \item VPC por ambiente.
-      \item Subred por dominio.
-      \item 3 zonas + región alterna.
-    \end{cellitems}}
-    \sabsacell{WHEN}{tiempos}{\begin{cellitems}
-      \item \acc{RTO 15\,min, RPO 0}.
-      \item Failover de zona $<$ 1\,min.
-      \item Backups inmutables diarios.
-    \end{cellitems}}
-  \end{sabsagrid}
+  \input{diagrams/physical}
 \end{frame}
 
 % ------------------------------------------------------------------ 07
@@ -196,26 +146,26 @@
 \section{Conclusiones}
 \begin{frame}{Conclusiones}
   \begin{cellitems}\small
-    \item \textbf{Trazabilidad:} Cada producto de la capa Component se justifica
-      hacia arriba hasta un requisito de negocio de Bre-B, de forma que ningún
-      control queda sin dueño ni sin motivo.
+    \item \textbf{El negocio manda:} El proyecto existe porque mueve un objetivo
+      estratégico; la arquitectura alinea ese objetivo con la tecnología y
+      justifica cada peso invertido.
     \vskip4pt
-    \item \textbf{Fraude antes que intrusión:} En pagos inmediatos el dinero no
-      se puede reversar, por lo cual la autenticación fuerte, el device binding
-      y el scoring en línea pesan tanto como el perímetro.
+    \item \textbf{De lo general a lo particular:} Se bajó desde lo que pide el
+      dueño del negocio hasta los productos, de arriba hacia abajo y de izquierda
+      a derecha, y cada producto se puede rastrear hasta un requisito.
     \vskip4pt
-    \item \textbf{Disponibilidad como requisito de seguridad:} Un servicio 24/7
-      sin ventana de cierre obliga a diseñar la resiliencia (RTO 15\,min,
-      RPO 0) desde la capa conceptual y no como un añadido.
+    \item \textbf{La seguridad es transversal:} No es un área de Tecnología sino
+      un componente que toca a todas las áreas; por eso el CISO reporta a
+      Presidencia.
     \vskip4pt
-    \item \textbf{Cumplimiento integrado:} La SFC, el Banco de la República y la
-      Ley 1581 se tratan como atributos de negocio y no como un checklist al
-      final del proyecto.
+    \item \textbf{Lo que sigue:} La sexta capa de SABSA (operación) toma esta
+      arquitectura para operarla y medirla en el día a día: monitoreo,
+      incidentes e indicadores de riesgo.
   \end{cellitems}
   \vskip8pt
-  \begin{ibox}SABSA = seguridad derivada del negocio, no agregada a la tecnología\end{ibox}
+  \begin{ibox}Arquitectar = llevar el objetivo de negocio hasta los controles\end{ibox}
 \end{frame}
 
-\terminalscreen{\texttt{\$ sabsa -{}-preguntas}}{¿PREGUNTAS?}{\empresa{} \quad//\quad \area}
+\terminalscreen{\texttt{\$ sabsa -{}-preguntas}}{¿PREGUNTAS?}{\empresa{} \quad//\quad \proyecto}
 
 \end{document}

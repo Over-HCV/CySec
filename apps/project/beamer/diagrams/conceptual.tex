@@ -10,36 +10,36 @@
   \node[terminal tag, right=3pt of a5, fill=terminalaccent] (a6) {ANTIFRAUDE};
 
   % dominios de seguridad
-  \begin{scope}[every node/.style={terminal box, text width=2.4cm, minimum height=1.15cm}]
-    \node (cli) at (1.45,-1.45) {\textbf{CLIENTE}\\app · dispositivo\\passkey};
-    \node (dmz) at (5.0,-1.45) {\textbf{EXPOSICIÓN}\\API gateway\\WAF · anti-DDoS};
+  \begin{scope}[every node/.style={terminal box, text width=2.2cm, minimum height=1.15cm}]
+    \node (cli) at (1.45,-1.45) {\textbf{CLIENTE}\\canal y equipo\\del cliente};
+    \node (dmz) at (5.0,-1.45) {\textbf{EXPOSICIÓN}\\frontera pública\\(única entrada)};
     \node (core) at (8.55,-1.45) {\textbf{CORE DE PAGOS}\\llaves · envío\\recepción · QR};
-    \node (dat) at (12.1,-1.45) {\textbf{DATOS SENSIBLES}\\clientes · pagos\\HSM / KMS};
-    \node[minimum height=0.95cm] (ges) at (3.3,-3.6) {\textbf{GESTIÓN}\\SOC · bastión · JIT};
-    \node[terminal accent, line width=1pt, minimum height=0.95cm] (ibk) at (10.3,-3.6) {\textbf{INTERBANCARIO}\\DICE · MOL (BanRep)};
+    \node (dat) at (12.1,-1.45) {\textbf{INFO. SENSIBLE}\\clientes · pagos\\secretos};
+    \node[minimum height=0.95cm] (ges) at (3.3,-3.6) {\textbf{GESTIÓN}\\administración\\y monitoreo};
+    \node[terminal accent, line width=1pt, minimum height=0.95cm] (ibk) at (10.3,-3.6) {\textbf{INTERBANCARIO}\\red Bre-B (BanRep)};
   \end{scope}
 
-  \draw[terminal arrow] (cli) -- node[above, font=\tiny] {HTTPS} (dmz);
-  \draw[terminal arrow] (dmz) -- node[above, font=\tiny] {authz} (core);
-  \draw[terminal arrow] (core) -- node[above, font=\tiny] {svc} (dat);
-  \draw[terminal arrow, draw=terminalaccent] (core.south) |- node[pos=0.3, left, font=\tiny\bfseries, text=terminalaccent] {mTLS dedicado} (ibk.west);
+  \draw[terminal arrow] (cli) -- node[above, font=\tiny] {cifrado} (dmz);
+  \draw[terminal arrow] (dmz) -- node[above, font=\tiny] {autoriz.} (core);
+  \draw[terminal arrow] (core) -- node[above, font=\tiny] {mínimo} (dat);
+  \draw[terminal arrow, draw=terminalaccent] (core.south) |- node[pos=0.3, left, align=right, font=\tiny\bfseries, text=terminalaccent] {canal dedicado\\y autenticado} (ibk.west);
   % Gestión entra por un bus propio a media altura, lejos de las sombras de arriba
   \coordinate (bus) at ($(ges.north) + (0,0.5)$);
   \draw[dashed, line width=0.8pt] (ges.north) -- (bus);
   \draw[terminal arrow, dashed] (bus) -| (dmz.south);
   \draw[terminal arrow, dashed] (bus) -| (cli.south);
-  \node[font=\tiny, anchor=west] at ([xshift=3pt]$(ges.north)!0.5!(bus)$) {solo vía bastión};
+  \node[font=\tiny, anchor=west] at ([xshift=3pt]$(ges.north)!0.5!(bus)$) {solo por acceso controlado};
 
   % marco Zero Trust
-  \node[draw, dashed, line width=0.6pt, inner sep=7pt, fit=(cli)(dat)(ges)(ibk)] (zt) {};
+  \node[draw, dashed, line width=0.6pt, inner xsep=7pt, inner ysep=14pt, fit=(cli)(dat)(ges)(ibk)] (zt) {};
   \node[terminal tag, anchor=west, fill=terminalaccent] at ([xshift=8pt]zt.north west)
     {ZERO TRUST + DEFENSA EN PROFUNDIDAD};
   \node[terminal chip, anchor=east] at ([xshift=-8pt]zt.north east)
-    {+ privacy by design · DevSecOps · multi-región};
+    {+ privacy by design · DevSecOps · IA gobernada};
 
   % dueños, estrategias y riesgo
   \node[terminal chip, anchor=north west, align=left] (own) at ([yshift=-8pt]zt.south west)
-    {\textbf{dueños}\ \ VP Pagos (proceso) · CISO (riesgo ciber) · Gte. Fraude};
+    {\textbf{dueños}\ \ VP Pagos (proceso) · CISO (riesgo ciber) · Gte. Fraude (riesgo de fraude)};
   \node[terminal chip, anchor=north west, align=left] at ([yshift=-4pt]own.south west)
-    {\textbf{riesgo}\ \ NIST CSF 2.0 + SARO · revisión trimestral · KRI: fraude (pb), MTTD, MTTR};
+    {\textbf{normas}\ \ ISO 27001 · ISO 42001 (IA) · NIST CSF 2.0 + SIAR · SFC · BanRep · Ley 1581};
 \end{tikzpicture}

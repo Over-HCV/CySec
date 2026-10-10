@@ -1,228 +1,42 @@
-# caso.yaml — ÚNICA fuente de contenido de la matriz SABSA.
+# caso.yaml — datos GLOBALES del caso (empresa, misión, proyecto).
+# El contenido de cada celda de la matriz vive en matriz/[1-6]-*.md.
 # Para cambiar de empresa (p. ej. la del compa) basta con editar este archivo
-# ({empresa} y {area} dentro de los textos se reemplazan solos)
+# ({empresa}, {area} y {proyecto} dentro de los textos se reemplazan solos)
 # y regenerar: `uv run --with openpyxl --with pyyaml python sabsa/build_xlsx.py`.
-# En las slides, el nombre vive en beamer/caso.tex (\empresa, \area).
+# En las slides, los nombres viven en beamer/caso.tex (\empresa, \area, \proyecto).
+#
+# Cómo se lee cada capa (según el docente):
+#   contextual  → conversación con el dueño del negocio; NADA técnico.
+#   conceptual  → gestión y estrategias de seguridad: políticas, normas, conceptos; sin productos.
+#   logical     → conversación con el CISO: servicios de seguridad.
+#   physical    → mecanismos concretos.
+#   component   → productos y tecnologías.
 
 empresa: NovaPay S.A.
 tipo: Compañía de financiamiento digital vigilada por la SFC
-area: Gerencia de Pagos Inmediatos (Bre-B)
+area: Gerencia de Pagos Inmediatos
+proyecto: Vinculación a Bre-B como participante
 
 mision: >-
   Facilitar que personas y comercios en Colombia muevan su dinero de forma
   inmediata, segura y sin costo desde el celular, protegiendo la confianza de
   los clientes como el activo principal de la compañía.
 
-objetivo_area: >-
-  Operar el servicio de transferencias y pagos inmediatos de {empresa} sobre
-  Bre-B (24/7, liquidación en menos de 20 segundos), administrando el ciclo de
-  vida de las llaves de los clientes ante el Directorio Centralizado (DICE) y
-  la liquidación en el MOL del Banco de la República, con una tasa de fraude y
-  una disponibilidad dentro de los umbrales que fija la Junta Directiva.
+vision: >-
+  Ser en 2030 la billetera digital preferida por los colombianos que hoy usan
+  efectivo, reconocida por la seguridad de sus pagos.
+
+objetivo_estrategico: >-
+  Duplicar la base de clientes activos en 2027 llevando a {empresa} los pagos
+  inmediatos interoperables, sin aumentar la tasa de fraude.
+
+objetivo_proyecto: >-
+  Vincular a {empresa} al sistema de pagos inmediatos Bre-B del Banco de la
+  República como participante (a través de un sistema de pago certificado y
+  liquidando en el MOL con cuenta propia), y lanzar en la app las transferencias
+  por llaves y los pagos QR (24/7, en menos de 20 segundos), con una
+  arquitectura de seguridad que proteja los fondos y los datos de los clientes
+  desde el diseño.
 
 titulo_matriz: >-
-  MATRIZ SABSA para la {area} de {empresa}
-
-# Responsable de cada capa (columna H de la plantilla)
-responsables:
-  contextual: Junta Directiva - CEO - VP de Pagos - CISO
-  conceptual: CISO (Oficial de Seguridad de la Información)
-  logical: Arquitecto de Seguridad y Gerente de Pagos Inmediatos
-  physical: Director de Plataforma e Infraestructura Cloud
-  component: Líder de SecOps / DevSecOps
-
-capas:
-  contextual:
-    what:
-      - "Disponibilidad: El servicio de envío y recepción Bre-B debe operar 24/7/365 con una disponibilidad mínima del 99,95 %."
-      - "Inmediatez: Cada transferencia debe quedar acreditada al beneficiario en menos de 20 segundos, tal como lo exige el esquema Bre-B."
-      - "Confianza: Los fondos y los datos personales de los clientes deben estar protegidos, puesto que una sola filtración o estafa masiva afecta la reputación de la marca."
-      - "Crecimiento: Se busca aumentar el volumen transaccional por llaves y QR sin que la tasa de fraude supere 5 puntos básicos del valor transado."
-    why:
-      - "Oportunidad: Bre-B es interoperable y sin costo para el usuario, lo cual permite captar clientes de efectivo y competir con los bancos grandes."
-      - "Amenaza de fraude: Estafas por ingeniería social (fraude APP), toma de cuentas (ATO) por SIM swap, phishing y smishing, así como el uso de cuentas mula."
-      - "Amenaza a la disponibilidad: Ataques DDoS sobre el canal 24/7 y caídas del proveedor cloud o de la conexión con el Banco de la República."
-      - "Amenaza interna y de terceros: Empleados con privilegios excesivos, proveedores de software comprometidos (supply chain) y ransomware."
-      - "Cumplimiento: SFC (CE 007/2018 de ciberseguridad, hoy integrada en la Circular Básica Jurídica - CE 006/2025), Banco de la República (CRE DSP-465 de 2025, reglamentos del DICE y del MOL) y Ley 1581/2012 de protección de datos."
-    how:
-      - "Vinculación (onboarding): Apertura digital de cuenta con validación de identidad (KYC) y biometría."
-      - "Gestión de llaves: Inscripción, portabilidad y cancelación de llaves (celular, cédula, correo, alfanumérica) ante el DICE."
-      - "Envío y recepción: Resolución de la llave, autorización del cliente, envío al sistema de pagos y acreditación."
-      - "Pagos a comercios: Generación y lectura de códigos QR interoperables."
-      - "Conciliación y liquidación: Cuadre diario con el MOL del Banco de la República."
-      - "Gestión de disputas y fraude: Atención de reclamos, bloqueo de cuentas y devoluciones."
-    who:
-      - "Junta Directiva y Presidencia (CEO)."
-      - "Vicepresidencia de Pagos (Gerencia de Pagos Inmediatos Bre-B)."
-      - "Vicepresidencia de Tecnología (Plataforma, Desarrollo, SRE)."
-      - "Oficina del CISO (Seguridad de la Información y Ciberseguridad) y Gerencia de Prevención de Fraude."
-      - "Riesgos (SARO), Cumplimiento (SARLAFT) y Oficial de Protección de Datos."
-      - "Empresa extendida: Banco de la República (DICE, MOL), proveedor cloud, proveedor de biometría y operadores móviles."
-    where:
-      - "Sede principal: Oficinas en Bogotá (operación, SOC y atención al cliente)."
-      - "Nube: Región cloud principal y región alterna (activo-pasivo), con datos de clientes colombianos bajo las reglas de transferencia internacional de la Ley 1581."
-      - "Conexión dedicada: Enlaces privados y redundantes hacia la infraestructura del Banco de la República."
-      - "Canales: App móvil (iOS y Android), web y API para comercios."
-      - "Jurisdicción: Colombia (vigilancia de la SFC y regulación del Banco de la República)."
-    when:
-      - "Operación continua: El servicio no tiene ventana de cierre, por lo cual todo mantenimiento debe hacerse sin interrupción."
-      - "Tiempo de transacción: Menos de 20 segundos de extremo a extremo."
-      - "Picos: Quincenas, primas y días festivos con hasta 5 veces el volumen promedio."
-      - "Reporte de incidentes: Los incidentes cibernéticos se reportan a la SFC y se informan a los clientes afectados en los plazos establecidos."
-      - "Liquidación: Ciclos de liquidación definidos por el MOL."
-
-  conceptual:
-    what:
-      - "Disponible: Las transferencias deben poder hacerse a cualquier hora, porque el cliente espera que Bre-B funcione igual que el efectivo."
-      - "Confidencial: Los datos personales, los saldos y la relación llave-cuenta solo los conoce quien los necesita."
-      - "Íntegro: El monto, el destinatario y la cuenta no se pueden alterar entre la autorización del cliente y la liquidación."
-      - "Autenticado: Toda operación se ata a un cliente y a un dispositivo verificados."
-      - "No repudiable: Cada transferencia queda firmada y registrada, de forma que el cliente no pueda negar una operación legítima ni la empresa negar una reclamación válida."
-      - "Resistente al fraude y cumplido: Se detectan patrones anómalos en tiempo real y se demuestra el cumplimiento ante la SFC y el Banco de la República."
-    why:
-      - "Objetivo de control 1: Ninguna transferencia sin autenticación fuerte del cliente y sin un dispositivo vinculado."
-      - "Objetivo de control 2: Toda transacción pasa por un scoring de fraude antes de enviarse."
-      - "Objetivo de control 3: Los datos sensibles se cifran en tránsito y en reposo, con llaves bajo custodia de un HSM."
-      - "Objetivo de control 4: Recuperación del servicio dentro de los tiempos acordados ante cualquier incidente."
-      - "Arquitectura de políticas: Política general de seguridad (ISO 27001:2022), política de pagos inmediatos, política de gestión de llaves criptográficas, política de privacidad y política de desarrollo seguro."
-    how:
-      - "Zero Trust: No se confía por ubicación de red, sino que toda solicitud (cliente, servicio o empleado) se autentica y autoriza."
-      - "Defensa en profundidad: Controles en capas (dispositivo, red, aplicación, datos, monitoreo)."
-      - "Privacy by design: Se minimiza el dato mostrado al resolver una llave (nombre parcialmente oculto) y se recolecta solo lo necesario."
-      - "DevSecOps: La seguridad se integra al ciclo de desarrollo (SDLC) con análisis automáticos en el pipeline."
-      - "Resiliencia: Arquitectura multi-zona y multi-región con conmutación automática."
-    who:
-      - "Dueño del proceso: VP de Pagos."
-      - "Dueño del riesgo de ciberseguridad: CISO."
-      - "Dueño del riesgo de fraude: Gerencia de Prevención de Fraude."
-      - "Custodios: Equipos de Plataforma (infraestructura y llaves) y de Datos."
-      - "Usuarios: Clientes personas y comercios, agentes de servicio al cliente y analistas de fraude."
-      - "Proveedores: Banco de la República, proveedor cloud, biometría, SMS/push y antifraude."
-    where:
-      - "Dominio Cliente: App, dispositivo y canal de autenticación del cliente."
-      - "Dominio Exposición (DMZ): API Gateway, WAF y anti-DDoS."
-      - "Dominio Core de Pagos: Microservicios de llaves, envío, recepción y conciliación."
-      - "Dominio Datos sensibles: Bases de datos de clientes y transacciones, HSM/KMS."
-      - "Dominio Interbancario: Conexión con el DICE y el MOL."
-      - "Dominio Gestión: Accesos administrativos, SOC y herramientas corporativas."
-    when:
-      - "Marco de riesgo continuo: Se alinea con NIST CSF 2.0 (Gobernar, Identificar, Proteger, Detectar, Responder, Recuperar) y con el SARO de la SFC."
-      - "Revisión de riesgos: Trimestral, y de manera extraordinaria ante un incidente o un cambio en la regulación de Bre-B."
-      - "Indicadores (KRI): Tasa de fraude en pb, disponibilidad mensual, tiempo medio de detección (MTTD) y de respuesta (MTTR)."
-      - "Ciclo de vida del dato: Desde la vinculación del cliente hasta la eliminación segura al terminar la retención legal."
-
-  logical:
-    what:
-      - "Datos del cliente: Identificación, nombre, celular, correo, datos biométricos (plantilla, no imagen) y resultado de KYC."
-      - "Llaves Bre-B: Relación llave-cuenta registrada en el DICE."
-      - "Transacciones: ID, monto, origen, destino, hora, dispositivo, resultado del scoring."
-      - "Credenciales y secretos: Llaves criptográficas, certificados mTLS, tokens y secretos de aplicación."
-      - "Registros (logs): Eventos de autenticación, transacciones y accesos administrativos."
-    why:
-      - "Política de autenticación: Todo inicio de sesión y toda transferencia exigen MFA fuerte (passkey o biometría en el dispositivo vinculado), y el cambio de dispositivo o de celular bloquea las transferencias durante 24 horas."
-      - "Política de límites: Montos máximos por transacción y por día según el perfil de riesgo del cliente, ajustables solo con verificación adicional."
-      - "Política de llaves: Una llave no se inscribe ni se porta sin validar que el cliente es titular del celular o correo (código OTP) y sin notificación al canal anterior."
-      - "Política criptográfica: TLS 1.3 en todo canal externo, mTLS entre servicios y hacia el Banco de la República, cifrado AES-256 en reposo y llaves en HSM con rotación anual."
-      - "Política de acceso administrativo: Mínimo privilegio, acceso just-in-time aprobado por un segundo funcionario y sesiones grabadas."
-      - "Política de datos personales: Tratamiento conforme a la Ley 1581/2012 y la Ley 1266/2008 (habeas data financiero)."
-    how:
-      - "Flujo de un pago: Cliente se autentica, se resuelve la llave en el DICE, se muestra el nombre parcial del destinatario, se calcula el scoring de fraude, el cliente confirma y firma, se envía al sistema de pagos, se liquida en el MOL y se notifica a ambas partes."
-      - "Servicio de identidad (CIAM): Autenticación y gestión de dispositivos de los clientes."
-      - "Servicio de autorización: Políticas centralizadas para cada API."
-      - "Servicio de detección de fraude: Scoring en tiempo real con reglas y modelos."
-      - "Servicio criptográfico: Firma, cifrado y tokenización como servicio interno."
-      - "Servicio de monitoreo y auditoría: Correlación de eventos y trazabilidad de cada operación."
-    who:
-      - "Modelo de confianza: El cliente confía en el dispositivo vinculado, la app confía solo en tokens emitidos por el CIAM y los servicios internos se confían entre sí solo con mTLS e identidad de servicio."
-      - "Perfil Cliente: Envía, recibe y administra sus propias llaves."
-      - "Perfil Agente de servicio: Consulta de datos enmascarados y bloqueo de cuentas, sin capacidad de mover dinero."
-      - "Perfil Analista de fraude: Revisión de alertas, retención y liberación de transacciones."
-      - "Perfil Ingeniero de plataforma: Acceso a infraestructura solo por just-in-time y sin acceso a datos de clientes en claro."
-      - "Perfil Auditor: Solo lectura de registros y evidencias."
-    where:
-      - "Cliente → Exposición: Solo HTTPS a través del API Gateway con WAF."
-      - "Exposición → Core: Solo llamadas autenticadas y autorizadas por política."
-      - "Core → Datos: Acceso por cuentas de servicio con permisos mínimos; ningún humano entra directo."
-      - "Core → Interbancario: Únicamente el servicio de mensajería Bre-B, por enlace dedicado con mTLS."
-      - "Gestión → todos: Solo vía bastión y acceso just-in-time."
-    when:
-      - "Sesión del cliente: Expira tras 5 minutos de inactividad en la app."
-      - "Token de acceso: Vida de 10 minutos, con refresh atado al dispositivo."
-      - "Scoring de fraude: Debe responder en menos de 300 ms para no afectar la promesa de 20 segundos."
-      - "Retención: Registros transaccionales por 10 años (soporte contable) y logs de seguridad por al menos 2 años."
-      - "Rotación: Certificados mTLS cada 90 días y llaves de cifrado de datos cada año."
-
-  physical:
-    what:
-      - "Datos restringidos: Biometría, identificación, credenciales, llaves criptográficas (cifrado + tokenización)."
-      - "Datos confidenciales: Saldos, transacciones, relación llave-cuenta (cifrado en reposo y enmascaramiento en consultas)."
-      - "Datos internos: Métricas operativas y reportes agregados."
-      - "Datos públicos: Información comercial y tarifas."
-      - "Inventario: Catálogo de datos con dueño, clasificación, ubicación y tiempo de retención por cada tabla."
-    why:
-      - "Reglas de fraude: Bloqueo automático si hay una nueva llave o un nuevo dispositivo con un monto alto, velocidad anómala o un destinatario reportado como mula."
-      - "Procedimiento de respuesta a incidentes: Playbooks para ATO, fuga de datos, DDoS y ransomware, con roles, escalamiento y reporte a la SFC."
-      - "Gestión de vulnerabilidades: Las vulnerabilidades críticas se corrigen en 7 días y las altas en 30."
-      - "Gestión de cambios: Todo cambio a producción pasa por revisión de código entre pares y por el pipeline seguro."
-      - "Continuidad: Plan de continuidad (BCP) y de recuperación (DRP) probados semestralmente."
-    how:
-      - "Device binding y passkeys (FIDO2): Llave privada en el enclave seguro del celular que firma cada transferencia."
-      - "API Gateway + WAF + anti-DDoS: Único punto de entrada desde internet."
-      - "mTLS y service mesh: Cifrado e identidad entre microservicios."
-      - "HSM/KMS: Generación y custodia de llaves, cifrado envolvente (envelope encryption) de las bases de datos."
-      - "Tokenización: Los números de cuenta y de identificación se sustituyen por tokens fuera del dominio de datos sensibles."
-      - "Motor de fraude en línea y SIEM: Decisión en tiempo real y correlación centralizada de eventos."
-    who:
-      - "App del cliente: Login con biometría del celular (passkey), confirmación explícita con el nombre parcial del destinatario y alertas push de cada movimiento."
-      - "Consola interna: Inicio de sesión único (SSO) con MFA resistente a phishing (llave FIDO2) para todos los empleados."
-      - "Control de acceso: RBAC por perfil más reglas por atributo (ABAC) para montos y horarios."
-      - "Accesos privilegiados (PAM): Bóveda de credenciales y grabación de sesiones administrativas."
-    where:
-      - "Red: VPC por ambiente (desarrollo, pruebas, producción) totalmente separados."
-      - "Segmentación: Subredes por dominio (exposición, core, datos, interbancario, gestión) con listas de control entre ellas."
-      - "Plataforma: Contenedores en Kubernetes administrado, en tres zonas de disponibilidad."
-      - "Región alterna: Réplica de datos y de infraestructura como código lista para activar."
-      - "Enlaces al Banco de la República: Dos enlaces dedicados por proveedores distintos."
-    when:
-      - "RTO del servicio de pagos: 15 minutos; RPO: 0 (sin pérdida de transacciones confirmadas)."
-      - "Conmutación entre zonas: Automática, en menos de 1 minuto."
-      - "Sesión administrativa: Máximo 1 hora y cierre automático."
-      - "Backups: Continuos (punto en el tiempo) y copias inmutables diarias aisladas contra ransomware."
-      - "Bloqueo preventivo: 24 horas sin transferencias salientes tras cambio de dispositivo o SIM."
-
-  component:
-    what:
-      - "Cómputo: Amazon EKS (Kubernetes) en la región principal y en la alterna."
-      - "Datos: Amazon Aurora PostgreSQL cifrado y Redis para caché de resolución de llaves."
-      - "Mensajería: Apache Kafka (Amazon MSK) para eventos de transacción."
-      - "Criptografía: AWS CloudHSM y AWS KMS."
-      - "Secretos: HashiCorp Vault."
-    why:
-      - "Detección de fraude: Feedzai (o equivalente) con reglas y modelos de machine learning."
-      - "SIEM y SOAR: Microsoft Sentinel con playbooks automáticos."
-      - "Gestión de riesgos (GRC): Registro de riesgos y evidencias de cumplimiento en una herramienta GRC (p. ej. Archer)."
-      - "Gestión de vulnerabilidades: Tenable para infraestructura y Snyk para dependencias y contenedores."
-      - "Postura cloud (CSPM): AWS Security Hub y GuardDuty."
-    how:
-      - "Protocolos: TLS 1.3, mTLS (certificados X.509), OAuth 2.1 / OpenID Connect, FIDO2/WebAuthn."
-      - "Mensajes Bre-B: Estándar ISO 20022 sobre el enlace dedicado."
-      - "Perímetro: Cloudflare (WAF, anti-DDoS y gestión de bots) delante del API Gateway."
-      - "Service mesh: Istio para mTLS automático."
-      - "Pipeline: GitHub Actions con Semgrep (SAST), Snyk (SCA), Trivy (contenedores) y OWASP ZAP (DAST)."
-      - "Endpoint: CrowdStrike Falcon en los equipos de los empleados."
-    who:
-      - "Identidad del cliente (CIAM): Auth0 / Okta Customer Identity o Keycloak."
-      - "Identidad de empleados: Microsoft Entra ID con acceso condicional y llaves YubiKey."
-      - "PAM: CyberArk o Teleport para accesos just-in-time."
-      - "Roles: Analista de fraude, agente de servicio, ingeniero de plataforma, SRE, analista SOC, auditor, cada uno con su grupo y ACL en el directorio."
-    where:
-      - "Nodos: Clústeres EKS de producción (3 zonas) y de DR en la región alterna."
-      - "Direccionamiento: Rangos de IP privados por VPC, sin IP pública en nodos de core ni de datos."
-      - "Puntos de intercambio: Endpoint de la API pública detrás de Cloudflare y conexión dedicada hacia el Banco de la República (AWS Direct Connect)."
-      - "DNS: Registros internos en Route 53 privado y DNSSEC en el dominio público."
-    when:
-      - "Relojes: Sincronización NTP de todos los nodos (Amazon Time Sync) para que los logs y las firmas tengan sellos de tiempo confiables."
-      - "Pruebas de penetración: Trimestrales y antes de cada cambio mayor de la app."
-      - "Escaneo de vulnerabilidades: Semanal en infraestructura y en cada build en el pipeline."
-      - "Simulacros: Pruebas de DRP semestrales y ejercicios de mesa (tabletop) de ransomware anuales."
-      - "Rotación automática: Secretos de Vault diaria y certificados cada 90 días."
+  MATRIZ SABSA — Proyecto «{proyecto}» de {empresa} ({area})

@@ -1,0 +1,51 @@
+% diagrams/physical.tex — capa Physical: controles por anillos de defensa en profundidad,
+% controles transversales y tiempos de recuperación (RTO/RPO).
+\begin{tikzpicture}[x=1cm, y=1cm]
+  % anillos de afuera hacia adentro: (gris de fondo, rótulo, controles)
+  \foreach \i/\g/\capa/\ctl in {
+      0/3/PROVEEDOR CLOUD/{certificaciones ISO 27001 y SOC 2 · región alterna},
+      1/7/PERÍMETRO/{WAF · anti-DDoS · bots · mTLS al sistema de pago},
+      2/11/RED/{VPC por dominio · subredes privadas · microsegmentación},
+      3/15/HOST Y CONTENEDORES/{imágenes firmadas · hardening CIS · runtime},
+      4/19/APLICACIÓN/{gateway OAuth2 · anti-replay · antifraude en línea · RASP}} {
+    \pgfmathsetmacro{\T}{-0.47*\i}
+    \pgfmathsetmacro{\B}{-5.15+0.36*\i}
+    \pgfmathsetmacro{\L}{0.26*\i}
+    \pgfmathsetmacro{\R}{9.3-0.26*\i}
+    \draw[line width=0.7pt, fill=black!\g] (\L,\T) rectangle (\R,\B);
+    \node[font=\tiny, anchor=north] at ({(\L+\R)/2},\T-0.05)
+      {\textbf{\capa}\ \ \ctl};
+  }
+  % centro: los datos
+  \node[fill=terminalaccent, text=white, font=\scriptsize\bfseries, align=center,
+        minimum width=5.8cm, minimum height=1.05cm] (dat) at (4.65,-3.0)
+    {DATOS\\[-1pt]{\mdseries\tiny cifrado con llaves por dominio · tokenización · llaves en HSM}};
+
+  % el atacante entra desde afuera y cada anillo lo frena
+  \draw[terminal arrow, draw=terminalaccent, line width=1pt] (-0.6,-2.9) -- (0.95,-2.9);
+  \node[font=\tiny\bfseries, text=terminalaccent, anchor=east, align=right] at (-0.05,-2.55) {ataque};
+  \node[font=\tiny, anchor=north, text=black!70] at (4.65,-5.2)
+    {si un anillo cae, el siguiente contiene el ataque};
+
+  % controles transversales: atraviesan todos los anillos
+  \begin{scope}[every node/.style={terminal box, anchor=north west, text width=3.4cm,
+                                   align=left, font=\tiny, inner sep=2.5pt}]
+    \node (idn) at (9.75,0.0)
+      {\textbf{IDENTIDAD}\\passkeys para clientes · llave FIDO2 para empleados · PAM con acceso temporal};
+    \node (mon) at ([yshift=-7pt]idn.south west)
+      {\textbf{MONITOREO}\\SIEM 24/7 · logs inmutables · alertas de fraude en vivo};
+    \node (pro) at ([yshift=-7pt]mon.south west)
+      {\textbf{PROCEDIMENTAL}\\segregación de funciones · doble aprobación · simulacros};
+  \end{scope}
+  \node[font=\tiny\bfseries, anchor=south west] at (9.75,0.02) {transversales};
+
+  % tiempos de recuperación (RTO = cuánto puede estar caído; RPO = cuánto se puede perder)
+  \node[terminal inv, anchor=north west, text width=3.4cm, align=left, font=\tiny\bfseries,
+        inner sep=2.5pt] (th) at ([yshift=-9pt]pro.south west) {RTO / RPO};
+  \node[draw, line width=0.6pt, anchor=north west, text width=3.4cm, align=left,
+        font=\tiny, inner sep=2.5pt] at (th.south west)
+    {\textcolor{terminalaccent}{\textbf{pagos: RPO 0}}\\
+     RTO < 1 min (zona) · ≤ 2 h (región)\\[1pt]
+     llaves y QR: RTO 1 h · RPO 5 min\\[1pt]
+     backoffice: RTO y RPO 24 h};
+\end{tikzpicture}

@@ -2,12 +2,12 @@
 \begin{tikzpicture}[x=1cm, y=1cm]
   % pasos del pago: (nombre, x, quién actúa, servicio de seguridad)
   \foreach \n/\x/\paso/\quien/\svc in {
-      1/1.1/AUTENTICAR/cliente/{CIAM · passkey\\device binding},
-      2/3.46/RESOLVER LLAVE/{NovaPay → DICE}/{nombre parcial\\(privacidad)},
-      3/5.82/SCORING DE FRAUDE/NovaPay/{reglas + ML\\límites por riesgo},
-      4/8.18/CONFIRMAR Y FIRMAR/cliente/{firma en el\\dispositivo},
-      5/10.54/ENVIAR Y LIQUIDAR/{NovaPay → BanRep}/{mTLS · ISO 20022\\liquidación MOL},
-      6/12.9/NOTIFICAR/ambas partes/{push + log de\\auditoría}} {
+      1/1.1/AUTENTICAR/cliente/{autenticación\\fuerte},
+      2/3.46/RESOLVER LLAVE/{NovaPay → DICE}/{resolución con\\privacidad},
+      3/5.82/SCORING DE FRAUDE/NovaPay/{servicio\\antifraude},
+      4/8.18/CONFIRMAR Y FIRMAR/cliente/{firma y\\no repudio},
+      5/10.54/ENVIAR Y LIQUIDAR/{NovaPay → BanRep}/{mensajería inter-\\bancaria segura},
+      6/12.9/NOTIFICAR/ambas partes/{notificación\\y auditoría}} {
     \node[terminal box, text width=1.75cm, minimum height=1.05cm, font=\scriptsize\bfseries]
       (p\n) at (\x,0) {[\n]\\\paso};
     \node[font=\tiny, above=3pt of p\n] {\quien};
@@ -37,6 +37,6 @@
   \node[striptag, anchor=west] (pol) at (0.1,-3.85) {POLÍTICAS};
   \node[terminal chip, strip, right=4pt of pol] (r1) {MFA fuerte};
   \node[terminal chip, strip, right=3pt of r1, terminal accent] (r2) {bloqueo 24 h tras cambio de SIM};
-  \node[terminal chip, strip, right=3pt of r2] (r3) {TLS 1.3 · mTLS · AES-256};
+  \node[terminal chip, strip, right=3pt of r2] (r3) {todo canal cifrado};
   \node[terminal chip, strip, right=3pt of r3] (r4) {sesión 5 min · token 10 min};
 \end{tikzpicture}
