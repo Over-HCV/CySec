@@ -85,6 +85,8 @@ const me = computed<ProviderUser>(() => ({
   color: profile.value?.color || '#1F4E79'
 }))
 
+let compilationsChannel: ReturnType<typeof supabase.channel> | null = null
+
 onMounted(async () => {
   // Un proyecto se abre siempre igual: por bloques y sin el árbol de archivos
   // delante. Lo que se toque después vale para esta sesión, no para la próxima
@@ -101,8 +103,17 @@ onMounted(async () => {
   activeFile.value = files.value.find(f => f.path === project.value?.root_file) ?? files.value[0] ?? null
 
   // Otro colaborador compiló: refrescamos el PDF sin recargar la página.
-  supabase
-    .channel(`compilations:${projectId}`)
+  //
+  // `supabase.channel()` devuelve el canal que ya exista con ese topic. Si se
+  // sale del proyecto y se vuelve a entrar sin recargar, ese canal sigue
+  // suscrito y `.on()` revienta («cannot add `postgres_changes` callbacks …
+  // after `subscribe()`»). Se cierra al desmontar (abajo) y, por si la
+  // navegación le ganó a esa limpieza asíncrona, también aquí antes de crearlo.
+  const topic = `compilations:${projectId}`
+  const stale = supabase.getChannels().find(c => c.topic === `realtime:${topic}`)
+  if (stale) await supabase.removeChannel(stale)
+  compilationsChannel = supabase
+    .channel(topic)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'compilations', filter: `project_id=eq.${projectId}` },
@@ -244,6 +255,7 @@ watch(provider, (value) => {
 onBeforeUnmount(() => {
   unwatchDoc?.()
   if (autoTimer) clearTimeout(autoTimer)
+  if (compilationsChannel) void supabase.removeChannel(compilationsChannel)
 })
 
 /**

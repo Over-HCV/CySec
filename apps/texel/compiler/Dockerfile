@@ -41,6 +41,9 @@ RUN set -eu; \
         pgf standalone tikzfill pdfcol \
         tools psnfss listings \
         adjustbox collectbox ifoddpage varwidth \
+        plex \
+        `# plex: IBM Plex Mono del tema Beamer «terminal» (apps/project/beamer); sin` \
+        `# ella el tema compila igual pero cae en Latin Modern Mono` \
         `# longtable y tabularx viven en 'tools'; \ding (pifont) en 'psnfss'` \
         `# listings: bloques de código del taller 2 en adelante` \
         `# adjustbox (+collectbox, ifoddpage, varwidth): \adjincludegraphics es` \
