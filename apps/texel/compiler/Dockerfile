@@ -20,8 +20,9 @@ RUN apt-get update \
 # toda la instalación sale del mismo sitio, y si ese sitio falla se prueba el
 # siguiente en vez de dejar el despliegue a suertes.
 #
-# `update --self` no está: contra un tlnet al día no hace nada («no self-updates
-# for tlmgr available») y solo añadía una llamada de red que podía fallar.
+# `update --self` va contra el mismo espejo que el `install`: cuando la imagen
+# base queda por detrás de tlnet, tlmgr se niega a instalar nada («tlmgr itself
+# needs to be updated») en todos los espejos. Contra un tlnet al día no hace nada.
 RUN set -eu; \
     ok=0; \
     for repo in \
@@ -31,7 +32,8 @@ RUN set -eu; \
       https://ctan.math.illinois.edu/systems/texlive/tlnet \
       https://ftp.tu-chemnitz.de/pub/tex/systems/texlive/tlnet ; do \
       echo "▸ espejo: $repo"; \
-      if tlmgr --repository "$repo" install \
+      if tlmgr --repository "$repo" update --self && \
+         tlmgr --repository "$repo" install \
         latexmk biber biblatex csquotes \
         fontspec unicode-math libertinus-fonts libertinus-otf \
         babel-spanish hyphen-spanish \

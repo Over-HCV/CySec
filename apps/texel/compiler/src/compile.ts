@@ -314,7 +314,57 @@ async function compileNow(
   })
 
   if (insertError) throw new HttpError(500, insertError.message)
+
+  // Cada compilación sube su PDF con un prefijo nuevo: sin esta poda, el bucket
+  // `compiled` crece con cada tecla de la compilación automática hasta agotar la
+  // cuota de Storage (pasó: el proyecto acabó restringido). Va detrás de la
+  // caché, por la misma cola, y sin que nadie la espere.
+  const aux = background.get(projectId)
+  background.set(projectId, Promise.all([aux, pruneCompilations(projectId)]))
+
   return row as CompileResult
+}
+
+/** Cuántas compilaciones de cada proyecto se conservan (filas y archivos). */
+const KEEP_COMPILATIONS = Number(process.env.KEEP_COMPILATIONS ?? 5)
+
+/**
+ * Borra las compilaciones viejas de un proyecto: sus objetos en `compiled` y
+ * sus filas. Se quedan las `KEEP_COMPILATIONS` más recientes y, aunque sea
+ * anterior, la última con PDF: es la que `loadLast` enseña al abrir y la que
+ * `lastMatching` puede reutilizar. Las filas se borran junto con los objetos
+ * para que `lastMatching` nunca devuelva un PDF que ya no existe.
+ *
+ * Un fallo se ignora como en la caché: lo peor es que la poda espere a la
+ * siguiente compilación.
+ */
+async function pruneCompilations(projectId: string): Promise<void> {
+  try {
+    const { data, error } = await admin
+      .from('compilations')
+      .select('id, status, pdf_path, synctex_path')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+    if (error || !data) return
+
+    const lastSuccess = data.find(c => c.status === 'success' && c.pdf_path)
+    const stale = data
+      .slice(KEEP_COMPILATIONS)
+      .filter(c => c.id !== lastSuccess?.id)
+    if (!stale.length) return
+
+    const objects = stale.flatMap(c => [c.pdf_path, c.synctex_path].filter(Boolean) as string[])
+    for (let i = 0; i < objects.length; i += 1000) {
+      const { error: rmError } = await admin.storage.from('compiled').remove(objects.slice(i, i + 1000))
+      if (rmError) throw rmError
+    }
+    const ids = stale.map(c => c.id)
+    for (let i = 0; i < ids.length; i += 500) {
+      await admin.from('compilations').delete().in('id', ids.slice(i, i + 500))
+    }
+  } catch (e) {
+    console.warn('[texel] no se pudieron podar las compilaciones viejas:', e)
+  }
 }
 
 /**
