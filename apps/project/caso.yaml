@@ -27,16 +27,18 @@ vision: >-
   efectivo, reconocida por la seguridad de sus pagos.
 
 objetivo_estrategico: >-
-  Duplicar la base de clientes activos en 2027 llevando a {empresa} los pagos
-  inmediatos interoperables, sin aumentar la tasa de fraude.
+  Crecer 25 % en clientes activos a diciembre de 2028 llevando a {empresa} los
+  pagos inmediatos interoperables, sin que el fraude pase de 5 puntos básicos
+  del valor transado.
 
 objetivo_proyecto: >-
   Vincular a {empresa} al sistema de pagos inmediatos Bre-B del Banco de la
   República como participante (a través de un sistema de pago certificado y
   liquidando en el MOL con cuenta propia), y lanzar en la app las transferencias
-  por llaves y los pagos QR (24/7, en menos de 20 segundos), con una
+  por llaves y los pagos QR en el cuarto trimestre de 2027 (24/7, con 99.9 %
+  de disponibilidad al mes y pagos en menos de 20 segundos), con una
   arquitectura de seguridad que proteja los fondos y los datos de los clientes
   desde el diseño.
 
 titulo_matriz: >-
-  MATRIZ SABSA — Proyecto «{proyecto}» de {empresa} ({area})
+  MATRIZ SABSA — Proyecto "{proyecto}" de {empresa} ({area})

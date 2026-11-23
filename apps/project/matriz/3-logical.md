@@ -1,48 +1,75 @@
 ---
 capa: logical
 vista: Designer's View (diseñador)
-responsable: CISO y Arquitecto de Seguridad
+rol: CISO y Arquitecto de Seguridad
+responsable: >-
+  La responsabilidad de esta capa es del CISO con el Arquitecto de Seguridad. El arquitecto convierte las políticas y estrategias de la capa conceptual en servicios de seguridad, flujos, dominios y perfiles y el CISO aprueba que cada servicio cubra un objetivo de control. Con la Dirección de Plataforma acuerdan qué servicios se construyen primero según el cronograma del proyecto.
 con_quien_se_habla: El CISO y el arquitecto de seguridad. La información ya es técnica, pero se expresa como servicios de seguridad, no como productos.
+voz: Hablamos con el CISO y el Arquitecto de Seguridad (ver 0-organigrama.md)
 ---
 # Capa Logical — servicios de seguridad
 
-> En esta capa el negocio se modela como un sistema mediante **servicios de seguridad** lógicos, reutilizables e independientes de la tecnología: autenticación, confidencialidad, integridad, no repudio (white paper SABSA, p. 12). El docente insistió en la diferencia: «**autenticación** es el servicio; usuario y contraseña, OTP, doble factor y reconocimiento facial son **controles** de ese servicio». Su recomendación: «saquen un listado de servicios y comiencen a identificar qué servicios van a necesitar para su proyecto; eso les permite definir los controles». Los controles concretos van en la capa Physical.
+> En esta capa el negocio se modela como un sistema mediante **servicios de seguridad** lógicos, reutilizables e independientes de la tecnología: autenticación, confidencialidad, integridad, no repudio (white paper SABSA, p. 12). El docente insistió en la diferencia: "**autenticación** es el servicio; usuario y contraseña, OTP, doble factor y reconocimiento facial son **controles** de ese servicio". Su recomendación: "saquen un listado de servicios y comiencen a identificar qué servicios van a necesitar para su proyecto; eso les permite definir los controles". Los controles concretos van en la capa Physical.
 
 ## WHAT — Information Assets (Inventory of Information Assets)
-**Qué va aquí:** Encabezado de la plantilla: «Inventory of Information Assets». El inventario de activos de información, es decir, los componentes de la solución que manejan información. En el ejemplo del docente: software de datos de mercado, OMS, interfaz de usuario, canales dedicados y bases de datos.
+**Qué va aquí:** Encabezado de la plantilla: "Inventory of Information Assets". El inventario de activos de información, es decir, los componentes de la solución que manejan información. En el ejemplo del docente: software de datos de mercado, OMS, interfaz de usuario, canales dedicados y bases de datos.
 **En la matriz:**
-- Información transaccional: Pagos enviados y recibidos, montos, destinatarios y puntaje de fraude.
-- Información de clientes (clasificada): Identidad, biometría como plantilla, llaves y saldos.
-- Código fuente de la app y de los servicios: Si se altera o se filtra, se compromete todo el producto.
-- Motor de pagos y motor antifraude con su modelo de IA: Deciden si el dinero sale.
-- Servicio de llaves: Inscribe, traslada, bloquea y consulta llaves contra el DICE.
-- Conexión con el sistema de pago y el MOL: Canal por donde salen los pagos y se liquidan.
-- Llaves criptográficas, certificados y secretos: Su robo permitiría suplantar a {empresa} ante el sistema de pago.
-- Registros de auditoría y seguridad: Evidencia de cada operación y de cada acceso.
-**Detalle y justificación:** Corrección del profesor en clase: el inventario de activos de **información** incluye «una base de datos, el código de la aplicación, información transaccional, información clasificada». Ya no es una capa de negocio: aquí se baja al inventario de la información que compone la aplicación. Esta celda se encadena hacia abajo con el **diccionario de datos** (`4-physical.md`, WHAT) y luego con los **repositorios** (`5-component.md`, WHAT). El orden sigue el impacto si el activo se compromete.
+
+La información que hay que proteger es de tres tipos. La transaccional son los pagos enviados y recibidos con su monto, su destinatario y su puntaje de fraude. La de clientes es clasificada y reúne la identidad, la biometría como plantilla, las llaves y los saldos. La tercera son las llaves criptográficas, los secretos y los registros de auditoría porque con las llaves alguien podría suplantar a {empresa} ante el sistema de pago y los registros son la evidencia de cada operación.
+
+Esa información vive en los componentes del sistema. Las bases de datos guardan lo de clientes y lo transaccional. La app móvil, las APIs y su código fuente son por donde entra el cliente así que si el código se altera o se filtra se compromete el producto. El motor de pagos, el servicio de llaves y el motor antifraude deciden si la plata sale y a qué cuenta va. La conexión con el sistema de pago es el canal por donde salen los pagos y todo corre sobre la red y la plataforma en la nube.
+
+**Para la presentación:**
+- Información:
+  - Transaccional: Los pagos enviados y recibidos con sus montos, destinatarios y puntaje de fraude.
+  - De clientes (clasificada): La identidad, la biometría como plantilla, las llaves y los saldos.
+  - Llaves criptográficas, secretos y registros de auditoría: Con las llaves se podría suplantar a {empresa} ante el sistema de pago y los registros son la evidencia de cada operación.
+- Componentes del sistema:
+  - Bases de datos: Donde se guarda la información de clientes y la transaccional.
+  - App móvil, APIs y su código fuente: Es por donde entra el cliente, si el código se altera o se filtra se compromete todo el producto.
+  - Motor de pagos, servicio de llaves y motor antifraude: Los servicios que deciden si la plata sale y a qué cuenta va.
+  - Conexión con el sistema de pago: El canal por donde salen los pagos y se liquidan en el Banco de la República.
+  - Red y plataforma en la nube: Los servidores y las redes donde corre todo lo anterior.
+**Detalle y justificación:** Asesoría del docente (nov-2026): En esta celda se describen también los componentes del sistema, por eso se agregaron las bases de datos y la red y plataforma en la nube. Corrección del profesor en clase: el inventario de activos de **información** incluye "una base de datos, el código de la aplicación, información transaccional, información clasificada". Ya no es una capa de negocio: aquí se baja al inventario de la información que compone la aplicación. Esta celda se encadena hacia abajo con el **diccionario de datos** (`4-physical.md`, WHAT) y luego con los **repositorios** (`5-component.md`, WHAT). El orden sigue el impacto si el activo se compromete.
 
 ## WHY — Risk Management Policies (Domain Policies)
-**Qué va aquí:** Encabezado de la plantilla: «Domain Policies». Las políticas de cada dominio, es decir, los lineamientos de la alta dirección aplicados al proyecto. El docente: «acá me definen las políticas, política, política, política; no el texto, las ideas y lo que van a necesitar» (como un mapa mental).
+**Qué va aquí:** Encabezado de la plantilla: "Domain Policies". Las políticas de cada dominio, es decir, los lineamientos de la alta dirección aplicados al proyecto. El docente: "acá me definen las políticas, política, política, política; no el texto, las ideas y lo que van a necesitar" (como un mapa mental).
 **En la matriz:**
-- Política de autenticación: Doble factor fuerte para entrar, para pagar y para todo trámite con llaves.
-- Política de límites transaccionales: Topes por perfil de riesgo, límite nocturno y tope bajo para equipos nuevos.
-- Política de gestión de llaves: Probar la titularidad antes de inscribir o trasladar, y avisar al canal anterior.
-- Política antifraude: Bloqueo de llaves por fraude y devolución según las reglas de Bre-B.
-- Política criptográfica: Todo canal cifrado y los datos sensibles cifrados en reposo, con llaves bajo custodia dedicada.
-- Política de acceso privilegiado: Mínimo privilegio, acceso temporal aprobado y sesiones grabadas.
-- Política de respaldo y recuperación: Copias protegidas contra borrado y pruebas periódicas de recuperación.
-- Políticas de soporte: Privacidad y retención de datos, desarrollo seguro, terceros y uso de IA.
-**Detalle y justificación:** Cada política responde a un objetivo de control de Conceptual WHY. Los límites se inspiran en Pix (límite nocturno de R$1.000 entre las 20:00 y las 6:00, y tope para equipo no registrado de R$200 por transacción, Res. BCB 403/2024). La DSP-465 permite que el participante fije topes inferiores a los 1.000 UVB según su política de riesgo.
+
+Cada objetivo de control de la capa de arriba se vuelve una política de dominio. La de autenticación pide doble factor fuerte para entrar, para pagar y para todo trámite con llaves. La de límites fija topes por perfil de riesgo, un límite nocturno y un tope bajo para equipos nuevos. La de gestión de llaves obliga a probar la titularidad antes de inscribir o trasladar una llave y a avisarle al canal anterior y la antifraude define el bloqueo de llaves por fraude y la devolución según las reglas de Bre-B.
+
+La política criptográfica exige que todo canal vaya cifrado (también la integración con el sistema de pago) y que los datos sensibles se cifren en reposo con las llaves bajo custodia dedicada. La de acceso privilegiado pide mínimo privilegio, acceso temporal y aprobado y sesiones grabadas y la de respaldo pide copias protegidas contra borrado con pruebas periódicas de recuperación. Las de soporte cubren privacidad y retención, desarrollo seguro, terceros y uso de IA.
+
+**Para la presentación:**
+- Políticas:
+  - Autenticación: Doble factor fuerte para entrar, para pagar y para todo trámite con llaves.
+  - Límites transaccionales: Topes por perfil de riesgo, un límite nocturno y un tope bajo para equipos nuevos.
+  - Gestión de llaves: Probar la titularidad antes de inscribir o trasladar una llave y avisarle al canal anterior.
+  - Antifraude: Bloqueo de llaves por fraude y devolución según las reglas de Bre-B.
+  - Criptográfica: Todo canal cifrado y los datos sensibles cifrados en reposo con las llaves bajo custodia dedicada.
+  - Acceso privilegiado: Mínimo privilegio, acceso temporal y aprobado y sesiones grabadas.
+  - Respaldo y recuperación: Copias protegidas contra borrado y pruebas periódicas de recuperación.
+  - De soporte: Privacidad y retención de datos, desarrollo seguro, terceros y uso de IA.
+**Detalle y justificación:** Cada política responde a un objetivo de control de Conceptual WHY. Los límites se inspiran en Pix (límite nocturno de R$1000 entre las 20:00 y las 6:00, y tope para equipo no registrado de R$200 por transacción, Res. BCB 403/2024). La DSP-465 permite que el participante fije topes inferiores a los 1000 UVB según su política de riesgo.
 
 ## HOW — Process Maps & Services (Information Flows; Functional Transformations; Service Oriented Architecture)
-**Qué va aquí:** Encabezado de la plantilla: «Information Flows; Functional Transformations; Service Oriented Architecture». Los **flujos de información más relevantes** y los **servicios de seguridad** que los protegen. El docente: «acá no vamos a montar los 200 flujos; necesitamos los más relevantes y qué controles de seguridad llevan».
+**Qué va aquí:** Encabezado de la plantilla: "Information Flows; Functional Transformations; Service Oriented Architecture". Los **flujos de información más relevantes** y los **servicios de seguridad** que los protegen. El docente: "acá no vamos a montar los 200 flujos; necesitamos los más relevantes y qué controles de seguridad llevan".
 **En la matriz:**
-- Flujo de pago por llave: Autenticación fuerte → resolución de la llave con privacidad → antifraude → firma y no repudio → mensajería interbancaria segura → notificación.
-- Flujo de recepción de fondos: Antifraude de recepción (detección de cuentas mula) → notificación al cliente.
-- Flujo de inscripción o traslado de llave: Autenticación fuerte → verificación de titularidad → aviso al canal anterior.
-- Flujo de pago QR a comercio: Verificación de integridad del QR → antifraude → notificación.
-- Flujo de acceso administrativo: Gestión de accesos privilegiados → registro y monitoreo de la sesión.
+
+Lo que arriba era vincular a {empresa} con Bre-B aquí es una aplicación en la nube que consume la API del sistema de pago por un canal dedicado y con mensajes firmados. En un pago por llave el flujo pasa por autenticación fuerte, resolución de la llave con privacidad, antifraude, firma y no repudio, mensajería interbancaria segura y notificación. Al recibir plata pasa por el antifraude de recepción que busca cuentas mula, al inscribir o trasladar una llave por autenticación fuerte y verificación de titularidad y en un pago QR por la verificación de integridad del código antes del antifraude.
+
+El acceso administrativo pasa siempre por la gestión de accesos privilegiados con registro de la sesión. Por debajo de todos los flujos corren los servicios transversales de monitoreo y respuesta a incidentes, protección de datos, desarrollo seguro, continuidad, gestión de vulnerabilidades y seguridad de terceros. La integración solo se habilita cuando la certificación con el sistema de pago y las pruebas de seguridad salen bien.
+
+**Para la presentación:**
+- Integración con el sistema de pago: La aplicación en la nube consume la API del sistema de pago por un canal dedicado y con mensajes firmados.
+- Flujos:
+  - Pago por llave: Autenticación fuerte → resolución de la llave con privacidad → antifraude → firma y no repudio → mensajería interbancaria segura → notificación.
+  - Recepción de fondos: Antifraude de recepción (detección de cuentas mula) → notificación al cliente.
+  - Inscripción o traslado de llave: Autenticación fuerte → verificación de titularidad → aviso al canal anterior.
+  - Pago QR a comercio: Verificación de integridad del QR → antifraude → notificación.
+  - Acceso administrativo: Gestión de accesos privilegiados → registro y monitoreo de la sesión.
 - Servicios transversales: Monitoreo y respuesta a incidentes, protección de datos, desarrollo seguro, continuidad, gestión de vulnerabilidades y seguridad de terceros.
+**Detalle y justificación:** Asesoría del docente (nov-2026): El primer bullet baja un nivel lo que en Contextual es "vincularnos a Bre-B", aquí ya es una aplicación que consume una API.
 **Detalle y justificación — catálogo de servicios → controles:**
 
 | # | Servicio de seguridad | Controles que lo componen (van a Physical) | Prioridad |
@@ -90,29 +117,44 @@ Los servicios 1, 3, 4, 10 y 11 son específicos de pagos inmediatos y no aparece
 | 10 | Falla o evasión del modelo antifraude; fuga de datos por shadow AI | Media / Media-Alta | 22, 14 |
 
 ## WHO — Entity & Trust Framework (Entity Schema; Trust Models; Privilege Profiles)
-**Qué va aquí:** Encabezado de la plantilla: «Entity Schema; Trust Models; Privilege Profiles». Los perfiles, sus privilegios y el modelo de confianza. El docente: «cuáles van a ser los perfiles de la aplicación y los privilegios; ¿será que ustedes pueden modificar sus notas? Sería terrible».
+**Qué va aquí:** Encabezado de la plantilla: "Entity Schema; Trust Models; Privilege Profiles". Los perfiles, sus privilegios y el modelo de confianza. El docente: "cuáles van a ser los perfiles de la aplicación y los privilegios; ¿será que ustedes pueden modificar sus notas? Sería terrible".
 **En la matriz:**
-- Cliente: Envía, recibe y administra solo sus propias llaves.
-- Comercio: Recibe pagos QR y consulta sus ventas.
-- Analista de fraude: Retiene, libera y marca transacciones; no administra sistemas.
-- Agente de servicio: Ve datos enmascarados y puede bloquear; no puede mover dinero.
-- Ingeniero de plataforma: Acceso temporal a la infraestructura, sin ver datos de clientes en claro.
-- Desarrollador: Solo ambientes de desarrollo y pruebas; nunca producción.
-- Auditor: Solo lectura de registros y evidencias.
-- Modelo de confianza: Nadie confía por defecto; cada usuario, equipo y servicio se identifica en cada solicitud.
+
+Los perfiles salen de los roles de la capa de arriba y cada uno tiene solo lo que necesita. El cliente envía, recibe y administra sus propias llaves y el comercio recibe pagos QR y consulta sus ventas. El analista de fraude retiene, libera y marca transacciones pero no administra sistemas y el agente de servicio ve datos enmascarados y puede bloquear pero no mover plata.
+
+Del lado técnico el ingeniero de plataforma tiene acceso temporal a la infraestructura sin ver datos de clientes en claro, el desarrollador solo entra a desarrollo y pruebas y nunca a producción y el auditor solo lee registros y evidencias. Los sistemas también tienen identidad: El conector con el sistema de pago se autentica con certificado en cada mensaje. El modelo de confianza es el de Zero Trust así que no se confía por defecto en nadie y cada usuario, equipo y servicio se identifica en cada solicitud.
+
+**Para la presentación:**
+- Perfiles:
+  - Cliente: Envía, recibe y administra solo sus propias llaves.
+  - Comercio: Recibe pagos QR y consulta sus ventas.
+  - Analista de fraude: Retiene, libera y marca transacciones pero no administra sistemas.
+  - Agente de servicio: Ve los datos enmascarados y puede bloquear pero no puede mover plata.
+  - Ingeniero de plataforma: Tiene acceso temporal a la infraestructura sin ver datos de clientes en claro.
+  - Desarrollador: Solo entra a los ambientes de desarrollo y pruebas, nunca a producción.
+  - Auditor: Solo lee registros y evidencias.
+- Modelo de confianza: No se confía por defecto en nadie, cada usuario, equipo y servicio se identifica en cada solicitud.
 **Detalle y justificación:** La segregación entre analista de fraude, agente e ingeniero implementa la segregación de funciones que exige la CBJ (P.I, T.II, Cap. I). Que el desarrollador no tenga producción responde a la exigencia de tres ambientes separados (num. 2.3.5).
 
 ## WHERE — Domain Maps (Domain Definitions; Inter-domain associations & interactions) → zoom de normas
-**Qué va aquí:** Encabezado de la plantilla: «Domain Definitions; Inter-domain associations & interactions». El white paper pide definir los dominios y cómo interactúan (p. 12). El docente pide además hacer «**zoom**» a las normas de la capa Conceptual: «no me digan que van a implementar la 27001; entren y definan cuáles son los dominios que van a implementar, porque no todos aplican».
+**Qué va aquí:** Encabezado de la plantilla: "Domain Definitions; Inter-domain associations & interactions". El white paper pide definir los dominios y cómo interactúan (p. 12). El docente pide además hacer "**zoom**" a las normas de la capa Conceptual: "no me digan que van a implementar la 27001; entren y definan cuáles son los dominios que van a implementar, porque no todos aplican".
 **En la matriz:**
-- ISO 27001:2022, controles tecnológicos: Autenticación segura, criptografía, registro y monitoreo, desarrollo seguro, protección contra fuga de datos.
-- ISO 27001:2022, controles organizacionales: Políticas, relación con proveedores y servicios en la nube, gestión de incidentes, continuidad.
-- ISO 27001:2022, controles de personas y físicos: Concienciación, trabajo remoto y seguridad física delegada en el proveedor de nube.
-- CBJ, canales: Autenticación fuerte, perfil transaccional, pentest semestral, doble factor en móvil y gestión de riesgos del QR.
-- DSP-465: Nombre enmascarado, 20 segundos, bloqueo de llaves por fraude y devolución.
-- OWASP MASVS (app móvil): Almacenamiento, criptografía, autenticación, red, resiliencia y privacidad.
-- OWASP Top 10 de APIs: Autorización por objeto, autenticación, consumo de recursos y flujos de negocio sensibles.
-- Dominios de interacción: Cliente ↔ exposición ↔ core de pagos ↔ información sensible, y core ↔ interbancario; gestión entra solo por un punto controlado.
+
+La arquitectura se divide en seis dominios y cada uno toma el pedazo de norma que le toca. El dominio cliente (app y dispositivo) sigue OWASP MASVS y el doble factor de la Circular Básica Jurídica. El de exposición es la única entrada desde internet y sigue OWASP API Top 10. El core de pagos aplica la DSP-465 (nombre enmascarado, 20 segundos, bloqueo de llaves y devolución) y el de información sensible solo admite cuentas de servicio con ISO 27001 8.24 (criptografía), 8.12 (fuga de datos) y la Ley 1581.
+
+El dominio interbancario (conector, directorio de llaves y sistema de liquidación) se basa en confianza mutua por certificados según la DSP-465 y la DSP-470 y el de gestión tiene acceso temporal y vigilado con ISO 27001 8.2 y 8.15 a 8.16. Ningún dominio salta a otro sin pasar por su frontera. Con el proveedor de nube la relación es de responsabilidad compartida (ISO 27001 5.19 a 5.23 y los dominios de la CSA CCM) y con el sistema de pago la define su reglamento.
+
+**Para la presentación:**
+- Dominios:
+  - Cliente (app y dispositivo del cliente): Política de canal móvil con zoom en OWASP MASVS (almacenamiento, criptografía, autenticación, resiliencia) y el doble factor de la CBJ.
+  - Exposición (gateway y borde): Única entrada desde internet con zoom en OWASP API Top 10 (autorización por objeto, consumo de recursos) y la CBJ de canales.
+  - Core de pagos (motor de pagos, llaves, antifraude): Política de pagos inmediatos con zoom en la DSP-465 (nombre enmascarado, 20 s, bloqueo de llaves, devolución).
+  - Información sensible (bases de datos, llaves criptográficas, secretos): Solo cuentas de servicio con zoom en ISO 27001 8.24 (criptografía), 8.12 (fuga de datos) y la Ley 1581.
+  - Interbancario (conector al sistema de pago, DICE y MOL): Confianza mutua por certificados con zoom en la DSP-465 y la DSP-470 (mensajería, marcas de tiempo, contingencia).
+  - Gestión (SOC, administración, herramientas): Acceso temporal y vigilado con zoom en ISO 27001 8.2 (accesos privilegiados) y 8.15–8.16 (registro y monitoreo).
+- Asociaciones:
+  - Internas: Cliente → Exposición → Core → Información sensible y Core ↔ Interbancario, ningún dominio salta a otro sin pasar por su frontera.
+  - Externas: Con el proveedor de nube por responsabilidad compartida (ISO 27001 5.19–5.23 y CSA CCM) y con el sistema de pago por su reglamento.
 **Detalle y justificación — controles del Anexo A de ISO/IEC 27001:2022 que aplican:**
 - **Organizacionales (5.x):** 5.1 políticas, 5.7 inteligencia de amenazas, 5.15–5.18 control de acceso e identidades, 5.19–5.23 proveedores y servicios en la nube, 5.24–5.28 gestión de incidentes, 5.29–5.30 continuidad, 5.34 privacidad.
 - **Personas (6.x):** 6.3 concienciación y formación, 6.7 trabajo remoto.
@@ -122,19 +164,29 @@ Los servicios 1, 3, 4, 10 y 11 son específicos de pagos inmediatos y no aparece
 *La numeración del Anexo A es la de la edición 2022 (93 controles); conviene confirmarla contra el texto de la norma antes de la entrega.*
 
 ## WHEN — Calendar & Timetable (Start Times, Lifetimes & Deadlines)
-**Qué va aquí:** Encabezado de la plantilla: «Start Times, Lifetimes & Deadlines». Las fechas límite de implementación y las vigencias (de sesiones, credenciales, certificados). El docente: «aquí comienzas a definir las fechas límite: el desarrollo en tal trimestre, las pruebas en tal, el paso a producción en tal».
+**Qué va aquí:** Encabezado de la plantilla: "Start Times, Lifetimes & Deadlines". Las fechas límite de implementación y las vigencias (de sesiones, credenciales, certificados). El docente: "aquí comienzas a definir las fechas límite: el desarrollo en tal trimestre, las pruebas en tal, el paso a producción en tal".
 **En la matriz:**
-- Q1 2027: Autenticación fuerte, criptografía y gestión de accesos privilegiados listos, porque son la base de todo lo demás.
-- Q2 2027: Antifraude, gestión de llaves y mensajería interbancaria probados en la certificación con el sistema de pago.
-- Q2 2027: Pentest y análisis de vulnerabilidades antes de la marcha blanca.
-- Q3 2027: Monitoreo 24/7 (SOC) y playbooks de incidentes operando durante la marcha blanca.
-- Q4 2027: Prueba completa de recuperación antes del lanzamiento al público.
-- Vigencias de sesión: La sesión del cliente expira a los 5 minutos de inactividad y la credencial de acceso dura 10 minutos.
-- Tiempos de servicio: Resolución de llave ≤ 5 s, antifraude < 300 ms y pago completo < 20 s.
-**Detalle y justificación:** Los plazos siguen los hitos de Contextual WHEN. La regla es que ningún servicio crítico llegue a la marcha blanca sin haber pasado pentest, y ninguno llegue al lanzamiento sin una prueba de recuperación.
+
+Para que la seguridad no se quede por fuera del cronograma los contratos y las licencias de seguridad tendrían que estar firmados antes de 2027. En el primer semestre de 2027 arrancarían la autenticación fuerte, la criptografía y los accesos privilegiados y después el antifraude, las llaves y la mensajería certificados con el sistema de pago junto con el pentest. En el segundo semestre el SOC 24/7 y los playbooks operarían en la marcha blanca y la prueba completa de recuperación se haría antes del lanzamiento del cuarto trimestre.
+
+En operación cada elemento tiene su vigencia. Los certificados de la conexión con el sistema de pago valen 90 días y los tokens de acceso 10 minutos. La sesión del cliente expira a los 5 minutos de inactividad y cada pago pide una nueva confirmación. Un bloqueo de llave dura hasta 30 días hábiles prorrogables una vez. La llave se resuelve en máximo 5 segundos y el pago en máximo 20 (ambos en al menos el 99.5 % de los casos) y el fraude se investiga en máximo 10 días calendario.
+
+**Para la presentación:**
+- Cronograma (2027):
+  - Antes del Q1: Contratos firmados y licencias de seguridad compradas para que no se queden por fuera del cronograma.
+  - Q1 y Q2: Arrancan autenticación fuerte, criptografía y accesos privilegiados, después antifraude, llaves y mensajería certificados con el sistema de pago más el pentest.
+  - Q3 y Q4: El SOC 24/7 y los playbooks operan en la marcha blanca y la prueba completa de recuperación se hace antes del lanzamiento.
+- Vigencias:
+  - Registro: El dispositivo y la passkey se vinculan cuando el cliente se enrola, si bloquea su llave el bloqueo dura hasta 30 días hábiles prorrogables una vez por 30 más y luego la llave se cancela.
+  - Certificación: Los certificados de la conexión con el sistema de pago valen 90 días y los tokens de acceso 10 minutos.
+  - Login y sesión: La sesión del cliente expira a los 5 minutos de inactividad y cada pago pide una nueva confirmación (step-up).
+- Plazos:
+  - De la operación: La llave se resuelve en máximo 5 s y el pago sale en máximo 20 s, ambos en al menos el 99.5 % de los casos.
+  - De reclamación: El fraude se investiga en máximo 10 días calendario y el cliente tiene 5 días hábiles para pedir una reversión.
+**Detalle y justificación:** Asesoría del docente (nov-2026): El hito de compras y contratación está porque la matriz es el paso previo al proyecto y sirve para que la seguridad no se quede por fuera del cronograma. Su fecha es un supuesto del caso. Los plazos siguen los hitos de Contextual WHEN. La regla es que ningún servicio crítico llegue a la marcha blanca sin haber pasado pentest, y ninguno llegue al lanzamiento sin una prueba de recuperación.
 
 ## Trazabilidad
-- **Hacia arriba:** Cada servicio responde a un objetivo de control (Conceptual WHY), y cada «zoom» de controles responde a una norma (Conceptual WHERE).
+- **Hacia arriba:** Cada servicio responde a un objetivo de control (Conceptual WHY), y cada "zoom" de controles responde a una norma (Conceptual WHERE).
 - **Hacia abajo:** Cada servicio del catálogo se materializa en los controles de `4-physical.md`, organizados por capas de defensa en profundidad.
 
 ## Fuentes

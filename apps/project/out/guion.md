@@ -36,7 +36,10 @@ Buenas tardes. Se presenta la propuesta de arquitectura de seguridad para un pro
 ## [2] Misión y visión — Sergio · 1:00
 
 **Qué se dice**
-Primeramente, y como lo plantea la arquitectura empresarial, todo parte de entender qué hace la empresa y hacia dónde va, porque sin eso no hay cómo saber qué proteger. La misión de NovaPay es que personas y comercios muevan su dinero de forma inmediata, segura y sin costo desde el celular. La visión es ser en 2030 la billetera preferida de quienes hoy usan efectivo, reconocida por la seguridad de sus pagos. De ahí se desprende un objetivo estratégico concreto para 2027: duplicar los clientes activos sin aumentar el fraude. Cabe mencionar que esa segunda mitad («sin aumentar el fraude») es la que le da a la seguridad un lugar en la mesa desde el inicio, no al final.
+Primeramente, y como lo plantea la arquitectura empresarial, todo parte de entender qué hace la empresa y hacia dónde va, porque sin eso no hay cómo saber qué proteger. La misión de NovaPay es que personas y comercios muevan su dinero de forma inmediata, segura y sin costo desde el celular. La visión es ser en 2030 la billetera preferida de quienes hoy usan efectivo, reconocida por la seguridad de sus pagos. De ahí se desprende un objetivo estratégico concreto: crecer 25 % en clientes activos a diciembre de 2028 sin que el fraude pase de 5 puntos básicos del valor transado.
+<!-- Fundamento del 25 % a diciembre de 2028: Es una meta conservadora y alcanzable. Nu Colombia creció 70 % anual en 2025 (4.2 M de clientes, resultados del cuarto trimestre de 2025) y el 66 % de la población todavía usa el efectivo como principal medio de pago (BanRep, "Bre-B: del diseño a la realidad", 6-oct-2026). NovaPay ya tiene base de clientes y lanza en el cuarto trimestre de 2027, así que tiene unos 15 meses para crecer una cuarta parte. -->
+<!-- Fundamento de los 5 pb de fraude: Es apetito de riesgo que fija la Junta, no una norma. Como referencia Pix reportó cerca de R$5 000 millones de fraude en 2024 sobre unos R$26 billones transados (cálculo propio, del orden de 2 pb), así que 5 pb es un techo holgado para el arranque. -->
+ Esa segunda mitad (sin pasarse del tope de fraude) es la que le da a la seguridad un lugar en la mesa desde el inicio, no al final.
 
 **Qué señalar**
 - Las palabras en rojo de la misión: inmediata, segura, sin costo, confianza.
@@ -65,11 +68,14 @@ El diagrama muestra la cadena de alineación que busca la arquitectura empresari
 La capa contextual es la vista del negocio: la conversación con la Junta Directiva y la Presidencia, que son los sponsors del proyecto. Por eso en esta capa no aparece nada técnico. Se responden las seis preguntas de la matriz:
 
 - **Qué:** Los objetivos del proyecto: lanzar transferencias y QR para captar a quien usa efectivo, con los fondos y los datos de los clientes protegidos.
-- **Por qué:** Se separan las oportunidades (lo que se puede ganar) de las amenazas (lo que se puede perder). Del lado de las oportunidades, Bre-B ya tiene más de 110 millones de llaves, abre el negocio de comercios con QR y permite posicionar la marca como la opción segura. Del lado de las amenazas, están el fraude, las caídas del servicio y las sanciones si no se cumple con el Banco de la República y la SFC.
+- **Por qué:** Se separan las oportunidades (lo que se puede ganar) de las amenazas (lo que se puede perder). Del lado de las oportunidades, Bre-B ya tiene más de 110 millones de llaves y 245 entidades conectadas, abre el negocio de comercios con QR y permite posicionar la marca como la opción segura. Del lado de las amenazas, están el fraude, las caídas del servicio y las sanciones si no se cumple con el Banco de la República y la SFC.
 - **Cómo:** Todos los procesos que el proyecto necesita, no solo la operación: vinculación con el Banco de la República, desarrollo, pruebas y certificación, aceptación en marcha blanca, y después fraude, conciliación, comercial y servicio al cliente.
 - **Quién:** Los sponsors, la Gerencia de Pagos Inmediatos como dueña y todas las áreas que toca el proyecto (negocio, soporte, jurídico, talento humano y segunda línea de defensa), porque un producto así afecta a toda la organización.
 - **Dónde:** La sede en Bogotá, un centro de datos principal y uno alterno, y el Banco de la República como contraparte.
-- **Cuándo:** Cuándo necesita el negocio cada objetivo. Esto lo dice el dueño, no el implementador: el lanzamiento en el cuarto trimestre de 2027, duplicar clientes a diciembre de 2027, y 24/7 con pagos en menos de 20 segundos desde el primer día.
+- **Cuándo:** Cuándo necesita el negocio cada objetivo. Esto lo dice el dueño, no el implementador: el lanzamiento en el cuarto trimestre de 2027, 25 % más clientes activos a diciembre de 2028 y 24/7 con 99.9 % de disponibilidad al mes y pagos en menos de 20 segundos desde el primer día.
+  <!-- Fundamento: 110 M de llaves, 36 M de usuarios con llave y 245 participantes a septiembre de 2026 (BanRep, "Bre-B: del diseño a la realidad", 6-oct-2026). -->
+  <!-- Fundamento del 99.9 % mensual: En el primer semestre de 2026 los cinco principales participantes de Bre-B promediaron entre 95.76 % y 98.95 % y el directorio de llaves 99.94 % (BanRep, 6-oct-2026, diapositiva de disponibilidad). El Banco de la República todavía no fija acuerdos de nivel de servicio para participantes (lo deja como reto). 99.9 % equivale a unos 43 minutos de caída al mes, que es factible con 3 zonas de disponibilidad y una región alterna. 99.95 % se descartó porque ningún participante principal se acercó. -->
+  <!-- Fundamento de los 20 s: Reglamento de Bre-B, circular DSP-465 (versión del 31-mar-2026): El pago se completa en máximo 20 s en el 99.5 % de las operaciones, medido cada semana. La presentación del BanRep (6-oct-2026) confirma 20 s como tiempo máximo de Bre-B (Pix 10 s, SPEI 30 s). -->
 
 Un punto que se quiere resaltar es que el CISO es transversal y reporta a Presidencia, no a Tecnología, porque la seguridad toca a todas las áreas y no debería depender de quien tiene que controlar.
 
@@ -225,7 +231,7 @@ Muchas gracias, quedamos atentos a sus preguntas.
 **Sobre el caso**
 - **¿Por qué Bre-B y no otro proyecto?:** Es un caso real y actual (Bre-B entró en operación en octubre de 2025) que toca negocio, regulación y tecnología al mismo tiempo, y en pagos inmediatos el dinero no se puede reversar, así que la seguridad pesa desde el diseño.
 - **¿Por qué una empresa ficticia?:** El docente permitió trabajar con una empresa real o con una supuesta. Se eligió una ficticia con datos verosímiles y con la regulación colombiana real, y la estructura queda lista para reemplazar los datos por los de una empresa real.
-- **¿Cómo se justifica la inversión?:** Con el objetivo estratégico. El proyecto permite duplicar los clientes activos, y la seguridad permite hacerlo «sin aumentar el fraude». Además, la regulación (Banco de la República y SFC) lo exige.
+- **¿Cómo se justifica la inversión?:** Con el objetivo estratégico. El proyecto permite crecer 25 % en clientes activos a diciembre de 2028 y la seguridad permite hacerlo sin pasar el tope de 5 pb de fraude. Además, la regulación (Banco de la República y SFC) lo exige.
 
 **Sobre la matriz**
 - **¿Cuál es la diferencia entre la capa conceptual y la lógica?:** La conceptual define qué estrategias, políticas y normas aplican, sin productos (vista del arquitecto con los directores). La lógica traduce eso en servicios de seguridad concretos que el proyecto consume (vista del CISO).
@@ -244,4 +250,4 @@ Muchas gracias, quedamos atentos a sus preguntas.
 **Sobre el trabajo**
 - **¿Qué fue lo más difícil?:** Mantener cada capa en su nivel, sobre todo no meter tecnología en la contextual ni productos en la conceptual, y respetar el encabezado de cada celda. Como técnicos, lo natural es saltar a los controles, y el ejercicio obliga a pensar primero como el dueño del negocio.
 
-> **Nota de honestidad:** Las metas (99,95 %, 5 pb de fraude, los niveles de RTO/RPO y las fechas de 2027) son supuestos del caso ficticio. La normativa citada sí es real: BanRep CRE DSP-465 en su versión del 31-mar-2026, SFC CE 007/2018 integrada en la CBJ con la CE 006/2025, y Ley 1581/2012.
+> **Nota de honestidad:** Las metas propias (99.9 %, 25 % a 2028, 5 pb de fraude, los niveles de RTO/RPO y las fechas de 2027) son supuestos del caso ficticio, escogidos para que sean factibles frente a las cifras reales de Bre-B (ver los comentarios de fundamento). La normativa citada sí es real: BanRep CRE DSP-465 en su versión del 31-mar-2026, SFC CE 007/2018 integrada en la CBJ con la CE 006/2025, y Ley 1581/2012.
