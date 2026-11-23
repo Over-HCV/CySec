@@ -27,16 +27,23 @@
   % perfiles de privilegio y políticas (todas las etiquetas de la franja a la misma altura)
   \tikzset{strip/.style={font=\tiny, text height=1.35ex, text depth=0.4ex}}
   \tikzset{striptag/.style={terminal tag, strip, font=\tiny\bfseries, minimum width=1.45cm}}
-  \node[striptag, anchor=west] (perf) at (0.1,-3.25) {PERFILES};
+  % activos de información (Logical WHAT, corrección de clase)
+  \node[striptag, anchor=west] (act) at (0.1,-3.0) {ACTIVOS};
+  \node[terminal chip, strip, right=4pt of act] (v1) {transaccional: pagos y scoring};
+  \node[terminal chip, strip, right=3pt of v1] (v2) {clientes: identidad, llaves, saldos};
+  \node[terminal chip, strip, right=3pt of v2, terminal accent] (v3) {llaves cripto, secretos y logs};
+  \node[terminal chip, strip, right=3pt of v3] (v4) {código y APIs};
+
+  \node[striptag, anchor=west] (perf) at (0.1,-3.6) {PERFILES};
   \node[terminal chip, strip, right=4pt of perf] (q1) {cliente: sus llaves};
   \node[terminal chip, strip, right=3pt of q1] (q2) {agente: datos enmascarados};
   \node[terminal chip, strip, right=3pt of q2] (q3) {analista: retener/liberar};
   \node[terminal chip, strip, right=3pt of q3] (q4) {ingeniero: JIT};
   \node[terminal chip, strip, right=3pt of q4] (q5) {auditor: solo lectura};
 
-  \node[striptag, anchor=west] (pol) at (0.1,-3.85) {POLÍTICAS};
+  \node[striptag, anchor=west] (pol) at (0.1,-4.2) {POLÍTICAS};
   \node[terminal chip, strip, right=4pt of pol] (r1) {MFA fuerte};
   \node[terminal chip, strip, right=3pt of r1, terminal accent] (r2) {bloqueo 24 h tras cambio de SIM};
   \node[terminal chip, strip, right=3pt of r2] (r3) {todo canal cifrado};
-  \node[terminal chip, strip, right=3pt of r3] (r4) {sesión 5 min · token 10 min};
+  \node[terminal chip, strip, right=3pt of r3] (r4) {sesión 5 min, token 10 min};
 \end{tikzpicture}

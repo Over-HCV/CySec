@@ -3,13 +3,13 @@
 \begin{tikzpicture}[x=1cm, y=1cm]
   % anillos de afuera hacia adentro: (gris de fondo, rótulo, controles)
   \foreach \i/\g/\capa/\ctl in {
-      0/3/PROVEEDOR CLOUD/{certificaciones ISO 27001 y SOC 2 · región alterna},
-      1/7/PERÍMETRO/{WAF · anti-DDoS · bots · mTLS al sistema de pago},
-      2/11/RED/{VPC por dominio · subredes privadas · microsegmentación},
-      3/15/HOST Y CONTENEDORES/{imágenes firmadas · hardening CIS · runtime},
-      4/19/APLICACIÓN/{gateway OAuth2 · anti-replay · antifraude en línea · RASP}} {
+      0/3/PROVEEDOR CLOUD/{certificaciones ISO 27001 y SOC 2, región alterna},
+      1/7/PERÍMETRO/{WAF, anti-DDoS, bots, mTLS al sistema de pago},
+      2/11/RED/{VPC por dominio, subredes privadas, microsegmentación},
+      3/15/HOST Y CONTENEDORES/{imágenes firmadas, hardening CIS, runtime},
+      4/19/APLICACIÓN/{gateway OAuth2, anti-replay, antifraude en línea, RASP}} {
     \pgfmathsetmacro{\T}{-0.47*\i}
-    \pgfmathsetmacro{\B}{-4.9+0.31*\i}
+    \pgfmathsetmacro{\B}{-4.6+0.31*\i}
     \pgfmathsetmacro{\L}{0.26*\i}
     \pgfmathsetmacro{\R}{9.3-0.26*\i}
     \draw[line width=0.7pt, fill=black!\g] (\L,\T) rectangle (\R,\B);
@@ -18,24 +18,24 @@
   }
   % centro: los datos
   \node[fill=terminalaccent, text=white, font=\scriptsize\bfseries, align=center,
-        minimum width=5.8cm, minimum height=1.0cm] (dat) at (4.65,-2.95)
-    {DATOS\\[-1pt]{\mdseries\tiny cifrado con llaves por dominio · tokenización · llaves en HSM}};
+        minimum width=5.8cm, minimum height=1.0cm] (dat) at (4.65,-2.8)
+    {DATOS\\[-1pt]{\mdseries\tiny firewall de BD, cifrado con llaves en HSM y tokenización}};
 
   % el atacante entra desde afuera y cada anillo lo frena
-  \draw[terminal arrow, draw=terminalaccent, line width=1pt] (-0.6,-2.9) -- (0.95,-2.9);
-  \node[font=\tiny\bfseries, text=terminalaccent, anchor=east, align=right] at (-0.05,-2.55) {ataque};
-  \node[font=\tiny, anchor=north, text=black!70] at (4.65,-4.93)
+  \draw[terminal arrow, draw=terminalaccent, line width=1pt] (-0.6,-2.75) -- (0.95,-2.75);
+  \node[font=\tiny\bfseries, text=terminalaccent, anchor=east, align=right] at (-0.05,-2.4) {ataque};
+  \node[font=\tiny, anchor=north, text=black!70] at (4.65,-4.63)
     {si un anillo cae, el siguiente contiene el ataque};
 
   % controles transversales: atraviesan todos los anillos
   \begin{scope}[every node/.style={terminal box, anchor=north west, text width=3.3cm,
                                    align=left, font=\tiny, inner sep=2.5pt}]
     \node (idn) at (9.6,0.0)
-      {\textbf{IDENTIDAD}\\passkeys para clientes · llave FIDO2 para empleados · PAM con acceso temporal};
+      {\textbf{IDENTIDAD}\\passkeys para clientes, llave FIDO2 para empleados, PAM con acceso temporal};
     \node (mon) at ([yshift=-7pt]idn.south west)
-      {\textbf{MONITOREO}\\SIEM 24/7 · logs inmutables · alertas de fraude en vivo};
+      {\textbf{MONITOREO}\\SIEM 24/7, logs inmutables, alertas de fraude en vivo};
     \node (pro) at ([yshift=-7pt]mon.south west)
-      {\textbf{PROCEDIMENTAL}\\segregación de funciones · doble aprobación · simulacros};
+      {\textbf{PROCEDIMENTAL}\\segregación de funciones, doble aprobación, simulacros};
   \end{scope}
   \node[font=\tiny\bfseries, anchor=south west] at (9.6,0.02) {transversales};
 
@@ -45,16 +45,17 @@
   \node[draw, line width=0.6pt, anchor=north west, text width=3.3cm, align=left,
         font=\tiny, inner sep=2.5pt] at (th.south west)
     {\textcolor{terminalaccent}{\textbf{pagos: RPO 0}}\\
-     RTO < 1 min (zona) · ≤ 2 h (región)\\[1pt]
-     llaves y QR: RTO 1 h · RPO 5 min\\[1pt]
+     RTO < 1 min (zona), ≤ 2 h (región)\\[1pt]
+     llaves y QR: RTO 1 h, RPO 5 min\\[1pt]
      backoffice: RTO y RPO 24 h};
-  % franja inferior: de qué servicio (Logical) sale cada control (Physical)
+  % franja inferior: cada componente con su control (lo que el docente dijo que va a preguntar)
   \tikzset{map/.style={terminal chip, font=\tiny, text height=1.35ex, text depth=0.4ex, inner xsep=3pt}}
   \node[terminal tag, font=\tiny\bfseries, text height=1.35ex, text depth=0.4ex, anchor=west]
-    (sm) at (0,-5.5) {SERVICIO → CONTROL};
-  \node[map, right=4pt of sm] (m1) {autenticación → passkeys};
-  \node[map, right=3pt of m1] (m2) {antifraude → motor ML};
-  \node[map, right=3pt of m2] (m3) {criptografía → HSM};
-  \node[map, right=3pt of m3] (m4) {perímetro → WAF};
-  \node[map, right=3pt of m4] (m5) {endpoint → DLP/EDR};
+    (sm) at (0,-5.15) {COMPONENTE → CONTROL};
+  \node[map, right=4pt of sm] (m1) {base de datos → firewall de BD y cifrado en HSM};
+  \node[map, right=3pt of m1, terminal accent] (m2) {conexión Bre-B → canal dedicado, mTLS y firma ISO 20022};
+  \node[map, anchor=north west] (m3) at ([yshift=-3pt]sm.south west) {clientes → passkeys (doble factor)};
+  \node[map, right=3pt of m3] (m4) {pagos → antifraude en línea};
+  \node[map, right=3pt of m4] (m5) {borde → WAF y anti-DDoS};
+  \node[map, right=3pt of m5] (m6) {empleados → EDR y DLP};
 \end{tikzpicture}

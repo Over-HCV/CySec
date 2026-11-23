@@ -51,8 +51,9 @@
     \end{column}
   \end{columns}
   \vskip14pt
-  \begin{tbox}[colframe=terminalaccent, colbacktitle=terminalaccent]{> objetivo\_estrategico\_2027}
-    \large Duplicar los clientes activos en 2027 \acc{sin aumentar el fraude}.
+  \begin{tbox}[colframe=terminalaccent, colbacktitle=terminalaccent]{> objetivo\_estrategico\_2028}
+    \large Crecer 25\,\% en clientes activos a diciembre de 2028 \acc{sin que el
+    fraude pase de 5 pb} del valor transado.
   \end{tbox}
   \vskip10pt
   {\footnotesize\textbf{\empresa}: \empresatipo.\par}
@@ -60,10 +61,10 @@
 
 % ------------------------------------------------------------------ 02
 \section{Proyecto}
-\begin{frame}{Objetivo del proyecto}
+\begin{frame}{Objetivo del área y del proyecto}
   \prompt{sabsa init -{}-proyecto bre-b -{}-dueño "\area"}
   \vskip4pt
-  \begin{tbox}{\texttt{> objetivo.txt}}
+  \begin{tbox}{\texttt{> \area: objetivo.txt}}
     Vincular a \empresa{} a \acc{Bre-B} como participante (vía un sistema de pago certificado) y lanzar en la
     app las transferencias por llaves y los pagos QR (\acc{24/7}, \acc{< 20 s}),
     con la seguridad incluida desde el diseño.
@@ -77,39 +78,43 @@
 \begin{frame}{Contextual \textmd{// requisitos de negocio}}
   \prompt{sabsa --layer contextual --view business --owner "Junta + Presidencia"}
   \vskip4pt
+  \renewcommand{\sabsacellfont}{\scriptsize}
   \begin{sabsagrid}
-    \sabsacell{WHAT}{objetivos}{\begin{cellitems}
-      \item Transferencias y QR en la app.
-      \item Captar a quien usa efectivo.
-      \item Fondos y datos protegidos.
+    \sabsacell{WHAT}{activos y objetivos}{\begin{cellitems}
+      \item \acc{Confianza}: El activo principal.
+      \item Pagos a cualquier entidad, al instante y gratis.
+      \item Fondos y datos \acc{confidenciales, íntegros y disponibles}.
     \end{cellitems}}
     \sabsacell{WHY}{oport. / amenazas}{\begin{cellitems}
-      \item \acc{+} Crecer: 110\,M de llaves en Bre-B.
+      \item \acc{+} 110\,M de llaves y 66\,\% usa sobre todo efectivo.
       \item \acc{+} Comercios QR y marca segura.
-      \item $-$ Fraude, caídas y sanciones.
+      \item $-$ Fraude irreversible, caídas, sanciones y fugas.
     \end{cellitems}}
     \sabsacell{HOW}{procesos}{\begin{cellitems}
-      \item Vinculación con BanRep.
-      \item Desarrollo, pruebas y aceptación.
-      \item Fraude, conciliación, servicio al cliente.
+      \item Vinculación, desarrollo, pruebas y aceptación.
+      \item Pagos 24/7, fraude, cuadre y servicio.
+      \item Registro de cada transacción para auditarla.
     \end{cellitems}}
-    \sabsacell{WHO}{sponsors}{\begin{cellitems}
-      \item Junta, Presidencia, VP Comercial.
+    \sabsacell{WHO}{sponsors y extendida}{\begin{cellitems}
+      \item Accionistas, Junta, Presidencia y VP.
       \item Dueño: \area.
       \item \acc{CISO transversal} (reporta a Presidencia).
+      \item Clientes, proveedores, BanRep, SFC y SIC.
     \end{cellitems}}
     \sabsacell{WHERE}{sitios}{\begin{cellitems}
-      \item Sede en Bogotá.
-      \item Centro de datos principal + alterno.
-      \item Banco de la República (contraparte).
+      \item Sede en Bogotá, servicio nacional.
+      \item Nube en EE.\,UU. (principal y alterno).
+      \item Conexión a Bre-B en Bogotá.
+      \item Rige Colombia (SFC, BanRep y SIC).
     \end{cellitems}}
     \sabsacell{WHEN}{tiempos objetivo}{\begin{cellitems}
       \item \acc{Lanzamiento: Q4 2027}.
-      \item ×2 clientes a dic-2027.
-      \item 24/7 y < 20\,s desde el día 1.
+      \item +25\,\% clientes a dic-2028, fraude < 5\,pb.
+      \item 24/7, 99.9\,\% al mes y < 20\,s.
+      \item Picos: quincenas, primas y diciembre.
     \end{cellitems}}
   \end{sabsagrid}
-  \src{BanRep CRE DSP-465 (v. 31-mar-2026) · SFC CBJ (CE 006/2025)}
+  \src{BanRep CRE DSP-465 (v. 31-mar-2026), SFC CBJ (CE 006/2025), BanRep, Bre-B un año (6-oct-2026)}
 \end{frame}
 
 % ------------------------------------------------------------------ 04
@@ -132,7 +137,7 @@
 \section{Physical}
 \begin{frame}{Physical \textmd{// mecanismos de seguridad}}
   \prompt{sabsa --layer physical --view builder --owner "Dir. Infraestructura"}
-  \vskip4pt
+  \vskip0pt
   \input{diagrams/physical}
 \end{frame}
 
@@ -149,20 +154,23 @@
 \begin{frame}{Conclusiones}
   \begin{cellitems}\small
     \item \textbf{El negocio manda:} El proyecto existe porque mueve un objetivo
-      estratégico; la arquitectura alinea ese objetivo con la tecnología y
-      justifica cada peso invertido.
+      estratégico y la arquitectura justifica cada peso invertido.
     \vskip4pt
-    \item \textbf{Metodología top-Down:} Se bajó desde lo que pide el
-      dueño del negocio hasta los productos, de arriba hacia abajo y de izquierda
-      a derecha, y cada producto se puede rastrear hasta un requisito.
+    \item \textbf{De arriba hacia abajo:} Bajamos desde lo que pide el
+      dueño del negocio hasta los productos, de izquierda a derecha, y cada
+      producto se puede rastrear hasta un requisito.
+    \vskip4pt
+    \item \textbf{La seguridad no se pierde al bajar de capa:} La integración con
+      Bre-B pasa de confidencial, íntegra y disponible (negocio) a cifrado en tránsito, a mensajería segura,
+      a mTLS con firma ISO 20022 y a Direct Connect, y entra al cronograma
+      desde la compra de licencias.
     \vskip4pt
     \item \textbf{La seguridad es transversal:} No es un área de Tecnología sino
       un componente que toca a todas las áreas; por eso el CISO reporta a
       Presidencia.
     \vskip4pt
-    \item \textbf{Lo que sigue:} La sexta capa de SABSA (operación) toma esta
-      arquitectura para operarla y medirla en el día a día: monitoreo,
-      incidentes e indicadores de riesgo.
+    \item \textbf{Lo que sigue:} La sexta capa de SABSA (operación) opera y mide
+      esta arquitectura en el día a día.
   \end{cellitems}
   \vskip8pt
   \begin{ibox}Arquitectar = llevar el objetivo de negocio hasta los controles\end{ibox}

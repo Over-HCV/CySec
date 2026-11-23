@@ -274,8 +274,10 @@
 \newenvironment{sabsagrid}[1][]{%
   \begin{tcbraster}[raster columns=3, raster equal height=rows,
     raster column skip=7pt, raster row skip=7pt, #1]}{\end{tcbraster}}
+% \sabsacellfont sets the cell text size; redefine it locally for a denser grid.
+\newcommand{\sabsacellfont}{\footnotesize}
 \newcommand{\sabsacell}[3]{%
-  \begin{tbox}[fontupper=\footnotesize, before upper={\raggedright\setlength{\leftmargini}{1em}}]%
+  \begin{tbox}[fontupper=\sabsacellfont, before upper={\raggedright\setlength{\leftmargini}{1em}}]%
     {#1\hfill{\mdseries\scriptsize #2}}
     #3
   \end{tbox}}

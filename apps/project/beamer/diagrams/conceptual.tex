@@ -1,22 +1,26 @@
-% diagrams/conceptual.tex — capa Conceptual: atributos, dominios de seguridad y estrategias.
+% diagrams/conceptual.tex — capa Conceptual: atributos (en orden de importancia), dominios de
+% seguridad y estrategias, y debajo objetivos de control, dueños, marco de riesgo y normas.
 \begin{tikzpicture}[x=1cm, y=1cm]
-  % perfil de atributos SABSA
+  % perfil de atributos SABSA, primero los más importantes (como en la matriz)
+  \tikzset{attr/.style={terminal tag, font=\tiny\bfseries, inner xsep=3pt}}
   \node[font=\scriptsize\bfseries, anchor=west] (lbl) at (0,0.32) {atributos};
-  \node[terminal tag, right=6pt of lbl] (a1) {DISPONIBLE};
-  \node[terminal tag, right=3pt of a1] (a2) {CONFIDENCIAL};
-  \node[terminal tag, right=3pt of a2] (a3) {ÍNTEGRO};
-  \node[terminal tag, right=3pt of a3] (a4) {AUTENTICADO};
-  \node[terminal tag, right=3pt of a4] (a5) {NO REPUDIABLE};
-  \node[terminal tag, right=3pt of a5, fill=terminalaccent] (a6) {ANTIFRAUDE};
+  \node[attr, right=5pt of lbl, fill=terminalaccent] (a1) {RESISTENTE AL FRAUDE};
+  \node[attr, right=2.5pt of a1] (a2) {DISPONIBLE};
+  \node[attr, right=2.5pt of a2] (a3) {OPORTUNO};
+  \node[attr, right=2.5pt of a3] (a4) {AUTENTICADO};
+  \node[attr, right=2.5pt of a4] (a5) {ÍNTEGRO};
+  \node[attr, right=2.5pt of a5] (a6) {CONFIDENCIAL};
+  \node[attr, right=2.5pt of a6] (a7) {NO REPUDIABLE};
+  \node[attr, right=2.5pt of a7] (a8) {CUMPLIDO};
 
   % dominios de seguridad
-  \begin{scope}[every node/.style={terminal box, text width=2.2cm, minimum height=1.15cm}]
-    \node (cli) at (1.45,-1.45) {\textbf{CLIENTE}\\canal y equipo\\del cliente};
-    \node (dmz) at (5.0,-1.45) {\textbf{EXPOSICIÓN}\\frontera pública\\(única entrada)};
-    \node (core) at (8.55,-1.45) {\textbf{CORE DE PAGOS}\\llaves · envío\\recepción · QR};
-    \node (dat) at (12.1,-1.45) {\textbf{INFO. SENSIBLE}\\clientes · pagos\\secretos};
-    \node[minimum height=0.95cm] (ges) at (3.3,-3.6) {\textbf{GESTIÓN}\\administración\\y monitoreo};
-    \node[terminal accent, line width=1pt, minimum height=0.95cm] (ibk) at (10.3,-3.6) {\textbf{INTERBANCARIO}\\red Bre-B (BanRep)};
+  \begin{scope}[every node/.style={terminal box, text width=2.2cm, minimum height=1.05cm}]
+    \node (cli) at (1.45,-1.35) {\textbf{CLIENTE}\\canal y equipo\\del cliente};
+    \node (dmz) at (5.0,-1.35) {\textbf{EXPOSICIÓN}\\frontera pública\\(única entrada)};
+    \node (core) at (8.55,-1.35) {\textbf{CORE DE PAGOS}\\llaves, envío,\\recepción y QR};
+    \node (dat) at (12.1,-1.35) {\textbf{INFO. SENSIBLE}\\clientes, pagos\\y secretos};
+    \node[minimum height=0.85cm] (ges) at (3.3,-3.1) {\textbf{GESTIÓN}\\administración\\y monitoreo};
+    \node[terminal accent, line width=1pt, minimum height=0.85cm] (ibk) at (10.3,-3.1) {\textbf{INTERBANCARIO}\\red Bre-B (BanRep)};
   \end{scope}
 
   \draw[terminal arrow] (cli) -- node[above, font=\tiny] {cifrado} (dmz);
@@ -24,22 +28,27 @@
   \draw[terminal arrow] (core) -- node[above, font=\tiny] {mínimo} (dat);
   \draw[terminal arrow, draw=terminalaccent] (core.south) |- node[pos=0.3, left, align=right, font=\tiny\bfseries, text=terminalaccent] {canal dedicado\\y autenticado} (ibk.west);
   % Gestión entra por un bus propio a media altura, lejos de las sombras de arriba
-  \coordinate (bus) at ($(ges.north) + (0,0.5)$);
+  \coordinate (bus) at ($(ges.north) + (0,0.4)$);
   \draw[dashed, line width=0.8pt] (ges.north) -- (bus);
   \draw[terminal arrow, dashed] (bus) -| (dmz.south);
   \draw[terminal arrow, dashed] (bus) -| (cli.south);
   \node[font=\tiny, anchor=west] at ([xshift=3pt]$(ges.north)!0.5!(bus)$) {solo por acceso controlado};
 
   % marco Zero Trust
-  \node[draw, dashed, line width=0.6pt, inner xsep=7pt, inner ysep=14pt, fit=(cli)(dat)(ges)(ibk)] (zt) {};
+  \node[draw, dashed, line width=0.6pt, inner xsep=7pt, inner ysep=12pt, fit=(cli)(dat)(ges)(ibk)] (zt) {};
   \node[terminal tag, anchor=west, fill=terminalaccent] at ([xshift=8pt]zt.north west)
     {ZERO TRUST + DEFENSA EN PROFUNDIDAD};
-  \node[terminal chip, anchor=east] at ([xshift=-8pt]zt.north east)
-    {+ privacy by design · DevSecOps · IA gobernada};
+  \node[terminal chip, font=\tiny, anchor=east] at ([xshift=-8pt]zt.north east)
+    {+ resiliencia, fraude como proceso continuo, DevSecOps, privacidad e IA gobernada};
 
-  % dueños, estrategias y riesgo
-  \node[terminal chip, anchor=north west, align=left] (own) at ([yshift=-8pt]zt.south west)
-    {\textbf{dueños}\ \ VP Pagos (proceso) · CISO (riesgo ciber) · Gte. Fraude (riesgo de fraude)};
-  \node[terminal chip, anchor=north west, align=left] at ([yshift=-4pt]own.south west)
-    {\textbf{normas}\ \ ISO 27001 · ISO 42001 (IA) · NIST CSF 2.0 + SIAR · SFC · BanRep · Ley 1581};
+  % objetivos de control, dueños, marco de riesgo y normas
+  \tikzset{row/.style={terminal chip, font=\tiny, anchor=north west, align=left}}
+  \node[row] (ctl) at ([yshift=-6pt]zt.south west)
+    {\textbf{control}\ \ autenticación fuerte, scoring de fraude, cifrado en todo el ciclo, recuperación, mínimo privilegio, seguridad desde el diseño};
+  \node[row] (own) at ([yshift=-3pt]ctl.south west)
+    {\textbf{dueños}\ \ VP de Pagos (proceso), CISO (riesgo ciber), Gte. de Fraude (fraude)};
+  \node[row, terminal accent, right=4pt of own.north east, anchor=north west] (rsk)
+    {\textbf{riesgo}\ \ ISO 31000 + ISO/IEC 27005 con el SIAR, en cada fase};
+  \node[row] at ([yshift=-3pt]own.south west)
+    {\textbf{normas}\ \ ISO 27001, NIST CSF 2.0, ISO 42001 (IA), CSA CCM, SFC (CBJ y SIAR), BanRep (DSP-465, 470 y 471), Ley 1581};
 \end{tikzpicture}

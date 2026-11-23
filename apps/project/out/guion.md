@@ -2,7 +2,7 @@
 
 **Duración objetivo:** ~11 min de exposición. Después vienen las preguntas del docente y unas conclusiones entre todos.
 
-**Idea fuerza:** El docente dijo que «la matriz no me interesa, lo que necesito es lo que ustedes entendieron como arquitectar», y que no se lea la matriz sino que se cuente «como una historia, como un mapa mental». Por eso cada slide es una conversación con la persona dueña de esa capa, bajando de lo general a lo particular.
+**Idea fuerza:** El docente dijo que "la matriz no me interesa, lo que necesito es lo que ustedes entendieron como arquitectar", y que no se lea la matriz sino que se cuente "como una historia, como un mapa mental". Por eso cada slide es una conversación con la persona dueña de esa capa, bajando de lo general a lo particular.
 
 | Integrante | Slides | Tiempo aprox. |
 |---|---|---|
@@ -12,9 +12,9 @@
 
 **Reglas para contarlo:**
 - **No leer la pantalla:** La slide resume y el que habla cuenta. Si un dato no está en la slide pero sí en el guion, se dice y no hace falta mostrarlo.
-- **Encadenar las capas:** Cada capa arranca retomando la anterior («lo que en la capa de arriba era un objetivo, aquí se vuelve…»). Esa cadena es la trazabilidad de SABSA, y es lo que el docente quiere ver.
+- **Encadenar las capas:** Cada capa arranca retomando la anterior ("lo que en la capa de arriba era un objetivo, aquí se vuelve…"). Esa cadena es la trazabilidad de SABSA, y es lo que el docente quiere ver.
 - **Seguir la secuencia que pidió el docente:** Primero la empresa (misión y visión), luego el proyecto, y solo después la matriz, de arriba hacia abajo y de izquierda a derecha.
-- **Saber decir «con quién se habla» en cada capa:** Contextual con la Junta, Conceptual con el CISO y los directores, Logical con el CISO y el arquitecto, Physical con infraestructura, Component con los técnicos.
+- **Saber decir "con quién se habla" en cada capa:** Contextual con la Junta, Conceptual con el CISO y los directores, Logical con el CISO y el arquitecto, Physical con infraestructura, Component con los técnicos.
 
 > El detalle de cada capa (encabezado de cada celda, lo que pidió el docente, justificación y fuentes) está en `apps/project/matriz/`. El guion solo resume.
 >
@@ -47,18 +47,19 @@ Primeramente, y como lo plantea la arquitectura empresarial, todo parte de enten
 
 ---
 
-## [3] Objetivo del proyecto — Sergio · 1:15
+## [3] Objetivo del área y del proyecto — Sergio · 1:15
 
 **Qué se dice**
-Una organización no invierte en un proyecto si este no mueve un objetivo, por lo cual el proyecto elegido es la vinculación a Bre-B como participante. En Bre-B ninguna entidad se conecta sola al núcleo: se entra a través de uno de los sistemas de pago certificados y se liquida en el MOL del Banco de la República con cuenta propia. Con eso se lanzan en la app las transferencias por llaves y los pagos QR, disponibles 24/7 y en menos de 20 segundos, con la seguridad incluida desde el diseño.
+Una organización no invierte en un proyecto si este no mueve un objetivo. El área sobre la que hicimos la arquitectura es la Gerencia de Pagos Inmediatos y su objetivo es la vinculación a Bre-B como participante. En Bre-B ninguna entidad se conecta sola al núcleo: se entra a través de uno de los sistemas de pago certificados y se liquida en el MOL del Banco de la República con cuenta propia. Con eso se lanzan en la app las transferencias por llaves y los pagos QR, disponibles 24/7 y en menos de 20 segundos, con la seguridad incluida desde el diseño.
 
-El diagrama muestra la cadena de alineación que busca la arquitectura empresarial: la misión orienta el objetivo estratégico, el objetivo justifica el proyecto (y su presupuesto), y el proyecto se protege con la arquitectura SABSA. Debajo está el plan del proyecto a lo largo de 2027, desde la vinculación con el Banco de la República hasta el lanzamiento al público en el cuarto trimestre.
+El diagrama muestra la cadena de alineación que busca la arquitectura empresarial: la misión orienta el objetivo estratégico, el objetivo justifica el proyecto (y su presupuesto), y el proyecto se protege con la arquitectura SABSA. Debajo está el plan del proyecto a lo largo de 2027, desde la vinculación con el Banco de la República hasta el lanzamiento al público en el cuarto trimestre. En rojo va la actividad de seguridad de cada fase (licencias y análisis de riesgos, pruebas de seguridad y pentest, SOC 24/7 en la marcha blanca y prueba de recuperación antes del lanzamiento) para que la seguridad no se quede por fuera del cronograma.
 
 **Qué señalar**
-- La cadena de izquierda a derecha, deteniéndose en «justifica».
-- La línea de tiempo (Q1–Q4) y el hito rojo del lanzamiento.
+- La cadena de izquierda a derecha, deteniéndose en "justifica".
+- El nombre del área en la caja del objetivo.
+- La línea de tiempo (Q1–Q4), el hito rojo del lanzamiento y debajo de cada fase su actividad de seguridad.
 
-**Transición:** «Con la empresa y el proyecto definidos, Michael presenta cómo se bajó a la primera capa de SABSA».
+**Transición:** "Con la empresa y el proyecto definidos, Michael presenta cómo se bajó a la primera capa de SABSA".
 
 ---
 
@@ -67,12 +68,12 @@ El diagrama muestra la cadena de alineación que busca la arquitectura empresari
 **Qué se dice**
 La capa contextual es la vista del negocio: la conversación con la Junta Directiva y la Presidencia, que son los sponsors del proyecto. Por eso en esta capa no aparece nada técnico. Se responden las seis preguntas de la matriz:
 
-- **Qué:** Los objetivos del proyecto: lanzar transferencias y QR para captar a quien usa efectivo, con los fondos y los datos de los clientes protegidos.
+- **Qué:** El activo principal es la confianza de los clientes. El objetivo es que paguen a cualquier entidad al instante y gratis, con los fondos y los datos confidenciales, íntegros y disponibles. Así es como se le habla de seguridad a la Junta: Con los tres pilares y no con productos.
 - **Por qué:** Se separan las oportunidades (lo que se puede ganar) de las amenazas (lo que se puede perder). Del lado de las oportunidades, Bre-B ya tiene más de 110 millones de llaves y 245 entidades conectadas, abre el negocio de comercios con QR y permite posicionar la marca como la opción segura. Del lado de las amenazas, están el fraude, las caídas del servicio y las sanciones si no se cumple con el Banco de la República y la SFC.
-- **Cómo:** Todos los procesos que el proyecto necesita, no solo la operación: vinculación con el Banco de la República, desarrollo, pruebas y certificación, aceptación en marcha blanca, y después fraude, conciliación, comercial y servicio al cliente.
-- **Quién:** Los sponsors, la Gerencia de Pagos Inmediatos como dueña y todas las áreas que toca el proyecto (negocio, soporte, jurídico, talento humano y segunda línea de defensa), porque un producto así afecta a toda la organización.
-- **Dónde:** La sede en Bogotá, un centro de datos principal y uno alterno, y el Banco de la República como contraparte.
-- **Cuándo:** Cuándo necesita el negocio cada objetivo. Esto lo dice el dueño, no el implementador: el lanzamiento en el cuarto trimestre de 2027, 25 % más clientes activos a diciembre de 2028 y 24/7 con 99.9 % de disponibilidad al mes y pagos en menos de 20 segundos desde el primer día.
+- **Cómo:** Todos los procesos que el proyecto necesita, no solo la operación: Vinculación con el Banco de la República, desarrollo, pruebas y aceptación, y después pagos 24/7, fraude, cuadre y servicio al cliente. En todos queda registro de cada transacción para poder auditarla.
+- **Quién:** Los accionistas, la Junta, la Presidencia y la VP como sponsors, la Gerencia de Pagos Inmediatos como dueña y todas las áreas que toca el proyecto. Por fuera están la empresa extendida: Los clientes, los proveedores (sistema de pago, nube, validación de identidad), el Banco de la República, la SFC y la SIC.
+- **Dónde:** La sede en Bogotá y un servicio nacional (app y QR). La plataforma correría en la nube con un sitio principal y uno alterno en EE. UU. y se conectaría a Bre-B desde un punto en Bogotá. Rige la ley colombiana y como los datos viajan a EE. UU. cuenta que la SIC lo reconoce como país con protección adecuada.
+- **Cuándo:** Cuándo necesita el negocio cada objetivo. Esto lo dice el dueño, no el implementador: El lanzamiento en el cuarto trimestre de 2027, 25 % más clientes activos a diciembre de 2028 con el fraude por debajo de 5 pb y 24/7 con 99.9 % de disponibilidad al mes y pagos en menos de 20 segundos desde el primer día. Los picos son las quincenas, las primas y diciembre.
   <!-- Fundamento: 110 M de llaves, 36 M de usuarios con llave y 245 participantes a septiembre de 2026 (BanRep, "Bre-B: del diseño a la realidad", 6-oct-2026). -->
   <!-- Fundamento del 99.9 % mensual: En el primer semestre de 2026 los cinco principales participantes de Bre-B promediaron entre 95.76 % y 98.95 % y el directorio de llaves 99.94 % (BanRep, 6-oct-2026, diapositiva de disponibilidad). El Banco de la República todavía no fija acuerdos de nivel de servicio para participantes (lo deja como reto). 99.9 % equivale a unos 43 minutos de caída al mes, que es factible con 3 zonas de disponibilidad y una región alterna. 99.95 % se descartó porque ningún participante principal se acercó. -->
   <!-- Fundamento de los 20 s: Reglamento de Bre-B, circular DSP-465 (versión del 31-mar-2026): El pago se completa en máximo 20 s en el 99.5 % de las operaciones, medido cada semana. La presentación del BanRep (6-oct-2026) confirma 20 s como tiempo máximo de Bre-B (Pix 10 s, SPEI 30 s). -->
@@ -83,8 +84,9 @@ Un punto que se quiere resaltar es que el CISO es transversal y reporta a Presid
 
 **Qué señalar**
 - Las 6 celdas en orden (de izquierda a derecha y de arriba hacia abajo).
-- Los «+» y el «−» de la celda WHY.
-- El «CISO transversal» en rojo.
+- Los tres pilares en rojo de la celda WHAT.
+- Los "+" y el "−" de la celda WHY.
+- El "CISO transversal" en rojo.
 - El lanzamiento en rojo en la celda WHEN.
 
 ---
@@ -94,25 +96,27 @@ Un punto que se quiere resaltar es que el CISO es transversal y reporta a Presid
 **Qué se dice**
 Progresivamente se baja un nivel. La capa conceptual es la vista del arquitecto, trabajada por el CISO junto con los directores de área. En ella se habla de seguridad a alto nivel (estrategias, políticas y normas), todavía sin nombrar ningún producto.
 
-Arriba está el perfil de atributos, que son las características que deben cumplir los objetivos de la capa anterior. Por ejemplo, el objetivo de fraude controlado se vuelve el atributo «resistente al fraude», y el de servicio siempre disponible se vuelve «disponible» y «oportuno». Aquí aparecen los pilares de confidencialidad, integridad y disponibilidad.
+Arriba está el perfil de atributos, que son las características que deben cumplir los objetivos de la capa anterior, ordenados de más a menos importante. El objetivo de fraude controlado se vuelve "resistente al fraude" (por eso va primero y en rojo), el servicio siempre disponible se vuelve "disponible" y "oportuno", la confianza se vuelve "autenticado", "íntegro" y "confidencial" y el cumplimiento se vuelve "no repudiable" y "cumplido".
 
-Luego se definen los dominios de seguridad (cliente, exposición, core de pagos, información sensible, el dominio interbancario con el Banco de la República y el de gestión), todos bajo una estrategia de Zero Trust y defensa en profundidad. Es decir, nadie es de confianza por estar «adentro», y si una capa falla, la siguiente contiene el ataque.
+Luego se definen los dominios de seguridad (cliente, exposición, core de pagos, información sensible, el dominio interbancario con el Banco de la República y el de gestión), todos bajo una estrategia de Zero Trust y defensa en profundidad. Es decir, nadie es de confianza por estar "adentro", y si una capa falla, la siguiente contiene el ataque.
 
-Abajo quedan los dueños de cada riesgo y las normas que gobiernan todo:
+Abajo quedan los seis objetivos de control (autenticación fuerte, scoring de fraude, cifrado en todo el ciclo, recuperación, mínimo privilegio y seguridad desde el diseño), los dueños de cada riesgo y las normas que gobiernan todo:
 - **Sistema de gestión:** ISO 27001.
 - **IA del modelo antifraude:** ISO 42001.
 - **Ciclo de controles:** NIST CSF.
 - **Datos personales:** La Ley 1581.
-- **Reglas del sector:** La regulación del Banco de la República y de la SFC.
+- **Nube:** La CSA Cloud Controls Matrix.
+- **Reglas del sector:** La Circular Básica Jurídica de la SFC y los reglamentos de Bre-B del Banco de la República (DSP-465, 470 y 471).
 
 Para gestionar el riesgo a lo largo del tiempo, se toma ISO 31000 como proceso general e ISO/IEC 27005 para los riesgos de seguridad de la información, alineados con el SIAR de la SFC (el sistema integral de riesgos que reemplazó al SARO).
 
 **Para profundizar (preguntas):** `apps/project/matriz/2-conceptual.md`
 
 **Qué señalar**
-- La fila de atributos.
+- La fila de atributos, empezando por "resistente al fraude".
 - El marco punteado de Zero Trust.
 - El canal rojo hacia el dominio interbancario.
+- La fila de control y el chip rojo de riesgo (ISO 31000 + 27005).
 - La fila de normas.
 
 ---
@@ -120,7 +124,7 @@ Para gestionar el riesgo a lo largo del tiempo, se toma ISO 31000 como proceso g
 ## [6] Logical (servicios de seguridad) — Michael · 1:30
 
 **Qué se dice**
-La capa lógica es la conversación con el CISO y el arquitecto de seguridad, y aquí la seguridad se expresa como **servicios**, no como controles. La diferencia que marcó el docente es esta: «autenticación» es el servicio, mientras que la contraseña, el OTP, el doble factor o la biometría son controles de ese servicio. Un servicio se consume y debe estar disponible, aunque por detrás sea la suma de varios componentes, igual que el servicio de internet de la casa.
+La capa lógica es la conversación con el CISO y el arquitecto de seguridad, y aquí la seguridad se expresa como **servicios**, no como controles. La diferencia que marcó el docente es esta: "autenticación" es el servicio, mientras que la contraseña, el OTP, el doble factor o la biometría son controles de ese servicio. Un servicio se consume y debe estar disponible, aunque por detrás sea la suma de varios componentes, igual que el servicio de internet de la casa.
 
 Siguiendo su recomendación, primero se sacó el listado de servicios que necesita este proyecto (son 24 en el catálogo) y de ahí salieron los controles. Cinco de esos servicios son propios de los pagos inmediatos y no aparecen en el ejemplo de clase: antifraude en línea, límites dinámicos, gestión de llaves, confirmación del beneficiario y detección de cuentas mula.
 
@@ -133,16 +137,17 @@ Para hacerlo concreto, se siguió el recorrido de un pago Bre-B en seis pasos:
 5. Se envía y se liquida con el Banco de la República por un canal seguro.
 6. Se notifica a ambas partes, dejando auditoría.
 
-Todo eso debe ocurrir en menos de 20 segundos. Abajo se ven los perfiles de privilegio (por ejemplo, el agente de servicio ve datos enmascarados y no puede mover dinero) y las políticas clave, como el bloqueo de 24 horas tras un cambio de SIM, que responde directamente al robo de cuentas.
+Todo eso debe ocurrir en menos de 20 segundos. Abajo se ven primero los activos de información que protegen esos servicios (la información transaccional, la de clientes, las llaves criptográficas con los secretos y los registros, y el código), luego los perfiles de privilegio (por ejemplo, el agente de servicio ve datos enmascarados y no puede mover dinero) y las políticas clave, como el bloqueo de 24 horas tras un cambio de SIM, que responde directamente al robo de cuentas.
 
 **Para profundizar (preguntas):** `apps/project/matriz/3-logical.md` (ahí está el catálogo completo de servicio → controles y los 10 riesgos principales).
 
 **Qué señalar**
 - Recorrer los pasos [1]→[6] con el puntero, leyendo solo el servicio de cada paso.
-- Los textos rojos: «< 300 ms», «no repudio» y la llave de los 20 s.
+- Los textos rojos: "< 300 ms", "no repudio" y la llave de los 20 s.
+- La franja de activos, con las llaves criptográficas en rojo.
 - La política en rojo.
 
-**Transición:** «Hasta aquí se definió qué servicios necesita el proyecto; Over presenta con qué controles se construyen».
+**Transición:** "Hasta aquí se definió qué servicios necesita el proyecto; Over presenta con qué controles se construyen".
 
 ---
 
@@ -168,13 +173,16 @@ Por último están los tiempos de recuperación, con dos conceptos. El **RTO** e
 - **Gestión de llaves y QR:** Se acepta una hora de caída.
 - **Backoffice:** Se acepta un día.
 
+Abajo está lo que el docente dijo que iba a preguntar: Cada componente con su control. La base de datos lleva firewall de base de datos y cifrado con llaves en HSM, la conexión con Bre-B sale por un canal dedicado con mTLS y cada mensaje ISO 20022 firmado, los clientes entran con passkeys (doble factor), los pagos pasan por el antifraude en línea, el borde tiene WAF y anti-DDoS y los equipos de los empleados EDR y DLP.
+
 **Para profundizar (preguntas):** `apps/project/matriz/4-physical.md`
 
 **Qué señalar**
-- La flecha roja de «ataque» y los anillos de afuera hacia adentro.
+- La flecha roja de "ataque" y los anillos de afuera hacia adentro.
 - Los datos en rojo al centro.
 - La columna de transversales.
-- La caja RTO/RPO, empezando por el «RPO 0» en rojo.
+- La caja RTO/RPO, empezando por el "RPO 0" en rojo.
+- La franja de componente → control, deteniéndose en la conexión Bre-B (en rojo).
 
 ---
 
@@ -187,16 +195,17 @@ Los productos se organizaron como una pila que va desde internet hacia adentro:
 - **Perímetro:** Cloudflare.
 - **Identidad:** Para clientes y empleados, con un gestor de accesos privilegiados.
 - **Plataforma:** Kubernetes sobre tres zonas.
+- **Interbancario:** AWS Direct Connect desde Equinix BG1 en Bogotá, mensajes ISO 20022 sobre REST y mTLS con certificados X.509. Es el último tramo del hilo de la integración segura con Bre-B.
 - **Criptografía:** CloudHSM (en rojo, porque es la raíz de confianza) y Vault.
-- **Detección:** El motor antifraude, el SIEM y el DLP.
+- **Detección:** El motor antifraude, el SIEM, el DLP y el EDR de los equipos.
 - **Pipeline:** Desarrollo seguro con análisis automáticos.
 
-A la derecha está la agenda, que define cada cuánto se prueba que todo esto funciona: pentest semestral (lo exige la SFC), escaneos semanales, simulacros de recuperación y rotación de secretos.
+A la derecha está la agenda, que define cada cuánto se prueba que todo esto funciona: pentest semestral (lo exige la SFC), escaneos semanales, simulacros de recuperación, rotación de secretos y relojes sincronizados con la Hora Legal del INM (con eso se miden los 20 segundos).
 
 **Para profundizar (preguntas):** `apps/project/matriz/5-component.md`
 
 **Qué señalar**
-- Recorrer las bandas de arriba hacia abajo.
+- Recorrer las bandas de arriba hacia abajo, con la banda roja de interbancario.
 - El CloudHSM en rojo.
 - La caja de agenda.
 
@@ -205,17 +214,18 @@ A la derecha está la agenda, que define cada cuánto se prueba que todo esto fu
 ## [9] Conclusiones — Over · 1:15
 
 **Qué se dice**
-Como conclusión, más que la matriz en sí, lo que se entendió sobre arquitectar se puede resumir en cuatro ideas:
+Como conclusión, más que la matriz en sí, lo que se entendió sobre arquitectar se puede resumir en cinco ideas:
 
 - **El negocio manda:** El proyecto existe porque mueve un objetivo estratégico. La arquitectura alinea ese objetivo con la tecnología y justifica cada peso invertido.
-- **De lo general a lo particular:** Se bajó desde lo que pide el dueño del negocio hasta los productos, leyendo la matriz de arriba hacia abajo y de izquierda a derecha, de forma que cada producto se puede rastrear hasta un requisito. Por ejemplo, el HSM existe porque protege los datos, que existen porque el objetivo es la confianza del cliente.
+- **De arriba hacia abajo:** Bajamos desde lo que pide el dueño del negocio hasta los productos, leyendo la matriz de arriba hacia abajo y de izquierda a derecha, de forma que cada producto se puede rastrear hasta un requisito. Por ejemplo, el HSM existe porque protege los datos, que existen porque el objetivo es la confianza del cliente.
+- **La seguridad no se pierde al bajar de capa:** La integración con Bre-B arranca como confidencial, íntegra y disponible ante la Junta, se vuelve cifrado en tránsito para el CISO, mensajería interbancaria segura en los servicios, mTLS con firma ISO 20022 en los controles y Direct Connect en los productos. Además entra al cronograma desde la compra de licencias.
 - **La seguridad es transversal:** No es un área de Tecnología sino un componente que toca a todas, y por eso el CISO reporta a Presidencia.
 - **Lo que sigue:** La sexta capa de SABSA, la de operación, toma esta arquitectura y la opera y la mide en el día a día.
 
 **Para profundizar (preguntas):** `apps/project/matriz/6-operacional.md`
 
 **Qué señalar**
-- La franja negra final: «Arquitectar = llevar el objetivo de negocio hasta los controles».
+- La franja negra final: "Arquitectar = llevar el objetivo de negocio hasta los controles".
 
 ---
 
