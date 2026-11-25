@@ -154,7 +154,7 @@ Todo eso debe ocurrir en menos de 20 segundos. Abajo se ven primero los activos 
 ## [7] Physical (mecanismos de seguridad) — Over · 1:30
 
 **Qué se dice**
-La capa física es la vista del constructor, a cargo del Director de Infraestructura. Aquí cada servicio lógico se vuelve un **control** concreto. Como lo pidió el docente, los controles no van todos en una sola bolsa, sino separados por capas, siguiendo el modelo de defensa en profundidad.
+La capa física es la vista del constructor, a cargo del Director de Infraestructura. Aquí cada servicio lógico se vuelve un **control** concreto. Los controles no van todos en una sola bolsa, sino separados por capas, siguiendo el modelo de defensa en profundidad.
 
 Funciona como un edificio. Antes de llegar a lo que se protege hay vigilantes en la entrada, luego una recepción, luego cámaras y puertas con tarjeta, y si alguien supera un anillo, el siguiente lo detiene. En el diagrama el ataque entra desde afuera y se encuentra, uno tras otro, con estos anillos:
 
